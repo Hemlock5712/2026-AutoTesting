@@ -106,33 +106,34 @@ public class AutoRoutines {
    * <p>Educational example demonstrating each command's purpose.
    */
   public Command demonstrationAuto() {
-    return Commands.sequence(
-        Commands.print("=== Demonstration Auto ==="),
-        autoCommands.resetPose(Pose2d.kZero),
-        // 1. Stow - safe transport
-        Commands.print("1. Stowing for transport"),
-        superstructure.stowAndWaitCommand(),
-        Commands.waitSeconds(0.5),
-        // 2. Amp score - slow controlled scoring
-        Commands.print("2. Amp scoring (slow speed)"),
-        superstructure.ampScoreAndWaitCommand(),
-        Commands.waitSeconds(0.5),
-        // 3. Speaker close - medium speed shot
-        Commands.print("3. Close speaker shot (medium speed)"),
-        superstructure.speakerCloseAndWaitCommand(),
-        Commands.waitSeconds(0.5),
-        // 4. Speaker far - fast long-range shot
-        Commands.print("4. Far speaker shot (fast speed)"),
-        superstructure.speakerFarAndWaitCommand(),
-        Commands.waitSeconds(0.5),
-        // 5. Ground intake - horizontal position
-        Commands.print("5. Ground intake position"),
-        superstructure.intakeGroundAndWaitCommand(),
-        Commands.waitSeconds(0.5),
-        // Return to stow
-        Commands.print("Returning to stow"),
-        superstructure.stowAndWaitCommand(),
-        Commands.print("=== Complete ==="));
+    return null;
+    // return Commands.sequence(
+    //     Commands.print("=== Demonstration Auto ==="),
+    //     autoCommands.resetPose(Pose2d.kZero),
+    //     // 1. Stow - safe transport
+    //     Commands.print("1. Stowing for transport"),
+    //     superstructure.stowAndWaitCommand(),
+    //     Commands.waitSeconds(0.5),
+    //     // 2. Amp score - slow controlled scoring
+    //     Commands.print("2. Amp scoring (slow speed)"),
+    //     superstructure.ampScoreAndWaitCommand(),
+    //     Commands.waitSeconds(0.5),
+    //     // 3. Speaker close - medium speed shot
+    //     Commands.print("3. Close speaker shot (medium speed)"),
+    //     superstructure.speakerCloseAndWaitCommand(),
+    //     Commands.waitSeconds(0.5),
+    //     // 4. Speaker far - fast long-range shot
+    //     Commands.print("4. Far speaker shot (fast speed)"),
+    //     superstructure.speakerFarAndWaitCommand(),
+    //     Commands.waitSeconds(0.5),
+    //     // 5. Ground intake - horizontal position
+    //     Commands.print("5. Ground intake position"),
+    //     superstructure.intakeGroundAndWaitCommand(),
+    //     Commands.waitSeconds(0.5),
+    //     // Return to stow
+    //     Commands.print("Returning to stow"),
+    //     superstructure.stowAndWaitCommand(),
+    //     Commands.print("=== Complete ==="));
   }
 
   public Command DrivePointInRight(Supplier<Rotation2d> rotation) {
