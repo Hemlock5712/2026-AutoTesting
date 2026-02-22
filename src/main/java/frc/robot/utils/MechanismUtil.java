@@ -143,6 +143,96 @@ public class MechanismUtil {
   }
 
   /**
+   * Helper class for creating and updating a turret mechanism visualization.
+   *
+   * <p>This class encapsulates the Mechanism2d visualization for a rotating turret, including the
+   * base platform and rotating arm. It provides a simple interface for updating the turret's angle
+   * and color based on its state.
+   */
+  public static class TurretMechanism {
+    // ==================== Visualization Constants ====================
+
+    /** Width of the canvas for the mechanism visualization in pixels */
+    private static final double CANVAS_WIDTH = 400.0;
+
+    /** Height of the canvas for the mechanism visualization in pixels */
+    private static final double CANVAS_HEIGHT = 400.0;
+
+    /** X position of the mechanism root on the canvas (center) */
+    private static final double ROOT_X = 200.0;
+
+    /** Y position of the mechanism root on the canvas (center) */
+    private static final double ROOT_Y = 200.0;
+
+    /** Length of the base platform in pixels */
+    private static final double BASE_LENGTH = 60.0;
+
+    /** Width of the base platform in pixels */
+    private static final double BASE_WIDTH = 20.0;
+
+    /** Visual width of the turret arm in pixels */
+    private static final double ARM_WIDTH = 10.0;
+
+    /** Color of turret when not at target position */
+    private static final Color8Bit MOVING_COLOR = new Color8Bit(Color.kYellow);
+
+    /** Color of turret when at target position */
+    private static final Color8Bit AT_TARGET_COLOR = new Color8Bit(Color.kGreen);
+
+    // ==================== Visualization Components ====================
+
+    /** 2D mechanism visualization */
+    private final Mechanism2d mech;
+
+    /** Visual representation of the turret arm that updates with simulation */
+    private final MechanismLigament2d turretArm;
+
+    /**
+     * Constructs a new TurretMechanism visualization.
+     *
+     * @param name The name to use for the mechanism visualization
+     * @param armLength The length of the turret arm in pixels
+     */
+    public TurretMechanism(String name, double armLength) {
+      // Create the 2D mechanism visualization canvas
+      mech = new Mechanism2d(CANVAS_WIDTH, CANVAS_HEIGHT);
+      MechanismRoot2d root = mech.getRoot(name + "Root", ROOT_X, ROOT_Y);
+
+      // Build the visual hierarchy: Base -> TurretArm
+      // Base platform (horizontal, dark gray)
+      turretArm =
+          root.append(
+                  new MechanismLigament2d(
+                      "Base", BASE_LENGTH, 0, BASE_WIDTH, new Color8Bit(Color.kDarkGray)))
+              .append(new MechanismLigament2d("TurretArm", armLength, 0, ARM_WIDTH, MOVING_COLOR));
+    }
+
+    /**
+     * Gets the Mechanism2d object for publishing to SmartDashboard.
+     *
+     * @return The Mechanism2d visualization
+     */
+    public Mechanism2d getMechanism() {
+      return mech;
+    }
+
+    /**
+     * Updates the visual representation of the turret.
+     *
+     * @param angleDeg The current angle of the turret in degrees
+     * @param atTarget Whether the turret is at its target position
+     */
+    public void update(double angleDeg, boolean atTarget) {
+      // Update the visual representation of the turret arm
+      turretArm.setAngle(angleDeg);
+
+      // Change color based on whether at target position (green = ready, yellow = moving)
+      Color8Bit currentColor = atTarget ? AT_TARGET_COLOR : MOVING_COLOR;
+      turretArm.setColor(currentColor);
+    }
+  }
+
+  /**
    * Helper class for creating and updating a flywheel mechanism visualization.
    *
    * <p>This class encapsulates the Mechanism2d visualization for a flywheel with rotating spokes.

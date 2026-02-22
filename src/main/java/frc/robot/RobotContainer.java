@@ -13,15 +13,16 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
-import frc.robot.commands.OrbitRequest;
+import frc.robot.commands.AxisLockDrive;
+import frc.robot.commands.OrbitDrive;
+import frc.robot.constants.FieldConstants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Superstructure;
-import frc.robot.subsystems.arm.Arm;
-import frc.robot.subsystems.arm.ArmSIM;
 import frc.robot.subsystems.flywheel.Flywheel;
 import frc.robot.subsystems.flywheel.FlywheelSIM;
-import frc.robot.utils.ChezySequenceCommandGroup;
+import frc.robot.subsystems.turret.Turret;
+import frc.robot.subsystems.turret.TurretSIM;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -58,12 +59,11 @@ public class RobotContainer {
 
   public final AutoCommands autoCommands = new AutoCommands(drivetrain);
 
-  private final OrbitRequest orbitRequest = new OrbitRequest();
-
   /* Create subsystems (uses simulated versions when running in simulation) */
-  public final Arm arm = RobotBase.isSimulation() ? new ArmSIM() : new Arm();
   public final Flywheel flywheel = RobotBase.isSimulation() ? new FlywheelSIM() : new Flywheel();
-  private final Superstructure superstructure = new Superstructure(arm, flywheel);
+  public final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
+  private final Superstructure superstructure =
+      new Superstructure(flywheel, turret, drivetrain::getState);
 
   // Vision camera for tracking robot position
   //   public final LimelightSubsystem limelight = new LimelightSubsystem("limelight", drivetrain);
@@ -89,15 +89,11 @@ public class RobotContainer {
 
   private void configureBindings() {
     drivetrain.setDefaultCommand(
-        new ChezySequenceCommandGroup(
-            drivetrain.runOnce(() -> orbitRequest.reset(drivetrain.getRobotSpeeds())),
-            drivetrain.applyRequest(
-                () ->
-                    orbitRequest
-                        .withVelocityX(-rescaleInputs(joystick.getLeftY()) * MaxSpeed)
-                        .withVelocityY(-rescaleInputs(joystick.getLeftX()) * MaxSpeed)
-                        .withRotationalRate(
-                            -rescaleInputs(joystick.getRightX()) * MaxAngularRate))));
+        new OrbitDrive(
+            drivetrain,
+            () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed,
+            () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed,
+            () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate));
 
     // Drive to point - press A to drive to target pose
     // joystick
@@ -121,6 +117,28 @@ public class RobotContainer {
     joystick
         .start()
         .onTrue(drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(0, 0, Rotation2d.kZero))));
+
+    // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
+    joystick
+        .a()
+        .whileTrue(
+            AxisLockDrive.lockY(
+                drivetrain,
+                () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
+                FieldConstants.YAxisLockPosition.REEF_CENTER.getY(),
+                null)); // null = heading lock behavior (driver controls rotation)
+
+    // AxisLockDrive - Lock Y axis and rotation, driver controls X only
+    joystick
+        .b()
+        .whileTrue(
+            AxisLockDrive.lockY(
+                drivetrain,
+                () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
+                FieldConstants.YAxisLockPosition.REEF_CENTER.getY(),
+                FieldConstants.RotationLockAngle.FACING_FORWARD.getAngle())); // Lock rotation to 0°
   }
 
   public Command getAutonomousCommand() {

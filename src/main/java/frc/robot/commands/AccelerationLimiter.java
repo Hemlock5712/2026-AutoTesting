@@ -33,9 +33,6 @@ public final class AccelerationLimiter {
   // Friction coefficient of 1.0 assumes good tread on carpet. Max acceleration = coefficient * g
   public static final double MAX_FRICTION_ACCEL = 1.0 * GRAVITY;
 
-  // Nominal voltage for speed calculations (motor free speed scales linearly with voltage)
-  private static final double NOMINAL_VOLTAGE = 12.0;
-
   // Robot parameters for motor torque calculations
   private static final Motor MOTOR = Motor.KRAKEN_X60_FOC;
   private static final double GEAR_RATIO = TunerConstants.FrontLeft.DriveMotorGearRatio;

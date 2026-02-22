@@ -13,15 +13,20 @@ import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Robot;
-import frc.robot.constants.FlywheelConstants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 
 @Logged
 public class Flywheel extends SubsystemBase {
+  // Shooting speeds (rotations per second)
+  private static final double SHOOTING_SPEED_RPS = 25.0;
+  private static final double AMP_SPEED_RPS = 5.0;
+  private static final double FAR_SHOOTING_SPEED_RPS = 35.0;
+  private static final double VELOCITY_TOLERANCE_RPS = 0.25;
 
   // Main motor that spins the flywheel (device ID 21)
   protected final TalonFX leader = new TalonFX(21, TunerConstants.kCANBus);
@@ -30,11 +35,13 @@ public class Flywheel extends SubsystemBase {
   private final MotionMagicVelocityVoltage velocityOut = new MotionMagicVelocityVoltage(0);
 
   // How close the speed needs to be to count as "at target"
-  private final AngularVelocity tolerance =
-      RotationsPerSecond.of(FlywheelConstants.VELOCITY_TOLERANCE_RPS);
+  private final AngularVelocity tolerance = RotationsPerSecond.of(VELOCITY_TOLERANCE_RPS);
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
+
+  // Alert for motor configuration failures
+  Alert motorConfigAlert = new Alert("Flywheel Motor Configuration Failed", AlertType.kError);
 
   public Flywheel() {
     // Coast mode: Flywheel can spin freely by hand when disabled
@@ -42,21 +49,18 @@ public class Flywheel extends SubsystemBase {
     // Set motor direction: positive power = counterclockwise spin
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
-    // Control values from FlywheelConstants
-    config.Slot0.kS = FlywheelConstants.kS; // Static friction
-    config.Slot0.kV = FlywheelConstants.kV; // Velocity feedforward
-    config.Slot0.kP = FlywheelConstants.kP; // Proportional gain
+    // Control values
+    config.Slot0.kS = 0.0; // Static friction
+    config.Slot0.kV = 0.125; // Velocity feedforward
+    config.Slot0.kP = 0.0; // Proportional gain
 
-    // Speed limits from FlywheelConstants
-    config.MotionMagic.MotionMagicCruiseVelocity = FlywheelConstants.MOTION_MAGIC_CRUISE_VELOCITY;
-    config.MotionMagic.MotionMagicAcceleration = FlywheelConstants.MOTION_MAGIC_ACCELERATION;
+    // Speed limits
+    config.MotionMagic.MotionMagicCruiseVelocity = 100.0;
+    config.MotionMagic.MotionMagicAcceleration = 1000.0;
 
     // Apply configuration with retries
-    if (TalonFXUtil.applyConfigWithRetries(leader, config, 2)) {
-      Robot.telemetry().log("Flywheel/Config", true);
-    } else {
-      Robot.telemetry().log("Flywheel/Config", false);
-    }
+    boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
+    motorConfigAlert.set(!success);
   }
 
   @Override
@@ -79,7 +83,7 @@ public class Flywheel extends SubsystemBase {
    * @return Command that spins up the flywheel
    */
   public Command spinUp() {
-    return runOnce(() -> setVelocity(RotationsPerSecond.of(FlywheelConstants.SHOOTING_SPEED_RPS)));
+    return runOnce(() -> setVelocity(RotationsPerSecond.of(SHOOTING_SPEED_RPS)));
   }
 
   /**
@@ -88,7 +92,7 @@ public class Flywheel extends SubsystemBase {
    * @return Command that spins flywheel at amp speed
    */
   public Command ampSpeed() {
-    return runOnce(() -> setVelocity(RotationsPerSecond.of(FlywheelConstants.AMP_SPEED_RPS)));
+    return runOnce(() -> setVelocity(RotationsPerSecond.of(AMP_SPEED_RPS)));
   }
 
   /**
@@ -97,8 +101,7 @@ public class Flywheel extends SubsystemBase {
    * @return Command that spins flywheel at far speed
    */
   public Command farSpeed() {
-    return runOnce(
-        () -> setVelocity(RotationsPerSecond.of(FlywheelConstants.FAR_SHOOTING_SPEED_RPS)));
+    return runOnce(() -> setVelocity(RotationsPerSecond.of(FAR_SHOOTING_SPEED_RPS)));
   }
 
   /**

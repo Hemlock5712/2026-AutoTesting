@@ -1,14 +1,10 @@
 package frc.robot.autonomous;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
-import frc.robot.commands.DriveToPointWaypoints;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -59,22 +55,6 @@ public class AutoCommands {
   }
 
   /**
-   * Drive to a scoring position and execute a scoring command
-   *
-   * <p>Combines driving to a pose, stowing mechanisms during travel, and executing the specified
-   * scoring command when arrived.
-   *
-   * @param targetPose Scoring position
-   * @param scoreCommand The scoring command to execute (e.g., scoreHighCommand(),
-   *     scoreMidCommand())
-   * @return Command that drives and scores
-   */
-  public Command driveToAndScore(Supplier<Pose2d> targetPose, Command scoreCommand) {
-    return Commands.sequence(
-        Commands.parallel(driveTo(targetPose), Commands.print("Stowing")), scoreCommand);
-  }
-
-  /**
    * Drive through multiple poses
    *
    * <p>Intermediate poses control position only (no heading) - robot smoothly rotates toward
@@ -92,13 +72,27 @@ public class AutoCommands {
       return new DriveToPoint(drivetrain, () -> poses[0]).withMaxSpeed(maxSpeed);
     }
 
-    // Multiple poses - build waypoint list for intermediate points
-    List<Translation2d> waypoints = new ArrayList<>();
-    for (int i = 0; i < poses.length - 1; i++) {
-      waypoints.add(poses[i].getTranslation());
+    // Chain DriveToPoint commands - pass through intermediate poses, stop at final
+    Command chain =
+        new DriveToPoint(drivetrain, () -> poses[0])
+            .withWaypointEnding(maxSpeed)
+            .withMaxSpeed(maxSpeed);
+
+    for (int i = 1; i < poses.length - 1; i++) {
+      final int idx = i;
+      chain =
+          chain.andThen(
+              new DriveToPoint(drivetrain, () -> poses[idx])
+                  .withWaypointEnding(maxSpeed)
+                  .withMaxSpeed(maxSpeed));
     }
-    return new DriveToPointWaypoints(drivetrain, waypoints, poses[poses.length - 1])
-        .withMaxSpeed(maxSpeed);
+
+    // Final pose - stop at destination
+    final int lastIdx = poses.length - 1;
+    chain =
+        chain.andThen(new DriveToPoint(drivetrain, () -> poses[lastIdx]).withMaxSpeed(maxSpeed));
+
+    return chain;
   }
 
   /**
@@ -112,24 +106,6 @@ public class AutoCommands {
    */
   public Command drivePath(Pose2d... poses) {
     return drivePath(Double.POSITIVE_INFINITY, poses);
-  }
-
-  /**
-   * Drive through poses to a scoring position and execute a scoring command
-   *
-   * <p>Combines driving through multiple poses, stowing mechanisms during travel, and executing the
-   * specified scoring command when arrived.
-   *
-   * @param scoreCommand The scoring command to execute (e.g., scoreHighCommand(),
-   *     scoreMidCommand())
-   * @param poses Poses to drive through (last pose is the scoring position)
-   * @return Command that drives through path and scores
-   */
-  public Command drivePathAndScore(Command scoreCommand, Pose2d... poses) {
-    return Commands.sequence(
-        Commands.parallel(
-            drivePath(poses), Commands.sequence(Commands.waitSeconds(0.3), Commands.print("Stow"))),
-        scoreCommand);
   }
 
   /**

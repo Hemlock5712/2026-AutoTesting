@@ -5,6 +5,7 @@
 package frc.robot.subsystems.arm;
 
 import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
@@ -16,14 +17,21 @@ import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Robot;
-import frc.robot.constants.ArmConstants;
 import frc.robot.utils.TalonFXUtil;
 
 @Logged
 public class Arm extends SubsystemBase {
+  // Position setpoints using Angle objects for type safety
+  private static final Angle VERTICAL_POSITION = Degrees.of(90);
+  private static final Angle HORIZONTAL_POSITION = Degrees.of(180);
+  private static final Angle SCORING_POSITION = Degrees.of(30);
+  private static final Angle SCORING_HIGH_POSITION = Degrees.of(45);
+  private static final Angle POSITION_TOLERANCE = Degrees.of(1.0);
+
   // Connect to the "canivore" CAN bus (communication network for motors)
   private final CANBus canivore = new CANBus("canivore");
 
@@ -38,8 +46,11 @@ public class Arm extends SubsystemBase {
   // Controller for moving the arm to specific positions
   private final MotionMagicVoltage positionOut = new MotionMagicVoltage(0);
 
-  // How close the arm needs to be to count as "at target" (in degrees)
-  private final Angle tolerance = Degrees.of(ArmConstants.POSITION_TOLERANCE_DEGREES);
+  // Alert for motor configuration failures
+  Alert motorConfigAlert = new Alert("Arm Motor Configuration Failed", AlertType.kError);
+
+  // How close the arm needs to be to count as "at target"
+  private final Angle tolerance = POSITION_TOLERANCE;
 
   public Arm() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
@@ -49,26 +60,21 @@ public class Arm extends SubsystemBase {
     config.Slot0.GravityType =
         GravityTypeValue.Arm_Cosine; // Automatically fights gravity using math
 
-    // Control values from ArmConstants (TODO: CRITICAL - Tune these on the real robot!)
-    config.Slot0.kG = ArmConstants.kG; // Gravity compensation
-    config.Slot0.kS = ArmConstants.kS; // Static friction
-    config.Slot0.kP = ArmConstants.kP; // Proportional gain (speed of correction)
-    config.Slot0.kD = ArmConstants.kD; // Derivative gain (smoothness)
+    // Control values (TODO: CRITICAL - Tune these on the real robot!)
+    config.Slot0.kG = 0.0; // Gravity compensation
+    config.Slot0.kS = 0.0; // Static friction
+    config.Slot0.kP = 0.0; // Proportional gain (speed of correction)
+    config.Slot0.kD = 0.0; // Derivative gain (smoothness)
 
-    // Motion limits from ArmConstants (TODO: CRITICAL - Set non-zero values!)
-    config.MotionMagic.MotionMagicCruiseVelocity =
-        ArmConstants.MOTION_MAGIC_CRUISE_VELOCITY; // Max speed
-    config.MotionMagic.MotionMagicAcceleration =
-        ArmConstants.MOTION_MAGIC_ACCELERATION; // How fast to speed up
+    // Motion limits (TODO: CRITICAL - Set non-zero values!)
+    config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // Max speed
+    config.MotionMagic.MotionMagicAcceleration = 0.0; // How fast to speed up
     // Tell the motor to use the CANcoder sensor for position measurements
     config.Feedback.withRemoteCANcoder(encoder);
 
     // Apply configuration with retries
-    if (TalonFXUtil.applyConfigWithRetries(leader, config)) {
-      Robot.telemetry().log("Arm/Config", true);
-    } else {
-      Robot.telemetry().log("Arm/Config", false);
-    }
+    boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
+    motorConfigAlert.set(!success);
   }
 
   @Override
@@ -79,11 +85,11 @@ public class Arm extends SubsystemBase {
   /**
    * Move the arm to a specific angle.
    *
-   * @param position Where to move the arm (in rotations)
+   * @param position Where to move the arm
    */
-  private void setPosition(double position) {
-    // Tell the motor to move to this position
-    leader.setControl(positionOut.withPosition(position));
+  private void setPosition(Angle position) {
+    // Tell the motor to move to this position (convert to rotations for motor)
+    leader.setControl(positionOut.withPosition(position.in(Rotations)));
   }
 
   /**
@@ -92,7 +98,7 @@ public class Arm extends SubsystemBase {
    * @return Command that moves arm vertical
    */
   public Command vertical() {
-    return runOnce(() -> setPosition(ArmConstants.VERTICAL_POSITION_ROTATIONS));
+    return runOnce(() -> setPosition(VERTICAL_POSITION));
   }
 
   /**
@@ -101,7 +107,7 @@ public class Arm extends SubsystemBase {
    * @return Command that moves arm horizontal
    */
   public Command horizontal() {
-    return runOnce(() -> setPosition(ArmConstants.HORIZONTAL_POSITION_ROTATIONS));
+    return runOnce(() -> setPosition(HORIZONTAL_POSITION));
   }
 
   /**
@@ -110,7 +116,7 @@ public class Arm extends SubsystemBase {
    * @return Command that moves arm to scoring angle
    */
   public Command scoringPosition() {
-    return runOnce(() -> setPosition(ArmConstants.SCORING_POSITION_ROTATIONS));
+    return runOnce(() -> setPosition(SCORING_POSITION));
   }
 
   /**
@@ -119,7 +125,7 @@ public class Arm extends SubsystemBase {
    * @return Command that moves arm to high scoring angle
    */
   public Command scoringHighPosition() {
-    return runOnce(() -> setPosition(ArmConstants.SCORING_HIGH_POSITION_ROTATIONS));
+    return runOnce(() -> setPosition(SCORING_HIGH_POSITION));
   }
 
   /**

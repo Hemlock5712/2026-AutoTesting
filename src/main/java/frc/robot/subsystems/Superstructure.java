@@ -1,17 +1,12 @@
 package frc.robot.subsystems;
 
-import java.util.function.Supplier;
-
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
-import com.ctre.phoenix6.swerve.jni.SwerveJNI.DriveState;
-
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.subsystems.arm.Arm;
 import frc.robot.subsystems.flywheel.Flywheel;
 import frc.robot.subsystems.turret.Turret;
+import java.util.function.Supplier;
 
 /**
  * Superstructure - Controls the Arm and Flywheel together.
@@ -31,18 +26,16 @@ import frc.robot.subsystems.turret.Turret;
 public class Superstructure extends SubsystemBase {
 
   // ==================== Subsystems ====================
-  private final Arm arm;
   private final Flywheel flywheel;
   private final Turret turret;
   private final Supplier<SwerveDriveState> driveState;
 
   // ==================== Constructor ====================
 
-  public Superstructure(Arm arm, Flywheel flywheel, Turret turret, CommandSwerveDrivetrain drivetrain) {
-    this.arm = arm;
+  public Superstructure(Flywheel flywheel, Turret turret, Supplier<SwerveDriveState> driveState) {
     this.flywheel = flywheel;
     this.turret = turret;
-    this.driveState = () -> drivetrain.getState();
+    this.driveState = driveState;
   }
 
   // ==================== Coordinated Commands ====================
@@ -52,7 +45,6 @@ public class Superstructure extends SubsystemBase {
   }
 
   public Command aimCommand() {
-    return Commands.run(() -> turret.aimCommand(() -> driveState.get().Pose));
+    return turret.trackHubCommand(driveState);
   }
-
 }

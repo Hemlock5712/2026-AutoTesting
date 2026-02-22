@@ -11,6 +11,7 @@ import edu.wpi.first.wpilibj.simulation.BatterySim;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj.simulation.RoboRioSim;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import frc.robot.Robot;
 import frc.robot.utils.MechanismUtil;
 import frc.robot.utils.TalonFXUtil;
 
@@ -116,16 +117,16 @@ public class FlywheelSIM extends Flywheel {
     // Update the simulated motor encoder velocity
     leader.getSimState().setRotorVelocity(motorVelocity);
 
-    // Calculate motor position by integrating velocity over time
-    double currentPosition = leader.getRotorPosition().getValueAsDouble();
-    double newPosition = currentPosition + (motorVelocity * SIM_PERIOD_SECONDS);
-    leader.getSimState().setRawRotorPosition(newPosition);
+    // Use the actual position from physics simulation (more accurate than integration)
+    double flywheelPositionRad = flywheelSim.getAngularPositionRad();
+    double motorPosition = (flywheelPositionRad / (2 * Math.PI)) * GEAR_RATIO;
+    leader.getSimState().setRawRotorPosition(motorPosition);
 
     // Animate the visual representation
     updateVisualization(velocityRadPerSec);
 
     // Publish sim-specific telemetry (other values are auto-logged from base class)
-    SmartDashboard.putNumber("Flywheel Sim Current (A)", flywheelSim.getCurrentDrawAmps());
+    Robot.telemetry().log("Flywheel Sim/Current (A)", flywheelSim.getCurrentDrawAmps());
   }
 
   /**

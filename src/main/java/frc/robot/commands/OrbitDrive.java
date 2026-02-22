@@ -39,7 +39,7 @@ public class OrbitDrive extends Command {
   private static final double HEADING_LOCK_OMEGA_THRESHOLD =
       Math.toRadians(10); // Don't lock while spinning fast (10 deg/s)
   private static final double HEADING_LOCK_DEADBAND =
-      Math.toRadians(3); // Don't correct errors smaller than 1 degree
+      Math.toRadians(3); // Don't correct errors smaller than 3 degrees
 
   private final SwerveRequest.ApplyFieldSpeeds request =
       new SwerveRequest.ApplyFieldSpeeds()

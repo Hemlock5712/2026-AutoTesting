@@ -24,6 +24,9 @@ public class DriveToPoint extends Command {
   // Time buffer for braking calculations (accounts for system latency)
   private static final double BRAKING_REACTION_TIME = 0.03; // seconds
 
+  // Tolerance for waypoint-style endings (larger to prevent oscillation)
+  private static final double WAYPOINT_TOLERANCE = 0.15; // meters
+
   private final CommandSwerveDrivetrain swerve;
   private Supplier<Pose2d> goalPose;
 
@@ -77,13 +80,13 @@ public class DriveToPoint extends Command {
     lastTime = currentTime;
 
     Pose2d currentPose = swerve.getPose();
-    Translation2d toGoal = goalPose.get().getTranslation().minus(currentPose.getTranslation());
+    Pose2d goal = goalPose.get(); // Cache to avoid calling supplier twice
+    Translation2d toGoal = goal.getTranslation().minus(currentPose.getTranslation());
     double distance = toGoal.getNorm();
 
     // Calculate rotation first (affects friction budget for translation)
     double angleError =
-        MathUtil.angleModulus(
-            goalPose.get().getRotation().minus(currentPose.getRotation()).getRadians());
+        MathUtil.angleModulus(goal.getRotation().minus(currentPose.getRotation()).getRadians());
 
     // Cache values for isFinished() to avoid redundant calculations
     cachedDistance = distance;
@@ -206,7 +209,7 @@ public class DriveToPoint extends Command {
    * @return This command for chaining
    */
   public DriveToPoint withWaypointEnding(double speed) {
-    return withWaypointEnding(speed, DriveToPointWaypoints.WAYPOINT_ADVANCEMENT_TOLERANCE);
+    return withWaypointEnding(speed, WAYPOINT_TOLERANCE);
   }
 
   /**

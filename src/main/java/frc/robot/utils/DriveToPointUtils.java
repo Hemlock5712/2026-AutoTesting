@@ -5,8 +5,8 @@ import frc.robot.commands.AccelerationLimiter;
 /**
  * Shared physics calculations for drive-to-point commands.
  *
- * <p>Contains methods for calculating target angular velocity and braking speeds. Used by both
- * DriveToPoint and DriveToPointWaypoints commands.
+ * <p>Contains methods for calculating target angular velocity and braking speeds. Used by the
+ * DriveToPoint command.
  */
 public final class DriveToPointUtils {
 

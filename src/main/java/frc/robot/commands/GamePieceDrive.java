@@ -110,9 +110,11 @@ public class GamePieceDrive extends Command {
       // Negative because positive TX means target is to the right, so we strafe left
       double strafeCorrection = -LimelightHelpers.getTX(limelightName) * visionKp;
 
-      // Scale correction by forward speed (no correction when stationary)
+      // Scale correction by total speed (no correction when stationary)
+      ChassisSpeeds robotSpeeds = swerve.getRobotSpeeds();
       double speedScale =
-          Math.abs(swerve.getRobotSpeeds().vxMetersPerSecond) / AccelerationLimiter.MAX_VELOCITY;
+          Math.hypot(robotSpeeds.vxMetersPerSecond, robotSpeeds.vyMetersPerSecond)
+              / AccelerationLimiter.MAX_VELOCITY;
 
       // Convert robot-relative correction to field coordinates
       Translation2d fieldCorrection =
