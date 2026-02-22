@@ -1,7 +1,5 @@
 package frc.robot.subsystems.flywheel;
 
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.system.LinearSystem;
@@ -28,6 +26,9 @@ public class FlywheelSIM extends Flywheel {
 
   /** Gear ratio between motor and flywheel (motor rotations : flywheel rotations) */
   private static final double GEAR_RATIO = 1.0;
+
+  /** Conversion factor from radians to rotations (1 / 2π) */
+  private static final double RAD_TO_ROTATIONS = 1.0 / (2.0 * Math.PI);
 
   /** Moment of inertia of the flywheel in kg⋅m² */
   private static final double FLYWHEEL_MOI = 0.01;
@@ -110,16 +111,14 @@ public class FlywheelSIM extends Flywheel {
     double velocityRadPerSec = flywheelSim.getAngularVelocityRadPerSec();
 
     // Convert flywheel velocity to motor velocity (accounting for gear ratio)
-    double motorVelocity =
-        RotationsPerSecond.of((velocityRadPerSec / (2 * Math.PI)) * GEAR_RATIO)
-            .in(RotationsPerSecond);
+    double motorVelocity = velocityRadPerSec * RAD_TO_ROTATIONS * GEAR_RATIO;
 
     // Update the simulated motor encoder velocity
     leader.getSimState().setRotorVelocity(motorVelocity);
 
     // Use the actual position from physics simulation (more accurate than integration)
     double flywheelPositionRad = flywheelSim.getAngularPositionRad();
-    double motorPosition = (flywheelPositionRad / (2 * Math.PI)) * GEAR_RATIO;
+    double motorPosition = flywheelPositionRad * RAD_TO_ROTATIONS * GEAR_RATIO;
     leader.getSimState().setRawRotorPosition(motorPosition);
 
     // Animate the visual representation

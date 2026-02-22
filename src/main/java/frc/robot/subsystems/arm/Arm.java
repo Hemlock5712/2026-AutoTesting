@@ -30,7 +30,7 @@ public class Arm extends SubsystemBase {
   private static final Angle HORIZONTAL_POSITION = Degrees.of(180);
   private static final Angle SCORING_POSITION = Degrees.of(30);
   private static final Angle SCORING_HIGH_POSITION = Degrees.of(45);
-  private static final Angle POSITION_TOLERANCE = Degrees.of(1.0);
+  private static final Angle TOLERANCE = Degrees.of(1.0);
 
   // Connect to the "canivore" CAN bus (communication network for motors)
   private final CANBus canivore = new CANBus("canivore");
@@ -48,9 +48,6 @@ public class Arm extends SubsystemBase {
 
   // Alert for motor configuration failures
   Alert motorConfigAlert = new Alert("Arm Motor Configuration Failed", AlertType.kError);
-
-  // How close the arm needs to be to count as "at target"
-  private final Angle tolerance = POSITION_TOLERANCE;
 
   public Arm() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
@@ -148,7 +145,7 @@ public class Arm extends SubsystemBase {
    * @return true if close enough to target, false otherwise
    */
   public boolean isAtTarget() {
-    return getPosition().isNear(getTargetPosition(), tolerance);
+    return getPosition().isNear(getTargetPosition(), TOLERANCE);
   }
 
   /**
@@ -175,6 +172,6 @@ public class Arm extends SubsystemBase {
    * @return Position tolerance
    */
   public Angle getTolerance() {
-    return tolerance;
+    return TOLERANCE;
   }
 }

@@ -22,20 +22,17 @@ import frc.robot.utils.TalonFXUtil;
 
 @Logged
 public class Flywheel extends SubsystemBase {
-  // Shooting speeds (rotations per second)
-  private static final double SHOOTING_SPEED_RPS = 25.0;
-  private static final double AMP_SPEED_RPS = 5.0;
-  private static final double FAR_SHOOTING_SPEED_RPS = 35.0;
-  private static final double VELOCITY_TOLERANCE_RPS = 0.25;
+  // Shooting speeds (typed AngularVelocity for type-safe unit handling)
+  private static final AngularVelocity SHOOTING_SPEED = RotationsPerSecond.of(25.0);
+  private static final AngularVelocity AMP_SPEED = RotationsPerSecond.of(5.0);
+  private static final AngularVelocity FAR_SHOOTING_SPEED = RotationsPerSecond.of(35.0);
+  private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(0.25);
 
   // Main motor that spins the flywheel (device ID 21)
   protected final TalonFX leader = new TalonFX(21, TunerConstants.kCANBus);
 
   // Controller for spinning the flywheel at a target speed
   private final MotionMagicVelocityVoltage velocityOut = new MotionMagicVelocityVoltage(0);
-
-  // How close the speed needs to be to count as "at target"
-  private final AngularVelocity tolerance = RotationsPerSecond.of(VELOCITY_TOLERANCE_RPS);
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
@@ -54,9 +51,9 @@ public class Flywheel extends SubsystemBase {
     config.Slot0.kV = 0.125; // Velocity feedforward
     config.Slot0.kP = 0.0; // Proportional gain
 
-    // Speed limits
-    config.MotionMagic.MotionMagicCruiseVelocity = 100.0;
-    config.MotionMagic.MotionMagicAcceleration = 1000.0;
+    // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
+    config.MotionMagic.MotionMagicCruiseVelocity = 100.0; // RPS
+    config.MotionMagic.MotionMagicAcceleration = 1000.0; // RPS²
 
     // Apply configuration with retries
     boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
@@ -83,7 +80,7 @@ public class Flywheel extends SubsystemBase {
    * @return Command that spins up the flywheel
    */
   public Command spinUp() {
-    return runOnce(() -> setVelocity(RotationsPerSecond.of(SHOOTING_SPEED_RPS)));
+    return runOnce(() -> setVelocity(SHOOTING_SPEED));
   }
 
   /**
@@ -92,7 +89,7 @@ public class Flywheel extends SubsystemBase {
    * @return Command that spins flywheel at amp speed
    */
   public Command ampSpeed() {
-    return runOnce(() -> setVelocity(RotationsPerSecond.of(AMP_SPEED_RPS)));
+    return runOnce(() -> setVelocity(AMP_SPEED));
   }
 
   /**
@@ -101,7 +98,7 @@ public class Flywheel extends SubsystemBase {
    * @return Command that spins flywheel at far speed
    */
   public Command farSpeed() {
-    return runOnce(() -> setVelocity(RotationsPerSecond.of(FAR_SHOOTING_SPEED_RPS)));
+    return runOnce(() -> setVelocity(FAR_SHOOTING_SPEED));
   }
 
   /**
@@ -119,7 +116,7 @@ public class Flywheel extends SubsystemBase {
    * @return true if close enough to target speed, false otherwise
    */
   public boolean isAtTarget() {
-    return getVelocity().isNear(getTargetVelocity(), tolerance);
+    return getVelocity().isNear(getTargetVelocity(), TOLERANCE);
   }
 
   /**
@@ -146,7 +143,7 @@ public class Flywheel extends SubsystemBase {
    * @return Speed tolerance
    */
   public AngularVelocity getTolerance() {
-    return tolerance;
+    return TOLERANCE;
   }
 
   // Stop the flywheel motors (private to enforce Command-based control flow)

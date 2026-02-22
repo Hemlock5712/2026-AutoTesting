@@ -4,8 +4,11 @@ import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.VecBuilder;
+import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -23,6 +26,7 @@ import frc.robot.subsystems.flywheel.Flywheel;
 import frc.robot.subsystems.flywheel.FlywheelSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
+import frc.robot.utils.FieldInfo;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -88,11 +92,20 @@ public class RobotContainer {
   }
 
   private void configureBindings() {
+    // Cached translation velocities - computed once per cycle in velocityX supplier
+    double[] translationVel = {0, 0};
+
     drivetrain.setDefaultCommand(
         new OrbitDrive(
             drivetrain,
-            () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed,
-            () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed,
+            () -> {
+              // Not the cleanest but claculate scaled joystick values
+              Vector<N2> scaled = rescaleTranslation(joystick.getLeftX(), joystick.getLeftY());
+              translationVel[0] = -scaled.get(0) * MaxSpeed;
+              translationVel[1] = -scaled.get(1) * MaxSpeed;
+              return translationVel[0];
+            },
+            () -> translationVel[1],
             () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate));
 
     // Drive to point - press A to drive to target pose
@@ -126,7 +139,7 @@ public class RobotContainer {
                 drivetrain,
                 () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-                FieldConstants.YAxisLockPosition.REEF_CENTER.getY(),
+                FieldInfo.flipY(FieldConstants.YAxisLockPosition.REEF_CENTER.getY()),
                 null)); // null = heading lock behavior (driver controls rotation)
 
     // AxisLockDrive - Lock Y axis and rotation, driver controls X only
@@ -137,8 +150,10 @@ public class RobotContainer {
                 drivetrain,
                 () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-                FieldConstants.YAxisLockPosition.REEF_CENTER.getY(),
-                FieldConstants.RotationLockAngle.FACING_FORWARD.getAngle())); // Lock rotation to 0°
+                FieldInfo.flipY(FieldConstants.YAxisLockPosition.REEF_CENTER.getY()),
+                FieldInfo.flip(
+                    FieldConstants.RotationLockAngle.FACING_FORWARD
+                        .getAngle()))); // Lock rotation to 0°
   }
 
   public Command getAutonomousCommand() {
@@ -148,5 +163,11 @@ public class RobotContainer {
 
   public double rescaleInputs(double input) {
     return MathUtil.applyDeadband(input, 0.05);
+  }
+
+  public Vector<N2> rescaleTranslation(double x, double y) {
+    Vector<N2> scaledJoyStick = VecBuilder.fill(x, y);
+    scaledJoyStick = MathUtil.applyDeadband(scaledJoyStick, 0.05);
+    return MathUtil.copyDirectionPow(scaledJoyStick, 2);
   }
 }

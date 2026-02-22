@@ -1,5 +1,6 @@
 package frc.robot.subsystems.turret;
 
+import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.CANBus;
@@ -17,6 +18,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.constants.FieldConstants;
+import frc.robot.utils.FieldInfo;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
 
@@ -28,8 +30,7 @@ public class Turret extends SubsystemBase {
   private final MotionMagicExpoTorqueCurrentFOC angleOut = new MotionMagicExpoTorqueCurrentFOC(0);
 
   protected final double GEAR_RATIO = 110.0 / 25.0 * 7.0;
-  private static final double ANGLE_TOLERANCE_ROTATIONS = 0.01; // ~3.6 degrees
-  private final Angle tolerance = Rotations.of(ANGLE_TOLERANCE_ROTATIONS);
+  private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
 
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
 
@@ -43,17 +44,16 @@ public class Turret extends SubsystemBase {
     config.Slot0.kP = 20; // Proportional gain
     config.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
 
-    // MotionMagic settings - limits how fast the turret can move
-    // Values are in sensor (motor) rotations per second
-    // For ~1 rotation/sec at mechanism (57 deg/sec), motor needs: 1.0 * gearRatio =
-    // 30.8 RPS
-    config.MotionMagic.MotionMagicCruiseVelocity =
-        30.0; // motor rotations/sec (~1 mechanism rot/sec)
-    // Acceleration: how fast it can speed up (motor rotations per second squared)
-    config.MotionMagic.MotionMagicAcceleration = 60.0; // motor rotations/sec²
+    // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism rotations
+    // Cruise velocity: max turret speed during motion profile (RPS)
+    // Acceleration: how quickly the turret speeds up/slows down (RPS²)
+    config.MotionMagic.MotionMagicCruiseVelocity = 30.0; // RPS
+    config.MotionMagic.MotionMagicAcceleration = 60.0; // RPS²
 
     boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
     motorConfigAlert.set(!success);
+
+    leader.setPosition(Degrees.of(65));
   }
 
   private void trackHub(SwerveDriveState currentState) {
@@ -61,7 +61,7 @@ public class Turret extends SubsystemBase {
 
     // Calculate the angle to the target in field coordinates
     Rotation2d angleToTargetField =
-        FieldConstants.HUB_POSITION.minus(robotPose.getTranslation()).getAngle();
+        FieldInfo.flip(FieldConstants.HUB_POSITION).minus(robotPose.getTranslation()).getAngle();
 
     // Calculate turret angle relative to robot forward (oppose robot rotation)
     double turretToTarget = angleToTargetField.minus(robotPose.getRotation()).getRotations();
@@ -88,11 +88,11 @@ public class Turret extends SubsystemBase {
   }
 
   public Angle getTolerance() {
-    return tolerance;
+    return TOLERANCE;
   }
 
   public boolean isAtTarget() {
-    return getAngle().isNear(getTargetAngle(), tolerance);
+    return getAngle().isNear(getTargetAngle(), TOLERANCE);
   }
 
   public Command stopCommand() {

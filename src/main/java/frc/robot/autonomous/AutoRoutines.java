@@ -2,10 +2,12 @@ package frc.robot.autonomous;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.constants.FieldConstants;
 import frc.robot.subsystems.Superstructure;
+import frc.robot.utils.FieldInfo;
 import java.util.function.Supplier;
 
 public class AutoRoutines {
@@ -40,41 +42,53 @@ public class AutoRoutines {
     return Commands.sequence(
         Commands.print("=== Sequential Scoring Auto ==="),
         autoCommands.resetPose(Pose2d.kZero),
-        autoCommands.driveTo(() -> new Pose2d(3.0, 0, Rotation2d.kZero)),
-        autoCommands.driveTo(() -> new Pose2d(3.0, 3.0, Rotation2d.kZero)),
-        autoCommands.driveTo(() -> new Pose2d(0, 0, Rotation2d.kZero)));
+        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(3.0, 0, Rotation2d.kZero))),
+        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(3.0, 3.0, Rotation2d.kZero))),
+        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(0, 0, Rotation2d.kZero))));
   }
 
   public Command DrivePointInRight(Supplier<Rotation2d> rotation) {
     return Commands.sequence(
         autoCommands.driveTo(
             1,
-            () ->
-                new Pose2d(
-                    FieldConstants.DRIVE_POINT_IN_X_START,
-                    FieldConstants.DRIVE_POINT_IN_Y_RIGHT,
-                    snapToNearest90Degrees(rotation.get()))),
+            () -> {
+              Translation2d pos =
+                  FieldInfo.flip(
+                      new Translation2d(
+                          FieldConstants.DRIVE_POINT_IN_X_START,
+                          FieldConstants.DRIVE_POINT_IN_Y_RIGHT));
+              return new Pose2d(pos, snapToNearest90Degrees(rotation.get()));
+            }),
         autoCommands.driveTo(
-            () ->
-                new Pose2d(
-                    FieldConstants.DRIVE_POINT_IN_X_END,
-                    FieldConstants.DRIVE_POINT_IN_Y_RIGHT,
-                    snapToNearest90Degrees(rotation.get()))));
+            () -> {
+              Translation2d pos =
+                  FieldInfo.flip(
+                      new Translation2d(
+                          FieldConstants.DRIVE_POINT_IN_X_END,
+                          FieldConstants.DRIVE_POINT_IN_Y_RIGHT));
+              return new Pose2d(pos, snapToNearest90Degrees(rotation.get()));
+            }));
   }
 
   public Command DrivePointInLeft(Supplier<Rotation2d> rotation) {
     return Commands.sequence(
         autoCommands.driveTo(
-            () ->
-                new Pose2d(
-                    FieldConstants.DRIVE_POINT_IN_X_START,
-                    FieldConstants.DRIVE_POINT_IN_Y_LEFT,
-                    snapToNearest90Degrees(rotation.get()))),
+            () -> {
+              Translation2d pos =
+                  FieldInfo.flip(
+                      new Translation2d(
+                          FieldConstants.DRIVE_POINT_IN_X_START,
+                          FieldConstants.DRIVE_POINT_IN_Y_LEFT));
+              return new Pose2d(pos, snapToNearest90Degrees(rotation.get()));
+            }),
         autoCommands.driveTo(
-            () ->
-                new Pose2d(
-                    FieldConstants.DRIVE_POINT_IN_X_END,
-                    FieldConstants.DRIVE_POINT_IN_Y_LEFT,
-                    snapToNearest90Degrees(rotation.get()))));
+            () -> {
+              Translation2d pos =
+                  FieldInfo.flip(
+                      new Translation2d(
+                          FieldConstants.DRIVE_POINT_IN_X_END,
+                          FieldConstants.DRIVE_POINT_IN_Y_LEFT));
+              return new Pose2d(pos, snapToNearest90Degrees(rotation.get()));
+            }));
   }
 }

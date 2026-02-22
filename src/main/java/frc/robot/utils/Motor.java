@@ -23,6 +23,9 @@ public enum Motor {
    */
   KRAKEN_X60(7.1573, 6065.33, 374.4);
 
+  /** Conversion factor from radians per second to RPM: 60 / (2π) ≈ 9.5493 */
+  private static final double RAD_PER_SEC_TO_RPM = 60.0 / (2.0 * Math.PI);
+
   private final double stallTorque; // Newton-meters at 0 RPM
   private final double freeSpeedRpm; // RPM at 0 torque
   private final double stallCurrent; // Amps at stall (from CTRE dyno data)
@@ -116,7 +119,7 @@ public enum Motor {
     // Convert wheel speed to motor RPM
     double wheelRadPerSec = wheelSpeedMps / wheelRadiusMeters;
     double motorRadPerSec = wheelRadPerSec * gearRatio;
-    double motorRpm = motorRadPerSec * 60.0 / (2.0 * Math.PI);
+    double motorRpm = motorRadPerSec * RAD_PER_SEC_TO_RPM;
 
     // Look up torque at this speed WITH current limit
     double motorTorque = getTorqueAtRpm(motorRpm, currentLimitAmps);
