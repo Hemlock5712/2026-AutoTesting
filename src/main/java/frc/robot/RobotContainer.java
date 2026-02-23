@@ -70,7 +70,8 @@ public class RobotContainer {
       new Superstructure(flywheel, turret, drivetrain::getState);
 
   // Vision camera for tracking robot position
-  //   public final LimelightSubsystem limelight = new LimelightSubsystem("limelight", drivetrain);
+  // public final LimelightSubsystem limelight = new
+  // LimelightSubsystem("limelight", drivetrain);
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;
@@ -108,6 +109,7 @@ public class RobotContainer {
             () -> translationVel[1],
             () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate));
 
+    superstructure.setDefaultCommand(superstructure.aimCommand());
     // Drive to point - press A to drive to target pose
     // joystick
     // .a()
@@ -116,8 +118,9 @@ public class RobotContainer {
 
     // PathRequest with Waypoint enum - press B to drive to predefined positions
     // joystick
-    //     .b()
-    //     .whileTrue(new DriveToPoint(drivetrain, new Pose2d(5, 5, Rotation2d.fromDegrees(45))));
+    // .b()
+    // .whileTrue(new DriveToPoint(drivetrain, new Pose2d(5, 5,
+    // Rotation2d.fromDegrees(45))));
     // DriveTOPoint
 
     joystick

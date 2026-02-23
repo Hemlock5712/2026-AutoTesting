@@ -9,9 +9,12 @@ import com.ctre.phoenix6.controls.MotionMagicExpoTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
@@ -34,6 +37,10 @@ public class Turret extends SubsystemBase {
 
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
 
+  @NotLogged
+  public static final Pose3d TURRET_HOLE_CENTER =
+      new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
+
   public Turret() {
     TalonFXConfiguration config = new TalonFXConfiguration();
 
@@ -44,7 +51,8 @@ public class Turret extends SubsystemBase {
     config.Slot0.kP = 20; // Proportional gain
     config.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
 
-    // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism rotations
+    // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
+    // rotations
     // Cruise velocity: max turret speed during motion profile (RPS)
     // Acceleration: how quickly the turret speeds up/slows down (RPS²)
     config.MotionMagic.MotionMagicCruiseVelocity = 30.0; // RPS
