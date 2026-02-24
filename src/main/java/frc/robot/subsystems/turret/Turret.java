@@ -1,12 +1,12 @@
 package frc.robot.subsystems.turret;
 
-import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicExpoTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.NotLogged;
@@ -50,6 +50,7 @@ public class Turret extends SubsystemBase {
     config.Slot0.kS = 1.0; // Static friction compensation
     config.Slot0.kP = 20; // Proportional gain
     config.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
+    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
     // rotations
@@ -60,8 +61,6 @@ public class Turret extends SubsystemBase {
 
     boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
     motorConfigAlert.set(!success);
-
-    leader.setPosition(Degrees.of(65));
   }
 
   private void trackHub(SwerveDriveState currentState) {

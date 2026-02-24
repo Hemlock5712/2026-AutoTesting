@@ -1,5 +1,8 @@
 package frc.robot.subsystems.turret;
 
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
+
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.system.LinearSystem;
@@ -33,7 +36,7 @@ public class TurretSIM extends Turret {
   private static final double SIM_PERIOD_SECONDS = 0.020;
 
   /** Visual length of the turret arm in pixels */
-  private static final double TURRET_ARM_LENGTH = 100.0;
+  private static final double TURRET_ARM_LENGTH = 0.1;
 
   /** Conversion factor from radians to rotations */
   private static final double RAD_TO_ROTATIONS = 1.0 / (2 * Math.PI);
@@ -86,7 +89,6 @@ public class TurretSIM extends Turret {
    */
   @Override
   public void simulationPeriodic() {
-    // Feed the motor voltage from the controller into the physics simulation
     motorSim.setInput(leader.getMotorVoltage().getValueAsDouble());
 
     // Step the simulation forward by one robot loop period
@@ -96,34 +98,25 @@ public class TurretSIM extends Turret {
     RoboRioSim.setVInVoltage(
         BatterySim.calculateDefaultBatteryLoadedVoltage(motorSim.getCurrentDrawAmps()));
 
-    // Get current turret velocity in radians per second
-    double velocityRadPerSec = motorSim.getAngularVelocityRadPerSec();
+    // Convert arm angle to encoder rotations (encoder is on the arm, not the motor)
+    double encoderPosition = motorSim.getAngularPositionRotations();
+    double encoderVelocity =
+        RadiansPerSecond.of(motorSim.getAngularVelocityRadPerSec()).in(RotationsPerSecond);
 
-    // Convert turret velocity to motor velocity (accounting for gear ratio)
-    // Motor velocity = turret velocity * gear ratio
-    double motorVelocityRotationsPerSec = velocityRadPerSec * RAD_TO_ROTATIONS * GEAR_RATIO;
+    // Update the CANcoder simulation (this is what the base class reads from)
+    leader.getSimState().setRawRotorPosition(encoderPosition);
+    leader.getSimState().setRotorVelocity(encoderVelocity);
 
-    // Update the simulated motor encoder velocity
-    leader.getSimState().setRotorVelocity(motorVelocityRotationsPerSec);
-
-    // Get current turret position in radians
-    double turretPositionRad = motorSim.getAngularPositionRad();
-
-    // Convert turret position to motor position (accounting for gear ratio)
-    // Motor position = turret position * gear ratio
-    double motorPositionRotations = turretPositionRad * RAD_TO_ROTATIONS * GEAR_RATIO;
-
-    // Update the simulated motor encoder position
-    // Using direct position from simulation (DCMotorSim maintains its own state)
-    leader.getSimState().setRawRotorPosition(motorPositionRotations);
-
-    // Update the visual representation
-    double positionDeg = Math.toDegrees(turretPositionRad);
-    turretMechanism.update(positionDeg, isAtTarget());
+    // Also update motor sim for completeness (motor rotations = encoder * gear ratio)
+    double motorPosition = encoderPosition * GEAR_RATIO;
+    double motorVelocity = encoderVelocity * GEAR_RATIO;
+    leader.getSimState().setRawRotorPosition(motorPosition);
+    leader.getSimState().setRotorVelocity(motorVelocity);
 
     // Publish sim-specific telemetry
     Robot.telemetry().log("Turret Sim/Current (A)", motorSim.getCurrentDrawAmps());
-    Robot.telemetry().log("Turret Sim/Position (deg)", positionDeg);
-    Robot.telemetry().log("Turret Sim/Velocity (deg/s)", Math.toDegrees(velocityRadPerSec));
+    Robot.telemetry().log("Turret Sim/Position (deg)", motorSim.getAngularPosition());
+    Robot.telemetry()
+        .log("Turret Sim/Velocity (deg/s)", Math.toDegrees(motorSim.getAngularVelocityRadPerSec()));
   }
 }

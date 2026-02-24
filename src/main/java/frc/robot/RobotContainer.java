@@ -101,7 +101,7 @@ public class RobotContainer {
             drivetrain,
             () -> {
               // Not the cleanest but claculate scaled joystick values
-              Vector<N2> scaled = rescaleTranslation(joystick.getLeftX(), joystick.getLeftY());
+              Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
               translationVel[0] = -scaled.get(0) * MaxSpeed;
               translationVel[1] = -scaled.get(1) * MaxSpeed;
               return translationVel[0];
