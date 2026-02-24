@@ -3,6 +3,9 @@ package frc.robot.subsystems.turret;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import com.ctre.phoenix6.configs.FeedbackConfigs;
+import com.ctre.phoenix6.configs.MotionMagicConfigs;
+import com.ctre.phoenix6.configs.Slot0Configs;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.system.LinearSystem;
@@ -38,8 +41,14 @@ public class TurretSIM extends Turret {
   /** Visual length of the turret arm in pixels */
   private static final double TURRET_ARM_LENGTH = 0.1;
 
-  /** Conversion factor from radians to rotations */
-  private static final double RAD_TO_ROTATIONS = 1.0 / (2 * Math.PI);
+  // ==================== Sim-only Control Tuning ====================
+  // Sim dynamics differ from real hardware (friction/backlash/latency), so tune
+  // separately.
+  private static final double SIM_KS = 0.3;
+  private static final double SIM_KP = 1024.0;
+  private static final double SIM_KD = 0.4;
+  private static final double SIM_CRUISE_RPS = 100.0;
+  private static final double SIM_ACCEL_RPS2 = 300.0;
 
   // ==================== Simulation Components ====================
 
@@ -60,6 +69,24 @@ public class TurretSIM extends Turret {
    */
   public TurretSIM() {
     super();
+
+    // Sim-only sign correction: flip feedback frame so ctrlPos matches mechanism
+    // motion.
+    FeedbackConfigs simFeedback = new FeedbackConfigs();
+    simFeedback.SensorToMechanismRatio = -GEAR_RATIO;
+    leader.getConfigurator().apply(simFeedback);
+
+    // Sim-only PID + Motion Magic tuning.
+    Slot0Configs simSlot0 = new Slot0Configs();
+    simSlot0.kS = SIM_KS;
+    simSlot0.kP = SIM_KP;
+    simSlot0.kD = SIM_KD;
+    leader.getConfigurator().apply(simSlot0);
+
+    MotionMagicConfigs simMotionMagic = new MotionMagicConfigs();
+    simMotionMagic.MotionMagicCruiseVelocity = SIM_CRUISE_RPS;
+    simMotionMagic.MotionMagicAcceleration = SIM_ACCEL_RPS2;
+    leader.getConfigurator().apply(simMotionMagic);
 
     // Create the linear system for physics simulation
     LinearSystem<N2, N1, N2> linearSystem =
@@ -98,16 +125,12 @@ public class TurretSIM extends Turret {
     RoboRioSim.setVInVoltage(
         BatterySim.calculateDefaultBatteryLoadedVoltage(motorSim.getCurrentDrawAmps()));
 
-    // Convert arm angle to encoder rotations (encoder is on the arm, not the motor)
+    // Use direct mechanism position from plant.
     double encoderPosition = motorSim.getAngularPositionRotations();
     double encoderVelocity =
         RadiansPerSecond.of(motorSim.getAngularVelocityRadPerSec()).in(RotationsPerSecond);
 
-    // Update the CANcoder simulation (this is what the base class reads from)
-    leader.getSimState().setRawRotorPosition(encoderPosition);
-    leader.getSimState().setRotorVelocity(encoderVelocity);
-
-    // Also update motor sim for completeness (motor rotations = encoder * gear ratio)
+    // Update the TalonFX sim state using CTRE's standard rotor conversion.
     double motorPosition = encoderPosition * GEAR_RATIO;
     double motorVelocity = encoderVelocity * GEAR_RATIO;
     leader.getSimState().setRawRotorPosition(motorPosition);
