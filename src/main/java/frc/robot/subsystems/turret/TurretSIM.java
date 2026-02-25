@@ -44,9 +44,9 @@ public class TurretSIM extends Turret {
   // ==================== Sim-only Control Tuning ====================
   // Sim dynamics differ from real hardware (friction/backlash/latency), so tune
   // separately.
-  private static final double SIM_KS = 0.3;
+  private static final double SIM_KS = 0.1;
   private static final double SIM_KP = 1024.0;
-  private static final double SIM_KD = 0.4;
+  private static final double SIM_KD = 160.0;
   private static final double SIM_CRUISE_RPS = 100.0;
   private static final double SIM_ACCEL_RPS2 = 300.0;
 
@@ -60,6 +60,8 @@ public class TurretSIM extends Turret {
 
   /** Mechanism visualization helper */
   private final MechanismUtil.TurretMechanism turretMechanism;
+
+  protected double GEAR_RATIO = 110.0 / 50.0;
 
   /**
    * Constructs a new TurretSIM instance.

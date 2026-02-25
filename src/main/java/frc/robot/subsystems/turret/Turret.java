@@ -4,7 +4,7 @@ import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicExpoTorqueCurrentFOC;
+import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
@@ -30,7 +30,7 @@ public class Turret extends SubsystemBase {
 
   protected final TalonFX leader = new TalonFX(41, CANBus.roboRIO());
 
-  private final MotionMagicExpoTorqueCurrentFOC angleOut = new MotionMagicExpoTorqueCurrentFOC(0);
+  private final PositionVoltage angleOut = new PositionVoltage(0);
 
   protected final double GEAR_RATIO = 110.0 / 25.0 * 7.0;
   private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
