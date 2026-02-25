@@ -10,8 +10,10 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.flywheel.Flywheel;
+import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import java.util.function.Supplier;
 
@@ -35,6 +37,7 @@ public class Superstructure extends SubsystemBase {
   // ==================== Subsystems ====================
   private final Flywheel flywheel;
   private final Turret turret;
+  private final Spindexer spindexer;
   private final Supplier<SwerveDriveState> driveState;
 
   @Logged(name = "Turret Mechanism3D")
@@ -42,9 +45,14 @@ public class Superstructure extends SubsystemBase {
 
   // ==================== Constructor ====================
 
-  public Superstructure(Flywheel flywheel, Turret turret, Supplier<SwerveDriveState> driveState) {
+  public Superstructure(
+      Flywheel flywheel,
+      Turret turret,
+      Spindexer spindexer,
+      Supplier<SwerveDriveState> driveState) {
     this.flywheel = flywheel;
     this.turret = turret;
+    this.spindexer = spindexer;
     this.driveState = driveState;
   }
 
@@ -73,7 +81,11 @@ public class Superstructure extends SubsystemBase {
   // ==================== Coordinated Commands ====================
 
   public Command beginShoot() {
-    return flywheel.spinUp();
+    return Commands.sequence(
+        spindexer.startCommand(),
+        flywheel.spinUp(),
+        Commands.either(
+            spindexer.startKickerCommand(), Commands.none(), () -> flywheel.isAtTarget()));
   }
 
   public Command aimCommand() {

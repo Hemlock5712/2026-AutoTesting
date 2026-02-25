@@ -24,6 +24,7 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.flywheel.Flywheel;
 import frc.robot.subsystems.flywheel.FlywheelSIM;
+import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FieldInfo;
@@ -66,8 +67,9 @@ public class RobotContainer {
   /* Create subsystems (uses simulated versions when running in simulation) */
   public final Flywheel flywheel = RobotBase.isSimulation() ? new FlywheelSIM() : new Flywheel();
   public final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
+  public final Spindexer spindexer = new Spindexer();
   private final Superstructure superstructure =
-      new Superstructure(flywheel, turret, drivetrain::getState);
+      new Superstructure(flywheel, turret, spindexer, drivetrain::getState);
 
   // Vision camera for tracking robot position
   // public final LimelightSubsystem limelight = new
@@ -157,6 +159,7 @@ public class RobotContainer {
                 FieldInfo.flip(
                     FieldConstants.RotationLockAngle.FACING_FORWARD
                         .getAngle()))); // Lock rotation to 0°
+    joystick.axisGreaterThan(3, 0.7).onTrue(superstructure.beginShoot());
   }
 
   public Command getAutonomousCommand() {
