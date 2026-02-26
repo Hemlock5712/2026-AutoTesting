@@ -13,11 +13,17 @@ import frc.robot.utils.TalonFXUtil;
 
 @Logged
 public class Spindexer extends SubsystemBase {
+  private double targetVelocity;
+
+  protected final double VELOCITY_TOLERANCE = 0.2;
+
   protected final TalonFX leader = new TalonFX(51, CANBus.roboRIO());
 
   protected final TalonFX kicker = new TalonFX(52, CANBus.roboRIO());
 
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
+
+  protected TalonFXConfiguration leaderConfig = new TalonFXConfiguration();
 
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
 
@@ -39,6 +45,7 @@ public class Spindexer extends SubsystemBase {
   }
 
   public void setVelocity(double velocity) {
+    targetVelocity = velocity;
     leader.setControl(velocityOut.withVelocity(velocity));
   }
 
@@ -46,8 +53,17 @@ public class Spindexer extends SubsystemBase {
     kicker.setControl(velocityOut.withVelocity(velocity));
   }
 
+  public double getVelocity() {
+    return leader.getVelocity().getValueAsDouble();
+  }
+
+  public boolean isAtTarget() {
+    return leader.getVelocity().getValueAsDouble() - VELOCITY_TOLERANCE > targetVelocity
+        && leader.getVelocity().getValueAsDouble() + VELOCITY_TOLERANCE < targetVelocity;
+  }
+
   public Command startCommand() {
-    return runOnce(() -> setVelocity(12));
+    return runOnce(() -> setVelocity(32));
   }
 
   public Command stopCommand() {
