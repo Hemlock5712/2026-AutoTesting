@@ -11,8 +11,8 @@ import frc.robot.commands.AccelerationLimiter;
  */
 public final class DriveToPointUtils {
 
-  // Small angle threshold to prevent division by zero (essentially zero radians)
-  private static final double ANGLE_EPSILON = 1e-9;
+  // Small value to prevent division by zero in physics calculations
+  private static final double EPSILON = 1e-9;
 
   // Precomputed constants for performance (avoid division every cycle)
   private static final double HARDWARE_MAX_OMEGA =
@@ -43,7 +43,7 @@ public final class DriveToPointUtils {
     // Calculate angular deceleration needed to stop rotation at target angle
     // Using kinematic equation: alpha = omega² / (2 * theta), capped at physical max
     double angularDecel =
-        absAngleError > ANGLE_EPSILON
+        absAngleError > EPSILON
             ? Math.min((targetOmega * targetOmega) / (2.0 * absAngleError), MAX_ANGULAR_DECEL)
             : 0.0;
 
@@ -85,7 +85,7 @@ public final class DriveToPointUtils {
     double absAngle = Math.abs(angleError);
 
     // No rotation needed if angle error is negligible
-    if (absAngle < ANGLE_EPSILON) {
+    if (absAngle < EPSILON) {
       return 0.0;
     }
 
@@ -104,7 +104,7 @@ public final class DriveToPointUtils {
 
     // Estimate how long driving will take (pick the longer/safer estimate)
     double brakingTime =
-        availableLinearAccel > ANGLE_EPSILON
+        availableLinearAccel > EPSILON
             ? Math.sqrt(2.0 * effectiveDistance / availableLinearAccel)
             : Double.POSITIVE_INFINITY;
     double cruiseTime = currentSpeed > 0 ? effectiveDistance / currentSpeed : brakingTime;
@@ -145,7 +145,7 @@ public final class DriveToPointUtils {
       double maxEndSpeedY) {
 
     double distance = toGoal.getNorm();
-    if (distance < ANGLE_EPSILON) {
+    if (distance < EPSILON) {
       return new Translation2d();
     }
 
@@ -167,34 +167,21 @@ public final class DriveToPointUtils {
     double effectiveEndSpeedX = Math.min(projectedEndSpeedX, maxEndSpeedX);
     double effectiveEndSpeedY = Math.min(projectedEndSpeedY, maxEndSpeedY);
 
-    // Buffer distances for reaction time (per-axis)
+    // Scale acceleration per-axis so total stays within friction circle
+    // When distanceX = distanceY (45°), each axis gets availableLinearAccel / sqrt(2)
+    // This ensures hypot(accelX, accelY) = availableLinearAccel
+    double accelX = availableLinearAccel * Math.abs(dirX);
+    double accelY = availableLinearAccel * Math.abs(dirY);
+
+    // Calculate target speed for each axis using shared braking kinematics
     double currentSpeedX = Math.abs(currentVelocity.getX());
     double currentSpeedY = Math.abs(currentVelocity.getY());
-    double bufferedDistanceX = Math.max(0, distanceX - currentSpeedX * brakingReactionTime);
-    double bufferedDistanceY = Math.max(0, distanceY - currentSpeedY * brakingReactionTime);
-
-    // Calculate target speed for each axis using braking kinematics
-    double endSpeedXSq = effectiveEndSpeedX * effectiveEndSpeedX;
-    double endSpeedYSq = effectiveEndSpeedY * effectiveEndSpeedY;
-
-    double bufferedTargetSpeedX =
-        Math.sqrt(endSpeedXSq + 2.0 * availableLinearAccel * bufferedDistanceX);
-    double bufferedTargetSpeedY =
-        Math.sqrt(endSpeedYSq + 2.0 * availableLinearAccel * bufferedDistanceY);
-
-    // Use buffered if decelerating, full distance if accelerating
     double targetSpeedX =
-        bufferedTargetSpeedX < currentSpeedX
-            ? bufferedTargetSpeedX
-            : Math.sqrt(endSpeedXSq + 2.0 * availableLinearAccel * distanceX);
+        calculateAxisBrakingSpeed(
+            distanceX, currentSpeedX, brakingReactionTime, accelX, effectiveEndSpeedX);
     double targetSpeedY =
-        bufferedTargetSpeedY < currentSpeedY
-            ? bufferedTargetSpeedY
-            : Math.sqrt(endSpeedYSq + 2.0 * availableLinearAccel * distanceY);
-
-    // Cap at max velocity
-    targetSpeedX = Math.min(targetSpeedX, AccelerationLimiter.MAX_VELOCITY);
-    targetSpeedY = Math.min(targetSpeedY, AccelerationLimiter.MAX_VELOCITY);
+        calculateAxisBrakingSpeed(
+            distanceY, currentSpeedY, brakingReactionTime, accelY, effectiveEndSpeedY);
 
     // Build velocity vector with correct signs (toward goal)
     return new Translation2d(
@@ -230,45 +217,41 @@ public final class DriveToPointUtils {
       double angleError,
       double targetEndSpeed) {
 
-    double absAngleError = Math.abs(angleError);
+    double availableLinearAccel = calculateAvailableLinearAccel(targetOmega, angleError);
+    return calculateAxisBrakingSpeed(
+        distance, currentSpeed, brakingReactionTime, availableLinearAccel, targetEndSpeed);
+  }
 
-    // Calculate angular deceleration needed to stop rotation at target angle
-    // Using kinematic equation: alpha = omega^2 / (2 * theta)
-    // Capped at the physical maximum (using full friction budget for rotation)
-    double angularDecel =
-        absAngleError > ANGLE_EPSILON
-            ? Math.min((targetOmega * targetOmega) / (2.0 * absAngleError), MAX_ANGULAR_DECEL)
-            : 0.0;
+  /**
+   * Core braking calculation for a single axis.
+   *
+   * <p>Uses kinematic equation v² = v_end² + 2*a*d to calculate the speed needed to reach endSpeed
+   * after traveling distance. Applies reaction time buffering when decelerating.
+   *
+   * @param distance Distance to target
+   * @param currentSpeed Current speed along this axis (absolute value)
+   * @param reactionTime Expected delay before braking begins
+   * @param availableAccel Available acceleration for this axis
+   * @param endSpeed Target speed at destination
+   * @return Target speed that allows reaching endSpeed at destination
+   */
+  private static double calculateAxisBrakingSpeed(
+      double distance,
+      double currentSpeed,
+      double reactionTime,
+      double availableAccel,
+      double endSpeed) {
 
-    // Calculate how much friction budget is used by angular deceleration
-    // Convert angular to equivalent linear: a_linear = alpha * radius
-    double angularAccelContribution = angularDecel * AccelerationLimiter.DRIVE_BASE_RADIUS;
+    double bufferedDistance = Math.max(0, distance - currentSpeed * reactionTime);
+    double endSpeedSq = endSpeed * endSpeed;
+    double bufferedTargetSpeed = Math.sqrt(endSpeedSq + 2.0 * availableAccel * bufferedDistance);
 
-    // Remaining friction budget for linear braking (Pythagorean: sqrt(max^2 - angular^2))
-    double availableLinearAccel =
-        Math.sqrt(
-            Math.max(
-                0, MAX_FRICTION_ACCEL_SQ - angularAccelContribution * angularAccelContribution));
-
-    // Account for reaction time: we'll travel some distance before braking starts
-    // Reduce effective distance by how far we'll travel during reaction time
-    double bufferedDistance = Math.max(0, distance - currentSpeed * brakingReactionTime);
-
-    // Calculate target speed using kinematic equation: v² = v_target² + 2 * a * d
-    // This gives the speed needed to reach targetEndSpeed after traveling distance d
-    double targetEndSpeedSq = targetEndSpeed * targetEndSpeed;
-    double bufferedTargetSpeed =
-        Math.min(
-            Math.sqrt(targetEndSpeedSq + 2.0 * availableLinearAccel * bufferedDistance),
-            AccelerationLimiter.MAX_VELOCITY);
-
-    // If we need to slow down, use the conservative buffered value
-    // Otherwise, we can use the full distance (we're accelerating, not braking)
+    // Use buffered if decelerating, full distance if accelerating
     if (bufferedTargetSpeed < currentSpeed) {
-      return bufferedTargetSpeed;
+      return Math.min(bufferedTargetSpeed, AccelerationLimiter.MAX_VELOCITY);
     } else {
       return Math.min(
-          Math.sqrt(targetEndSpeedSq + 2.0 * availableLinearAccel * distance),
+          Math.sqrt(endSpeedSq + 2.0 * availableAccel * distance),
           AccelerationLimiter.MAX_VELOCITY);
     }
   }
@@ -281,7 +264,7 @@ public final class DriveToPointUtils {
    * @param c Third value
    * @return The smallest of the three values
    */
-  public static double min(double a, double b, double c) {
+  private static double min(double a, double b, double c) {
     return Math.min(a, Math.min(b, c));
   }
 }

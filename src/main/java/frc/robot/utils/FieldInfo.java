@@ -19,6 +19,46 @@ public final class FieldInfo {
     ROTATE
   }
 
+  /** Wrapper for Pose2d in blue alliance coordinates. Auto-flips on get(). */
+  public record BluePose(Pose2d blue) {
+    public Pose2d get() {
+      return flip(blue);
+    }
+
+    public BluePose(double x, double y, Rotation2d rotation) {
+      this(new Pose2d(x, y, rotation));
+    }
+
+    public BluePose(Translation2d translation, Rotation2d rotation) {
+      this(new Pose2d(translation, rotation));
+    }
+  }
+
+  /** Wrapper for Translation2d in blue alliance coordinates. Auto-flips on get(). */
+  public record BlueTranslation(Translation2d blue) {
+    public Translation2d get() {
+      return flip(blue);
+    }
+
+    public BlueTranslation(double x, double y) {
+      this(new Translation2d(x, y));
+    }
+  }
+
+  /** Wrapper for Rotation2d in blue alliance frame. Auto-flips on get(). */
+  public record BlueRotation(Rotation2d blue) {
+    public Rotation2d get() {
+      return flip(blue);
+    }
+  }
+
+  /** Wrapper for Y coordinate in blue alliance frame. Auto-flips on get(). */
+  public record BlueY(double blue) {
+    public double get() {
+      return flipY(blue);
+    }
+  }
+
   private static AprilTagFieldLayout layout;
   private static SymmetryType symmetryType;
 
@@ -89,6 +129,33 @@ public final class FieldInfo {
     return layout;
   }
 
+  // ==================== Field Positions (Blue Alliance Coordinates) ====================
+
+  /** Hub/target position for turret tracking. */
+  public static final BlueTranslation HUB_POSITION = new BlueTranslation(4.621, 4.030);
+
+  /** Y-axis lock position on the right side. */
+  public static final BlueY AXIS_LOCK_Y_RIGHT = new BlueY(0.639445);
+
+  /** Y-axis lock position on the left side. */
+  public static BlueY axisLockYLeft() {
+    return new BlueY(width().in(Meters) - 0.639445);
+  }
+
+  /** Rotation preset: facing toward opponent alliance wall. */
+  public static final BlueRotation FACING_FORWARD = new BlueRotation(Rotation2d.kZero);
+
+  /** Rotation preset: facing left (relative to blue alliance driver station). */
+  public static final BlueRotation FACING_LEFT = new BlueRotation(Rotation2d.fromDegrees(90));
+
+  /** Rotation preset: facing right (relative to blue alliance driver station). */
+  public static final BlueRotation FACING_RIGHT = new BlueRotation(Rotation2d.fromDegrees(-90));
+
+  /** Rotation preset: facing toward own alliance wall. */
+  public static final BlueRotation FACING_BACK = new BlueRotation(Rotation2d.k180deg);
+
+  // ==================== Flip Utilities ====================
+
   /** Returns true if coordinates should be flipped (red alliance). */
   private static boolean shouldFlip() {
     return DriverStation.getAlliance().map(alliance -> alliance == Alliance.Red).orElse(false);
@@ -147,11 +214,19 @@ public final class FieldInfo {
     return x;
   }
 
+  public static double flipX(Distance x) {
+    return flipX(x.in(Meters));
+  }
+
   /** Flips a Y coordinate based on alliance. Only flipped for ROTATE symmetry. */
   public static double flipY(double y) {
     if (shouldFlip() && symmetryType == SymmetryType.ROTATE) {
       return layout.getFieldWidth() - y;
     }
     return y;
+  }
+
+  public static double flipY(Distance y) {
+    return flipY(y.in(Meters));
   }
 }

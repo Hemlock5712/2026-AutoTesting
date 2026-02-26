@@ -187,29 +187,21 @@ public final class AccelerationLimiter {
   }
 
   /**
-   * Normalizes speeds so no swerve module exceeds voltage-compensated max velocity.
+   * Normalizes speeds so no swerve module exceeds max velocity.
    *
    * <p>Each module's speed is the vector sum of translation and rotation. The worst case is when
    * they add constructively, so we check: translation + abs(omega) * radius
    *
-   * <p>Max velocity is scaled by estimated battery OCV to prevent commanding unachievable speeds
-   * when the battery is depleted. OCV estimation compensates for voltage sag during acceleration,
-   * so this only limits speed when the battery is genuinely low.
-   *
    * @param speeds The chassis speeds to normalize
-   * @return Normalized speeds where no module exceeds effective max velocity
+   * @return Normalized speeds where no module exceeds max velocity
    */
   public static ChassisSpeeds normalizeSpeeds(ChassisSpeeds speeds) {
     double translationSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-
-    // Scale max velocity by battery OCV (capped at 1.0 so we never exceed nominal)
-    double effectiveMaxVelocity = MAX_VELOCITY;
-
     double maxModuleSpeed =
         translationSpeed + Math.abs(speeds.omegaRadiansPerSecond) * DRIVE_BASE_RADIUS;
 
-    if (maxModuleSpeed > effectiveMaxVelocity) {
-      return speeds.times(effectiveMaxVelocity / maxModuleSpeed);
+    if (maxModuleSpeed > MAX_VELOCITY) {
+      return speeds.times(MAX_VELOCITY / maxModuleSpeed);
     }
     return speeds;
   }
