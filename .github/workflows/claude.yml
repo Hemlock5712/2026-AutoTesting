@@ -1,6 +1,9 @@
 name: Claude PR Review
 
 on:
+  # Trigger on push to any branch
+  push:
+    branches: ['*']
   # Trigger when someone comments @claude on a PR or issue
   issue_comment:
     types: [created]
@@ -20,6 +23,7 @@ jobs:
   claude-review:
     # For comment triggers, only run if @claude is mentioned
     if: |
+      github.event_name == 'push' ||
       github.event_name == 'pull_request' ||
       contains(github.event.comment.body, '@claude')
     runs-on: ubuntu-latest
