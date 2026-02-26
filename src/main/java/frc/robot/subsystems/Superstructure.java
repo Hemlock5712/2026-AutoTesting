@@ -44,6 +44,7 @@ public class Superstructure {
 
   // ==================== Coordinated Commands ====================
 
+  /** Starts the shooting sequence: spins up spindexer, flywheel, then kicks when ready. */
   public Command beginShoot() {
     return Commands.sequence(
         spindexer.startCommand(),
@@ -52,11 +53,30 @@ public class Superstructure {
             spindexer.startKickerCommand(), Commands.none(), () -> flywheel.isAtTarget()));
   }
 
+  /** Deploys the intake mechanism. (Not yet implemented) */
   public Command deployIntake() {
     return Commands.none();
   }
 
+  /** Retracts the intake mechanism. (Not yet implemented) */
   public Command RetractIntake() {
     return Commands.none();
+  }
+
+  // ==================== Getters ====================
+
+  /** Returns the flywheel subsystem. */
+  public Flywheel getFlywheel() {
+    return flywheel;
+  }
+
+  /** Returns the turret subsystem. */
+  public Turret getTurret() {
+    return turret;
+  }
+
+  /** Returns the spindexer subsystem. */
+  public Spindexer getSpindexer() {
+    return spindexer;
   }
 }
