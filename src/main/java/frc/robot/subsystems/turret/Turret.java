@@ -3,9 +3,12 @@ package frc.robot.subsystems.turret;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.CANBus;
+import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
@@ -28,46 +31,145 @@ import java.util.function.Supplier;
 @Logged
 public class Turret extends SubsystemBase {
 
-  protected final TalonFX leader = new TalonFX(41, CANBus.roboRIO());
+  // CAN bus - using canivore for all turret devices
+  private final CANBus canivore = new CANBus("canivore");
+
+  // Motor
+  protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, canivore);
+
+  // Dual absolute encoders for CRT positioning
+  protected final CANcoder encoder1 = new CANcoder(DualEncoderCRT.ENCODER_1_ID, canivore);
+  protected final CANcoder encoder2 = new CANcoder(DualEncoderCRT.ENCODER_2_ID, canivore);
+
+  // CRT calculator for absolute position determination
+  private final DualEncoderCRT crt;
 
   private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
 
-  protected final double GEAR_RATIO = 110.0 / 25.0 * 7.0;
   private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
+  protected CANcoderConfiguration encoder1Config = new CANcoderConfiguration();
+  protected CANcoderConfiguration encoder2Config = new CANcoderConfiguration();
 
+  private boolean positionInitialized = false;
+
+  // Alerts
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
+  Alert encoder1ConfigAlert = new Alert("Turret Encoder 1 Configuration Failed", AlertType.kError);
+  Alert encoder2ConfigAlert = new Alert("Turret Encoder 2 Configuration Failed", AlertType.kError);
+  Alert crtInitAlert = new Alert("Turret CRT Position Initialization Failed", AlertType.kWarning);
 
   @NotLogged
   public static final Pose3d TURRET_HOLE_CENTER =
       new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
 
   public Turret() {
+    // Initialize CRT calculator using default constants
+    crt = new DualEncoderCRT(encoder1, encoder2);
 
-    config.Feedback.SensorToMechanismRatio = GEAR_RATIO;
+    configureEncoders();
+    configureMotor();
+    initializePosition();
+  }
+
+  /** Configure both CANcoder absolute encoders. */
+  private void configureEncoders() {
+    // Configure Encoder 1 (21:1 from mechanism) - set magnet offset for calibration
+    encoder1Config.MagnetSensor.MagnetOffset = DualEncoderCRT.ENCODER_1_OFFSET;
+
+    // Configure Encoder 2 (22:1 from mechanism) - set magnet offset for calibration
+    encoder2Config.MagnetSensor.MagnetOffset = DualEncoderCRT.ENCODER_2_OFFSET;
+
+    // Apply encoder configurations
+    boolean enc1Success = encoder1.getConfigurator().apply(encoder1Config).isOK();
+    boolean enc2Success = encoder2.getConfigurator().apply(encoder2Config).isOK();
+
+    encoder1ConfigAlert.set(!enc1Success);
+    encoder2ConfigAlert.set(!enc2Success);
+  }
+
+  /** Configure motor with FusedCANcoder feedback using encoder 1. */
+  private void configureMotor() {
+    // Configure FusedCANcoder with encoder 1 as feedback source
+    // This fuses encoder data with motor rotor for best accuracy and backlash compensation
+    config.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
+    config.Feedback.FeedbackRemoteSensorID = encoder1.getDeviceID();
+
+    // RotorToSensorRatio: motor rotations per encoder rotation
+    // Motor spins 30.8/21 = 1.467 times per encoder 1 rotation
+    config.Feedback.RotorToSensorRatio = DualEncoderCRT.MOTOR_TO_ENCODER_1_RATIO;
+
+    // SensorToMechanismRatio: encoder rotations per mechanism rotation
+    // Encoder 1 spins 21 times per mechanism rotation
+    config.Feedback.SensorToMechanismRatio = DualEncoderCRT.ENCODER_1_MECHANISM_RATIO;
 
     // PID gains
     config.Slot0.kS = 1.0; // Static friction compensation
     config.Slot0.kP = 20; // Proportional gain
-    config.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
+    config.Slot0.kD = 0; // Derivative gain
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
-    // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
-    // rotations
-    // Cruise velocity: max turret speed during motion profile (RPS)
-    // Acceleration: how quickly the turret speeds up/slows down (RPS²)
+    // MotionMagic settings - units are mechanism rotations
     config.MotionMagic.MotionMagicCruiseVelocity = 30.0; // RPS
-    config.MotionMagic.MotionMagicAcceleration = 60.0; // RPS²
+    config.MotionMagic.MotionMagicAcceleration = 60.0; // RPS^2
 
-    // Soft limits to prevent exceeding ±180° physical range
+    // Soft limits to prevent exceeding +/-180 degree physical range
     config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
-    config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.5; // +180°
+    config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = DualEncoderCRT.FORWARD_LIMIT;
     config.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
-    config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = -0.5; // -180°
+    config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = DualEncoderCRT.REVERSE_LIMIT;
 
     boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
     motorConfigAlert.set(!success);
+  }
+
+  /**
+   * Initialize the motor position using CRT calculation from dual encoders. This should be called
+   * once at startup when the turret is stationary.
+   */
+  private void initializePosition() {
+    // Calculate absolute mechanism position using CRT
+    double mechanismPosition = crt.calculateMechanismPosition();
+
+    if (Double.isNaN(mechanismPosition)) {
+      crtInitAlert.set(true);
+      positionInitialized = false;
+      return;
+    }
+
+    // Set the motor's internal position to match the calculated position
+    // This does NOT affect the CANcoder - it only syncs the motor's position tracking
+    leader.setPosition(mechanismPosition);
+
+    crtInitAlert.set(false);
+    positionInitialized = true;
+  }
+
+  /**
+   * Re-initialize position using CRT. Call this if CRT needs recalibration. Should only be called
+   * when turret is stationary.
+   */
+  public void reinitializePosition() {
+    initializePosition();
+  }
+
+  /**
+   * Check if position was successfully initialized via CRT.
+   *
+   * @return true if position is initialized
+   */
+  public boolean isPositionInitialized() {
+    return positionInitialized;
+  }
+
+  /**
+   * Get raw encoder readings for calibration purposes.
+   *
+   * @return Array of [encoder1, encoder2] raw absolute positions
+   */
+  public double[] getRawEncoderReadings() {
+    return crt.getRawEncoderReadings();
   }
 
   private void trackHub(SwerveDriveState currentState) {
@@ -85,7 +187,7 @@ public class Turret extends SubsystemBase {
 
     // Calculate turret angle relative to robot forward (oppose robot rotation)
     double turretToTarget = angleToTargetField.minus(robotPose.getRotation()).getRotations();
-    // Wrap angle to [-0.5, 0.5] rotations (±180°) for shortest path
+    // Wrap angle to [-0.5, 0.5] rotations (+/-180 degrees) for shortest path
     turretToTarget = MathUtil.inputModulus(turretToTarget, -0.5, 0.5);
 
     setAngle(Rotations.of(turretToTarget));

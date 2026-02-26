@@ -104,7 +104,7 @@ public class TurretSIM extends Turret {
     turretSim =
         new SingleJointedArmSim(
             dcMotor,
-            GEAR_RATIO,
+            DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO,
             MOI,
             ARM_LENGTH,
             MIN_ANGLE_RAD, // -180 degrees
@@ -137,10 +137,20 @@ public class TurretSIM extends Turret {
         RadiansPerSecond.of(turretSim.getVelocityRadPerSec()).in(RotationsPerSecond);
 
     // Update TalonFX sim state (convert to rotor units)
-    double rotorPosition = mechanismPosition * GEAR_RATIO;
-    double rotorVelocity = mechanismVelocity * GEAR_RATIO;
+    double rotorPosition = mechanismPosition * DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO;
+    double rotorVelocity = mechanismVelocity * DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO;
     leader.getSimState().setRawRotorPosition(rotorPosition);
     leader.getSimState().setRotorVelocity(rotorVelocity);
+
+    // Simulate encoder 1 (21 rotations per mechanism rotation)
+    double encoder1Position = (mechanismPosition * DualEncoderCRT.ENCODER_1_MECHANISM_RATIO) % 1.0;
+    if (encoder1Position < 0) encoder1Position += 1.0;
+    encoder1.getSimState().setRawPosition(encoder1Position);
+
+    // Simulate encoder 2 (22 rotations per mechanism rotation)
+    double encoder2Position = (mechanismPosition * DualEncoderCRT.ENCODER_2_MECHANISM_RATIO) % 1.0;
+    if (encoder2Position < 0) encoder2Position += 1.0;
+    encoder2.getSimState().setRawPosition(encoder2Position);
 
     // Publish telemetry
     Robot.telemetry().log("Turret Sim/Current (A)", turretSim.getCurrentDrawAmps());
