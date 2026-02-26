@@ -88,6 +88,8 @@ public class RobotContainer {
 
     // Add autonomous mode options to dashboard
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
+    // AutoHumanPlayerSIMONLY
+    autoChooser.addOption("AutoHumanPlayerSIMONLY", autoRoutines.AutoHumanPlayerSIMONLY());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

@@ -35,6 +35,8 @@ public class DriveToPoint extends Command {
   private double rotationTolerance = Math.toRadians(2); // radians
   private double maxSpeed = Double.POSITIVE_INFINITY;
   private double endTargetSpeed = 0; // m/s (0 = stop at endpoint)
+  private double maxEndSpeedX = Double.POSITIVE_INFINITY; // m/s (no constraint)
+  private double maxEndSpeedY = Double.POSITIVE_INFINITY; // m/s (no constraint)
 
   // State tracking between execute cycles
   private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
@@ -80,13 +82,13 @@ public class DriveToPoint extends Command {
     lastTime = currentTime;
 
     Pose2d currentPose = swerve.getPose();
-    Pose2d goal = goalPose.get(); // Cache to avoid calling supplier twice
-    Translation2d toGoal = goal.getTranslation().minus(currentPose.getTranslation());
+    Translation2d toGoal = goalPose.get().getTranslation().minus(currentPose.getTranslation());
     double distance = toGoal.getNorm();
 
     // Calculate rotation first (affects friction budget for translation)
     double angleError =
-        MathUtil.angleModulus(goal.getRotation().minus(currentPose.getRotation()).getRadians());
+        MathUtil.angleModulus(
+            goalPose.get().getRotation().minus(currentPose.getRotation()).getRadians());
 
     // Cache values for isFinished() to avoid redundant calculations
     cachedDistance = distance;
@@ -105,24 +107,29 @@ public class DriveToPoint extends Command {
               angleError, distance, currentSpeed, currentOmega, BRAKING_REACTION_TIME);
     }
 
-    // Calculate translation velocity
+    // Calculate translation velocity with per-axis end speed constraints
     Translation2d targetLinearVel = new Translation2d();
     if (distance >= positionTolerance) {
+      Translation2d currentVelocity =
+          new Translation2d(
+              lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
 
-      double targetSpeed =
-          DriveToPointUtils.calculateBrakingTargetSpeed(
-              distance,
-              currentSpeed,
+      targetLinearVel =
+          DriveToPointUtils.calculatePerAxisBrakingVelocity(
+              toGoal,
+              currentVelocity,
               BRAKING_REACTION_TIME,
               targetOmega,
               angleError,
-              endTargetSpeed);
+              endTargetSpeed,
+              maxEndSpeedX,
+              maxEndSpeedY);
 
-      // Apply configured speed limit
-      targetSpeed = Math.min(targetSpeed, maxSpeed);
-
-      // Direction vector times speed
-      targetLinearVel = toGoal.div(distance).times(targetSpeed);
+      // Apply configured overall speed limit
+      double targetSpeed = targetLinearVel.getNorm();
+      if (targetSpeed > maxSpeed) {
+        targetLinearVel = targetLinearVel.times(maxSpeed / targetSpeed);
+      }
     }
 
     // Normalize to prevent module saturation
@@ -222,6 +229,57 @@ public class DriveToPoint extends Command {
   public DriveToPoint withWaypointEnding(double speed, double tolerance) {
     this.endTargetSpeed = speed;
     this.positionTolerance = tolerance;
+    return this;
+  }
+
+  public DriveToPoint withTolerance(double tolerance) {
+    this.positionTolerance = tolerance;
+    return this;
+  }
+
+  /**
+   * Sets maximum X velocity at the endpoint (field-centric).
+   *
+   * <p>This is a MAXIMUM constraint - the robot may arrive at or below this speed. Use this to
+   * ensure the robot approaches with limited velocity in a specific field direction, such as
+   * approaching a field edge with controlled X velocity to prevent overshooting.
+   *
+   * @param maxSpeedX Maximum X velocity magnitude in m/s (POSITIVE_INFINITY = no constraint)
+   * @return This command for chaining
+   */
+  public DriveToPoint withMaxEndSpeedX(double maxSpeedX) {
+    this.maxEndSpeedX = Math.abs(maxSpeedX);
+    return this;
+  }
+
+  /**
+   * Sets maximum Y velocity at the endpoint (field-centric).
+   *
+   * <p>This is a MAXIMUM constraint - the robot may arrive at or below this speed. Use this to
+   * ensure the robot approaches with limited velocity in a specific field direction, such as
+   * approaching a field edge with controlled Y velocity to prevent overshooting.
+   *
+   * @param maxSpeedY Maximum Y velocity magnitude in m/s (POSITIVE_INFINITY = no constraint)
+   * @return This command for chaining
+   */
+  public DriveToPoint withMaxEndSpeedY(double maxSpeedY) {
+    this.maxEndSpeedY = Math.abs(maxSpeedY);
+    return this;
+  }
+
+  /**
+   * Sets maximum X and Y velocities at the endpoint (field-centric).
+   *
+   * <p>These are MAXIMUM constraints - the robot may arrive at or below these speeds. Use this to
+   * shape the approach trajectory, ensuring the robot arrives moving in a specific direction.
+   *
+   * @param maxSpeedX Maximum X velocity magnitude in m/s (POSITIVE_INFINITY = no constraint)
+   * @param maxSpeedY Maximum Y velocity magnitude in m/s (POSITIVE_INFINITY = no constraint)
+   * @return This command for chaining
+   */
+  public DriveToPoint withMaxEndSpeeds(double maxSpeedX, double maxSpeedY) {
+    this.maxEndSpeedX = Math.abs(maxSpeedX);
+    this.maxEndSpeedY = Math.abs(maxSpeedY);
     return this;
   }
 }

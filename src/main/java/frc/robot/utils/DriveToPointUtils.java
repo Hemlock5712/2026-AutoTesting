@@ -1,12 +1,13 @@
 package frc.robot.utils;
 
+import edu.wpi.first.math.geometry.Translation2d;
 import frc.robot.commands.AccelerationLimiter;
 
 /**
  * Shared physics calculations for drive-to-point commands.
  *
- * <p>Contains methods for calculating target angular velocity and braking speeds. Used by the
- * DriveToPoint command.
+ * <p>Contains methods for calculating target angular velocity and braking speeds. Used by both
+ * DriveToPoint and DriveToPointWaypoints commands.
  */
 public final class DriveToPointUtils {
 
@@ -24,6 +25,33 @@ public final class DriveToPointUtils {
       AccelerationLimiter.MAX_FRICTION_ACCEL * AccelerationLimiter.MAX_FRICTION_ACCEL;
 
   private DriveToPointUtils() {}
+
+  /**
+   * Calculates available linear acceleration after angular deceleration consumes its share.
+   *
+   * <p>Uses Pythagorean constraint: total acceleration² = linear² + angular². Since angular
+   * deceleration is needed to stop rotation at the target angle, the remaining friction budget is
+   * available for linear braking.
+   *
+   * @param targetOmega Planned angular velocity in rad/s
+   * @param angleError Remaining angle error in radians
+   * @return Available linear acceleration in m/s²
+   */
+  public static double calculateAvailableLinearAccel(double targetOmega, double angleError) {
+    double absAngleError = Math.abs(angleError);
+
+    // Calculate angular deceleration needed to stop rotation at target angle
+    // Using kinematic equation: alpha = omega² / (2 * theta), capped at physical max
+    double angularDecel =
+        absAngleError > ANGLE_EPSILON
+            ? Math.min((targetOmega * targetOmega) / (2.0 * absAngleError), MAX_ANGULAR_DECEL)
+            : 0.0;
+
+    // Convert angular to linear contribution and compute remaining budget
+    double angularAccelContribution = angularDecel * AccelerationLimiter.DRIVE_BASE_RADIUS;
+    return Math.sqrt(
+        Math.max(0, MAX_FRICTION_ACCEL_SQ - angularAccelContribution * angularAccelContribution));
+  }
 
   /**
    * Calculates target angular velocity using time-synchronized approach.
@@ -70,17 +98,107 @@ public final class DriveToPointUtils {
     // Shrink distance by how far we'll travel during reaction delay
     double effectiveDistance = Math.max(0, distance - currentSpeed * reactionBuffer);
 
+    // Estimate available linear acceleration (accounting for friction shared with rotation)
+    // Use current omega to estimate - this creates a feedback loop that converges
+    double availableLinearAccel = calculateAvailableLinearAccel(currentOmega, angleError);
+
     // Estimate how long driving will take (pick the longer/safer estimate)
     double brakingTime =
-        Math.sqrt(2.0 * effectiveDistance / AccelerationLimiter.MAX_FRICTION_ACCEL);
+        availableLinearAccel > ANGLE_EPSILON
+            ? Math.sqrt(2.0 * effectiveDistance / availableLinearAccel)
+            : Double.POSITIVE_INFINITY;
     double cruiseTime = currentSpeed > 0 ? effectiveDistance / currentSpeed : brakingTime;
     double driveTime = Math.max(brakingTime, cruiseTime);
 
     // Rotation speed needed to finish in that time
-    double timeBasedOmega = 2.0 * absAngle / driveTime;
+    double timeBasedOmega = driveTime > 0 ? 2.0 * absAngle / driveTime : HARDWARE_MAX_OMEGA;
 
     // Use the smallest limit, with correct +/- direction
     return Math.copySign(min(maxStoppingOmega, timeBasedOmega, HARDWARE_MAX_OMEGA), angleError);
+  }
+
+  /**
+   * Calculates per-axis target velocity for braking with independent X/Y end speed constraints.
+   *
+   * <p>This method calculates braking speeds for each axis independently, allowing the robot to
+   * approach a target with controlled velocity in each field-centric direction. This is useful for
+   * approaching field edges or scoring positions where you want to limit velocity in one direction.
+   *
+   * @param toGoal Vector from current position to goal (field-centric)
+   * @param currentVelocity Current velocity for reaction time buffering
+   * @param brakingReactionTime Expected delay before braking begins
+   * @param targetOmega Planned angular velocity (reduces available braking force)
+   * @param angleError Remaining angle error (determines rotation deceleration needs)
+   * @param endTargetSpeed Scalar end speed (projected onto axes based on direction)
+   * @param maxEndSpeedX Maximum X velocity at endpoint (POSITIVE_INFINITY = no constraint)
+   * @param maxEndSpeedY Maximum Y velocity at endpoint (POSITIVE_INFINITY = no constraint)
+   * @return Target velocity vector that satisfies per-axis constraints
+   */
+  public static Translation2d calculatePerAxisBrakingVelocity(
+      Translation2d toGoal,
+      Translation2d currentVelocity,
+      double brakingReactionTime,
+      double targetOmega,
+      double angleError,
+      double endTargetSpeed,
+      double maxEndSpeedX,
+      double maxEndSpeedY) {
+
+    double distance = toGoal.getNorm();
+    if (distance < ANGLE_EPSILON) {
+      return new Translation2d();
+    }
+
+    // Calculate available linear acceleration after angular deceleration
+    double availableLinearAccel = calculateAvailableLinearAccel(targetOmega, angleError);
+
+    // Get displacement components
+    double toGoalX = toGoal.getX();
+    double toGoalY = toGoal.getY();
+    double distanceX = Math.abs(toGoalX);
+    double distanceY = Math.abs(toGoalY);
+
+    // Calculate effective end speed constraint for each axis
+    // Project scalar endTargetSpeed onto each axis, then apply per-axis max constraint
+    double dirX = toGoalX / distance;
+    double dirY = toGoalY / distance;
+    double projectedEndSpeedX = endTargetSpeed * Math.abs(dirX);
+    double projectedEndSpeedY = endTargetSpeed * Math.abs(dirY);
+    double effectiveEndSpeedX = Math.min(projectedEndSpeedX, maxEndSpeedX);
+    double effectiveEndSpeedY = Math.min(projectedEndSpeedY, maxEndSpeedY);
+
+    // Buffer distances for reaction time (per-axis)
+    double currentSpeedX = Math.abs(currentVelocity.getX());
+    double currentSpeedY = Math.abs(currentVelocity.getY());
+    double bufferedDistanceX = Math.max(0, distanceX - currentSpeedX * brakingReactionTime);
+    double bufferedDistanceY = Math.max(0, distanceY - currentSpeedY * brakingReactionTime);
+
+    // Calculate target speed for each axis using braking kinematics
+    double endSpeedXSq = effectiveEndSpeedX * effectiveEndSpeedX;
+    double endSpeedYSq = effectiveEndSpeedY * effectiveEndSpeedY;
+
+    double bufferedTargetSpeedX =
+        Math.sqrt(endSpeedXSq + 2.0 * availableLinearAccel * bufferedDistanceX);
+    double bufferedTargetSpeedY =
+        Math.sqrt(endSpeedYSq + 2.0 * availableLinearAccel * bufferedDistanceY);
+
+    // Use buffered if decelerating, full distance if accelerating
+    double targetSpeedX =
+        bufferedTargetSpeedX < currentSpeedX
+            ? bufferedTargetSpeedX
+            : Math.sqrt(endSpeedXSq + 2.0 * availableLinearAccel * distanceX);
+    double targetSpeedY =
+        bufferedTargetSpeedY < currentSpeedY
+            ? bufferedTargetSpeedY
+            : Math.sqrt(endSpeedYSq + 2.0 * availableLinearAccel * distanceY);
+
+    // Cap at max velocity
+    targetSpeedX = Math.min(targetSpeedX, AccelerationLimiter.MAX_VELOCITY);
+    targetSpeedY = Math.min(targetSpeedY, AccelerationLimiter.MAX_VELOCITY);
+
+    // Build velocity vector with correct signs (toward goal)
+    return new Translation2d(
+        Math.copySign(targetSpeedX, toGoalX), Math.copySign(targetSpeedY, toGoalY));
   }
 
   /**

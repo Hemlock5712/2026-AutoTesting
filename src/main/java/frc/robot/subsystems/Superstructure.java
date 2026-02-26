@@ -91,4 +91,12 @@ public class Superstructure extends SubsystemBase {
   public Command aimCommand() {
     return idle().alongWith(turret.trackHubCommand(driveState));
   }
+
+  public Command deployIntake() {
+    return Commands.none();
+  }
+
+  public Command RetractIntake() {
+    return Commands.none();
+  }
 }

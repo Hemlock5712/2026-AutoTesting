@@ -47,6 +47,26 @@ public class AutoRoutines {
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(0, 0, Rotation2d.kZero))));
   }
 
+  // 33.25
+  public Command AutoHumanPlayerSIMONLY() {
+    return Commands.sequence(
+        Commands.print("=== AutoHumanPlayerSIMONLY ==="),
+        autoCommands.resetPose(new Pose2d(new Translation2d(4.400169, 0.639445), Rotation2d.kZero)),
+        autoCommands
+            .driveTo(() -> FieldInfo.flip(new Pose2d(6, 0.639445, Rotation2d.kZero)))
+            .withTolerance(.15),
+        autoCommands
+            .driveTo(() -> FieldInfo.flip(new Pose2d(8, 3.0, Rotation2d.kCCW_90deg)))
+            .withWaypointEnding(0),
+        autoCommands
+            .driveTo(() -> FieldInfo.flip(new Pose2d(6, 0.639445, Rotation2d.k180deg)))
+            .withWaypointEnding(0),
+        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(2, 0.639445, Rotation2d.k180deg))),
+        superstructure.aimCommand(),
+        superstructure.beginShoot(),
+        Commands.waitSeconds(5));
+  }
+
   public Command DrivePointInRight(Supplier<Rotation2d> rotation) {
     return Commands.sequence(
         autoCommands.driveTo(
