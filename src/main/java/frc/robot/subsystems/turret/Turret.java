@@ -4,7 +4,7 @@ import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.PositionVoltage;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
@@ -15,12 +15,12 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.constants.FieldConstants;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
@@ -30,10 +30,12 @@ public class Turret extends SubsystemBase {
 
   protected final TalonFX leader = new TalonFX(41, CANBus.roboRIO());
 
-  private final PositionVoltage angleOut = new PositionVoltage(0);
+  private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
 
   protected final double GEAR_RATIO = 110.0 / 25.0 * 7.0;
   private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
+
+  protected TalonFXConfiguration config = new TalonFXConfiguration();
 
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
 
@@ -42,7 +44,6 @@ public class Turret extends SubsystemBase {
       new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
 
   public Turret() {
-    TalonFXConfiguration config = new TalonFXConfiguration();
 
     config.Feedback.SensorToMechanismRatio = GEAR_RATIO;
 
@@ -59,16 +60,28 @@ public class Turret extends SubsystemBase {
     config.MotionMagic.MotionMagicCruiseVelocity = 30.0; // RPS
     config.MotionMagic.MotionMagicAcceleration = 60.0; // RPS²
 
+    // Soft limits to prevent exceeding ±180° physical range
+    config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
+    config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.5; // +180°
+    config.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
+    config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = -0.5; // -180°
+
     boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
     motorConfigAlert.set(!success);
   }
 
   private void trackHub(SwerveDriveState currentState) {
     Pose2d robotPose = currentState.Pose;
+    Translation2d hubPosition = FieldInfo.HUB_POSITION.get();
+    Translation2d toTarget = hubPosition.minus(robotPose.getTranslation());
+
+    // Skip tracking if robot is too close to hub (avoids numerical instability)
+    if (toTarget.getNorm() < 0.1) {
+      return;
+    }
 
     // Calculate the angle to the target in field coordinates
-    Rotation2d angleToTargetField =
-        FieldInfo.flip(FieldConstants.HUB_POSITION).minus(robotPose.getTranslation()).getAngle();
+    Rotation2d angleToTargetField = toTarget.getAngle();
 
     // Calculate turret angle relative to robot forward (oppose robot rotation)
     double turretToTarget = angleToTargetField.minus(robotPose.getRotation()).getRotations();

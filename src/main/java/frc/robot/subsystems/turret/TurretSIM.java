@@ -1,19 +1,21 @@
 package frc.robot.subsystems.turret;
 
+import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
-import com.ctre.phoenix6.configs.FeedbackConfigs;
-import com.ctre.phoenix6.configs.MotionMagicConfigs;
-import com.ctre.phoenix6.configs.Slot0Configs;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N2;
-import edu.wpi.first.math.system.LinearSystem;
+import com.ctre.phoenix6.signals.InvertedValue;
+import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.BatterySim;
-import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj.simulation.RoboRioSim;
+import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Robot;
 import frc.robot.utils.MechanismUtil;
@@ -22,18 +24,27 @@ import frc.robot.utils.MechanismUtil;
  * Simulation implementation of the turret subsystem.
  *
  * <p>This class simulates a turret mechanism (rotating base for aiming) and provides visual
- * feedback through SmartDashboard. It uses WPILib's DCMotorSim for physics simulation and
- * Mechanism2d for visualization.
+ * feedback through SmartDashboard. Uses SingleJointedArmSim for physics with built-in position
+ * limits at +/-180 degrees.
  */
 public class TurretSIM extends Turret {
 
   // ==================== Physical Constants ====================
 
   /**
-   * Moment of inertia of the turret in kg⋅m² Calculated for 10 lb mass on 10" diameter ring: I = m
-   * * r² = 4.536 kg * (0.127 m)² ≈ 0.073 kg⋅m²
+   * Moment of inertia of the turret in kg*m^2. Calculated for 10 lb mass on 10" diameter ring: I =
+   * m * r^2 = 4.536 kg * (0.127 m)^2 = 0.073 kg*m^2
    */
   private static final double MOI = 0.073;
+
+  /** Arm length for MOI calculation (not critical since no gravity) */
+  private static final double ARM_LENGTH = 0.25;
+
+  /** Minimum angle in radians (-180 degrees) */
+  private static final double MIN_ANGLE_RAD = -Math.PI;
+
+  /** Maximum angle in radians (+180 degrees) */
+  private static final double MAX_ANGLE_RAD = Math.PI;
 
   /** Simulation update period in seconds (20ms = standard robot loop) */
   private static final double SIM_PERIOD_SECONDS = 0.020;
@@ -41,27 +52,31 @@ public class TurretSIM extends Turret {
   /** Visual length of the turret arm in pixels */
   private static final double TURRET_ARM_LENGTH = 0.1;
 
+  // Offset from turret pivot to shooter mechanism (for 3D visualization)
+  private static final double SHOOTER_X_OFFSET = 0.111203; // meters
+  private static final double SHOOTER_Z_OFFSET = 0.05698; // meters
+  private static final double SHOOTER_PITCH_RAD = Degrees.of(75).in(Radians);
+
   // ==================== Sim-only Control Tuning ====================
-  // Sim dynamics differ from real hardware (friction/backlash/latency), so tune
-  // separately.
   private static final double SIM_KS = 0.1;
-  private static final double SIM_KP = 1024.0;
-  private static final double SIM_KD = 160.0;
+  private static final double SIM_KP = 32.0;
+  private static final double SIM_KD = 1;
   private static final double SIM_CRUISE_RPS = 100.0;
   private static final double SIM_ACCEL_RPS2 = 300.0;
 
   // ==================== Simulation Components ====================
 
-  /** DC motor model (Kraken X44 FOC) - using 1 motor as per hardware config */
+  /** DC motor model (Kraken X44 FOC) */
   private final DCMotor dcMotor = DCMotor.getKrakenX44Foc(1);
 
-  /** Physics simulation of the turret mechanism */
-  private final DCMotorSim motorSim;
+  /** Physics simulation using SingleJointedArmSim (handles position limits) */
+  private final SingleJointedArmSim turretSim;
 
   /** Mechanism visualization helper */
   private final MechanismUtil.TurretMechanism turretMechanism;
 
-  protected double GEAR_RATIO = 110.0 / 50.0;
+  @Logged(name = "Turret Mechanism3D")
+  public Pose3d[] turretPose = new Pose3d[] {Turret.TURRET_HOLE_CENTER, new Pose3d()};
 
   /**
    * Constructs a new TurretSIM instance.
@@ -72,28 +87,30 @@ public class TurretSIM extends Turret {
   public TurretSIM() {
     super();
 
-    // Sim-only sign correction: flip feedback frame so ctrlPos matches mechanism
-    // motion.
-    FeedbackConfigs simFeedback = new FeedbackConfigs();
-    simFeedback.SensorToMechanismRatio = -GEAR_RATIO;
-    leader.getConfigurator().apply(simFeedback);
+    // Override motor direction for simulation (real hardware uses Clockwise_Positive)
+    config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
-    // Sim-only PID + Motion Magic tuning.
-    Slot0Configs simSlot0 = new Slot0Configs();
-    simSlot0.kS = SIM_KS;
-    simSlot0.kP = SIM_KP;
-    simSlot0.kD = SIM_KD;
-    leader.getConfigurator().apply(simSlot0);
+    // Sim-only PID + Motion Magic tuning
+    config.Slot0.kS = SIM_KS;
+    config.Slot0.kP = SIM_KP;
+    config.Slot0.kD = SIM_KD;
+    config.MotionMagic.MotionMagicCruiseVelocity = SIM_CRUISE_RPS;
+    config.MotionMagic.MotionMagicAcceleration = SIM_ACCEL_RPS2;
 
-    MotionMagicConfigs simMotionMagic = new MotionMagicConfigs();
-    simMotionMagic.MotionMagicCruiseVelocity = SIM_CRUISE_RPS;
-    simMotionMagic.MotionMagicAcceleration = SIM_ACCEL_RPS2;
-    leader.getConfigurator().apply(simMotionMagic);
+    leader.getConfigurator().apply(config);
 
-    // Create the linear system for physics simulation
-    LinearSystem<N2, N1, N2> linearSystem =
-        LinearSystemId.createDCMotorSystem(dcMotor, MOI, GEAR_RATIO);
-    motorSim = new DCMotorSim(linearSystem, dcMotor);
+    // Initialize the physics simulation with position limits
+    // Using SingleJointedArmSim because it has built-in min/max angle support
+    turretSim =
+        new SingleJointedArmSim(
+            dcMotor,
+            GEAR_RATIO,
+            MOI,
+            ARM_LENGTH,
+            MIN_ANGLE_RAD, // -180 degrees
+            MAX_ANGLE_RAD, // +180 degrees
+            false, // No gravity (horizontal turret rotation)
+            0.0); // Starting angle
 
     // Create the mechanism visualization
     turretMechanism = new MechanismUtil.TurretMechanism("Turret", TURRET_ARM_LENGTH);
@@ -102,46 +119,44 @@ public class TurretSIM extends Turret {
     SmartDashboard.putData("Turret Sim", turretMechanism.getMechanism());
   }
 
-  /**
-   * Updates the turret simulation each periodic cycle.
-   *
-   * <p>This method performs the following tasks:
-   *
-   * <ul>
-   *   <li>Feeds the motor voltage into the physics simulation
-   *   <li>Steps the simulation forward by one period
-   *   <li>Simulates battery voltage sag from current draw
-   *   <li>Updates the motor encoder simulation values
-   *   <li>Animates the visual mechanism display
-   *   <li>Publishes telemetry data to SmartDashboard
-   * </ul>
-   */
   @Override
   public void simulationPeriodic() {
-    motorSim.setInput(leader.getMotorVoltage().getValueAsDouble());
+    // Feed motor voltage into physics simulation
+    turretSim.setInput(leader.getMotorVoltage().getValueAsDouble());
 
-    // Step the simulation forward by one robot loop period
-    motorSim.update(SIM_PERIOD_SECONDS);
+    // Step the simulation forward
+    turretSim.update(SIM_PERIOD_SECONDS);
 
     // Simulate battery voltage sag based on current draw
     RoboRioSim.setVInVoltage(
-        BatterySim.calculateDefaultBatteryLoadedVoltage(motorSim.getCurrentDrawAmps()));
+        BatterySim.calculateDefaultBatteryLoadedVoltage(turretSim.getCurrentDrawAmps()));
 
-    // Use direct mechanism position from plant.
-    double encoderPosition = motorSim.getAngularPositionRotations();
-    double encoderVelocity =
-        RadiansPerSecond.of(motorSim.getAngularVelocityRadPerSec()).in(RotationsPerSecond);
+    // Get position and velocity from simulation (in rotations for TalonFX)
+    double mechanismPosition = Radians.of(turretSim.getAngleRads()).in(Rotations);
+    double mechanismVelocity =
+        RadiansPerSecond.of(turretSim.getVelocityRadPerSec()).in(RotationsPerSecond);
 
-    // Update the TalonFX sim state using CTRE's standard rotor conversion.
-    double motorPosition = encoderPosition * GEAR_RATIO;
-    double motorVelocity = encoderVelocity * GEAR_RATIO;
-    leader.getSimState().setRawRotorPosition(motorPosition);
-    leader.getSimState().setRotorVelocity(motorVelocity);
+    // Update TalonFX sim state (convert to rotor units)
+    double rotorPosition = mechanismPosition * GEAR_RATIO;
+    double rotorVelocity = mechanismVelocity * GEAR_RATIO;
+    leader.getSimState().setRawRotorPosition(rotorPosition);
+    leader.getSimState().setRotorVelocity(rotorVelocity);
 
-    // Publish sim-specific telemetry
-    Robot.telemetry().log("Turret Sim/Current (A)", motorSim.getCurrentDrawAmps());
-    Robot.telemetry().log("Turret Sim/Position (deg)", motorSim.getAngularPosition());
+    // Publish telemetry
+    Robot.telemetry().log("Turret Sim/Current (A)", turretSim.getCurrentDrawAmps());
+    Robot.telemetry().log("Turret Sim/Position (deg)", Math.toDegrees(turretSim.getAngleRads()));
     Robot.telemetry()
-        .log("Turret Sim/Velocity (deg/s)", Math.toDegrees(motorSim.getAngularVelocityRadPerSec()));
+        .log("Turret Sim/Velocity (deg/s)", Math.toDegrees(turretSim.getVelocityRadPerSec()));
+
+    // Turret base - rotates around Z-axis
+    turretPose[0] =
+        Turret.TURRET_HOLE_CENTER.transformBy(
+            new Transform3d(Translation3d.kZero, new Rotation3d(0, 0, turretSim.getAngleRads())));
+
+    // Shooter position - offset from base with fixed pitch
+    turretPose[1] =
+        turretPose[0].transformBy(
+            new Transform3d(
+                SHOOTER_X_OFFSET, 0.0, SHOOTER_Z_OFFSET, new Rotation3d(0, -SHOOTER_PITCH_RAD, 0)));
   }
 }

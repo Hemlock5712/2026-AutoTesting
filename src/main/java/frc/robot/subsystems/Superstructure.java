@@ -1,20 +1,15 @@
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.Radians;
-
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.flywheel.Flywheel;
+import frc.robot.subsystems.flywheel.FlywheelSIM;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
+import frc.robot.subsystems.turret.TurretSIM;
 import java.util.function.Supplier;
 
 /**
@@ -32,50 +27,19 @@ import java.util.function.Supplier;
  * and ensures everything moves in sync.
  */
 @Logged
-public class Superstructure extends SubsystemBase {
+public class Superstructure {
 
   // ==================== Subsystems ====================
-  private final Flywheel flywheel;
-  private final Turret turret;
-  private final Spindexer spindexer;
+  private final Flywheel flywheel = RobotBase.isSimulation() ? new FlywheelSIM() : new Flywheel();
+  private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
+  private final Spindexer spindexer = new Spindexer();
   private final Supplier<SwerveDriveState> driveState;
-
-  @Logged(name = "Turret Mechanism3D")
-  public Pose3d[] turretPose = new Pose3d[] {Turret.TURRET_HOLE_CENTER, new Pose3d()};
 
   // ==================== Constructor ====================
 
-  public Superstructure(
-      Flywheel flywheel,
-      Turret turret,
-      Spindexer spindexer,
-      Supplier<SwerveDriveState> driveState) {
-    this.flywheel = flywheel;
-    this.turret = turret;
-    this.spindexer = spindexer;
+  public Superstructure(Supplier<SwerveDriveState> driveState) {
     this.driveState = driveState;
-  }
-
-  @Override
-  public void periodic() {
-    try {
-      turretPose[0] =
-          Turret.TURRET_HOLE_CENTER.transformBy(
-              new Transform3d(
-                  Translation3d.kZero, new Rotation3d(0, 0, turret.getAngle().in(Radians))));
-
-      // TODO: Use actual hood position once subsystem is made
-      // Only need to change the Degrees to the actual hood angle
-      turretPose[1] =
-          turretPose[0]
-              .transformBy(new Transform3d(0.111203, 0.0, 0.05698, Rotation3d.kZero))
-              .transformBy(
-                  new Transform3d(
-                      Translation3d.kZero, new Rotation3d(0, -Degrees.of(75).in(Radians), 0)));
-    } catch (Exception e) {
-      // If this breaks, just ignore it. I just need to make sure it absolutely
-      // doesn't break the robot code.
-    }
+    turret.setDefaultCommand(turret.trackHubCommand(driveState));
   }
 
   // ==================== Coordinated Commands ====================
@@ -88,7 +52,11 @@ public class Superstructure extends SubsystemBase {
             spindexer.startKickerCommand(), Commands.none(), () -> flywheel.isAtTarget()));
   }
 
-  public Command aimCommand() {
-    return idle().alongWith(turret.trackHubCommand(driveState));
+  public Command deployIntake() {
+    return Commands.none();
+  }
+
+  public Command RetractIntake() {
+    return Commands.none();
   }
 }

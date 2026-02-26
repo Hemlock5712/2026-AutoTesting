@@ -72,6 +72,7 @@ public class OrbitDrive extends Command {
     // Start from current velocity for smooth transitions
     lastCommandedVelocity = swerve.getFieldSpeeds();
     lastTime = Utils.getCurrentTimeSeconds();
+    lockedHeading = swerve.getRotation();
   }
 
   @Override
@@ -86,10 +87,14 @@ public class OrbitDrive extends Command {
     double velY = velocityYSupplier.getAsDouble();
     double requestedOmega = rotationalRateSupplier.getAsDouble();
 
-    // Track heading while driver rotates or robot is still spinning from intentional momentum.
-    // Use measured omega only if driver was recently rotating (to handle momentum).
-    // If robot gets bumped while stationary, we fight back immediately (wasDriverRotating is
-    // false).
+    // === HEADING LOCK STATE MACHINE ===
+    // Purpose: Maintain heading when driver releases rotation stick
+    // State: lockedHeading (target angle), wasDriverRotating (momentum tracking flag)
+    // Behavior:
+    //   - While driver rotates OR momentum continues (>10 deg/s): track current heading
+    //   - Once stopped: correct toward lockedHeading using physics-based omega
+    //   - If bumped while stationary: correct immediately (wasDriverRotating is false)
+    //   - Deadband (3 deg) prevents oscillation around target
     double measuredOmega = swerve.getRobotSpeeds().omegaRadiansPerSecond;
     boolean isSpinningFromMomentum =
         wasDriverRotating && Math.abs(measuredOmega) >= HEADING_LOCK_OMEGA_THRESHOLD;

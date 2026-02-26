@@ -23,3 +23,4 @@ The order of the components for custom articulated parts is as follows:
 - Keep the folder name as `Robot_2026` and copy the full folder (including `config.json`, `model.glb`, and any `model_*.glb` files).
 - This follows AdvantageScope's custom asset format, where each asset lives in its own subfolder inside the user assets folder.
 - Alternative workflow from the docs: `Use Custom Assets Folder` can point AdvantageScope at a version-controlled assets parent folder.
+# Test change for Claude workflow
