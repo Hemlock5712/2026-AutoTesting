@@ -9,7 +9,6 @@ import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
-import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -18,16 +17,9 @@ import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
 import frc.robot.commands.OrbitDrive;
-import frc.robot.constants.FieldConstants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Superstructure;
-import frc.robot.subsystems.flywheel.Flywheel;
-import frc.robot.subsystems.flywheel.FlywheelSIM;
-import frc.robot.subsystems.spindexer.Spindexer;
-import frc.robot.subsystems.spindexer.SpindexerSIM;
-import frc.robot.subsystems.turret.Turret;
-import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FieldInfo;
 
 /**
@@ -66,12 +58,7 @@ public class RobotContainer {
   public final AutoCommands autoCommands = new AutoCommands(drivetrain);
 
   /* Create subsystems (uses simulated versions when running in simulation) */
-  public final Flywheel flywheel = RobotBase.isSimulation() ? new FlywheelSIM() : new Flywheel();
-  public final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
-  public final Spindexer spindexer =
-      RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
-  private final Superstructure superstructure =
-      new Superstructure(flywheel, turret, spindexer, drivetrain::getState);
+  private final Superstructure superstructure = new Superstructure(drivetrain::getState);
 
   // Vision camera for tracking robot position
   // public final LimelightSubsystem limelight = new
@@ -90,6 +77,8 @@ public class RobotContainer {
 
     // Add autonomous mode options to dashboard
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
+    // AutoHumanPlayerSIMONLY
+    autoChooser.addOption("AutoHumanPlayerSIMONLY", autoRoutines.AutoHumanPlayerSIMONLY());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
@@ -113,55 +102,31 @@ public class RobotContainer {
             () -> translationVel[1],
             () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate));
 
-    superstructure.setDefaultCommand(superstructure.aimCommand());
-    // Drive to point - press A to drive to target pose
-    // joystick
-    // .a()
-    // .whileTrue(pathRequest.withTarget(new Pose2d(2, 0,
-    // Rotation2d.kZero)).createCommand());
-
-    // PathRequest with Waypoint enum - press B to drive to predefined positions
-    // joystick
-    // .b()
-    // .whileTrue(new DriveToPoint(drivetrain, new Pose2d(5, 5,
-    // Rotation2d.fromDegrees(45))));
-    // DriveTOPoint
-
-    joystick
-        .leftBumper()
-        .whileTrue(autoRoutines.DrivePointInLeft(() -> drivetrain.getPose().getRotation()));
-    joystick
-        .rightBumper()
-        .whileTrue(autoRoutines.DrivePointInRight(() -> drivetrain.getPose().getRotation()));
-
     joystick
         .start()
         .onTrue(drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(0, 0, Rotation2d.kZero))));
 
     // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
     joystick
-        .a()
+        .leftBumper()
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
                 () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-                FieldInfo.flipY(FieldConstants.YAxisLockPosition.REEF_CENTER.getY()),
+                FieldInfo.axisLockYLeft().get(),
                 null)); // null = heading lock behavior (driver controls rotation)
 
     // AxisLockDrive - Lock Y axis and rotation, driver controls X only
     joystick
-        .b()
+        .rightBumper()
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
                 () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-                FieldInfo.flipY(FieldConstants.YAxisLockPosition.REEF_CENTER.getY()),
-                FieldInfo.flip(
-                    FieldConstants.RotationLockAngle.FACING_FORWARD
-                        .getAngle()))); // Lock rotation to 0°
-
+                FieldInfo.AXIS_LOCK_Y_RIGHT.get(),
+                FieldInfo.FACING_FORWARD.get())); // Lock rotation to 0°
     joystick.axisGreaterThan(3, 0.7).onTrue(superstructure.beginShoot());
   }
 

@@ -38,15 +38,15 @@ public class AutoCommands {
 
   // ==================== Drive Commands ====================
 
-  public Command driveTo(Supplier<Pose2d> pose) {
+  public DriveToPoint driveTo(Supplier<Pose2d> pose) {
     return new DriveToPoint(drivetrain, pose);
   }
 
-  public Command driveTo(double endSpeed, Supplier<Pose2d> pose) {
+  public DriveToPoint driveTo(double endSpeed, Supplier<Pose2d> pose) {
     return new DriveToPoint(drivetrain, pose).withWaypointEnding(endSpeed);
   }
 
-  public Command driveTo(double endSpeed, double maxSpeed, Supplier<Pose2d> pose) {
+  public DriveToPoint driveTo(double endSpeed, double maxSpeed, Supplier<Pose2d> pose) {
     return new DriveToPoint(drivetrain, pose).withWaypointEnding(endSpeed).withMaxSpeed(maxSpeed);
   }
 
