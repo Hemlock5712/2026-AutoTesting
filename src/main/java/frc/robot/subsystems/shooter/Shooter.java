@@ -64,6 +64,8 @@ public class Shooter extends SubsystemBase {
     config.Slot0.kP = 0.25; // Proportional gain
     config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
 
+     config.Feedback.SensorToMechanismRatio = 2.0;
+
     // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
     config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // RPS
     config.MotionMagic.MotionMagicAcceleration = 0.0; // RPS²
