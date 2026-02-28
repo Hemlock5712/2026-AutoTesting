@@ -60,4 +60,14 @@ public class Superstructure {
   public Command RetractIntake() {
     return Commands.none();
   }
+
+  public Command test() {
+    return Commands.sequence(
+        spindexer.startCommand(), spindexer.startKickerCommand(), shooter.runVelocity(40));
+  }
+
+  public Command test1() {
+    return Commands.sequence(
+        spindexer.stopCommand(), spindexer.stopKickerCommand(), shooter.stopCommand());
+  }
 }

@@ -128,6 +128,8 @@ public class RobotContainer {
                 FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
                 FieldInfo.flip(FieldInfo.FACING_FORWARD))); // Lock rotation to 0°
     joystick.axisGreaterThan(3, 0.7).onTrue(superstructure.beginShoot());
+
+    joystick.a().whileTrue(superstructure.test()).onFalse(superstructure.test1());
   }
 
   public Command getAutonomousCommand() {
