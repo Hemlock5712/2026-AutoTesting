@@ -7,9 +7,11 @@ package frc.robot.subsystems.flywheel;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.units.measure.AngularVelocity;
@@ -17,7 +19,6 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 
 @Logged
@@ -29,7 +30,8 @@ public class Flywheel extends SubsystemBase {
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(0.25);
 
   // Main motor that spins the flywheel (device ID 21)
-  protected final TalonFX leader = new TalonFX(28, TunerConstants.kCANBus);
+  protected final TalonFX leader = new TalonFX(28, "rio");
+  protected final TalonFX follower = new TalonFX(52, "rio");
 
   // Controller for spinning the flywheel at a target speed
   private final MotionMagicVelocityVoltage velocityOut = new MotionMagicVelocityVoltage(0);
@@ -58,6 +60,8 @@ public class Flywheel extends SubsystemBase {
     // Apply configuration with retries
     boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
     motorConfigAlert.set(!success);
+
+    follower.setControl(new Follower(leader.getDeviceID(), MotorAlignmentValue.Opposed));
   }
 
   @Override

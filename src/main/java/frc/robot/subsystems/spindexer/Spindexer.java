@@ -1,6 +1,5 @@
 package frc.robot.subsystems.spindexer;
 
-import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -9,15 +8,16 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 
 @Logged
 public class Spindexer extends SubsystemBase {
   protected final double VELOCITY_TOLERANCE = 0.2;
 
-  protected final TalonFX spindexer = new TalonFX(20, CANBus.roboRIO());
+  protected final TalonFX spindexer = new TalonFX(20, TunerConstants.kCANBus);
 
-  protected final TalonFX kicker = new TalonFX(21, CANBus.roboRIO());
+  protected final TalonFX kicker = new TalonFX(21, TunerConstants.kCANBus);
 
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
