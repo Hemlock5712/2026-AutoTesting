@@ -135,7 +135,7 @@ public class Intake extends SubsystemBase {
 
   // Stop the wheel motor (private to enforce Command-based control flow)
   private void arm_stop() {
-    wheel.stopMotor();
+    arm.stopMotor();
   }
 
   /**

@@ -13,38 +13,28 @@ import frc.robot.utils.TalonFXUtil;
 
 @Logged
 public class Spindexer extends SubsystemBase {
-  private double targetVelocity;
-
   protected final double VELOCITY_TOLERANCE = 0.2;
 
-  protected final TalonFX leader = new TalonFX(20, CANBus.roboRIO());
+  protected final TalonFX spindexer = new TalonFX(20, CANBus.roboRIO());
 
   protected final TalonFX kicker = new TalonFX(21, CANBus.roboRIO());
 
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
-  protected TalonFXConfiguration leaderConfig = new TalonFXConfiguration();
+  protected TalonFXConfiguration spindexerConfig = new TalonFXConfiguration();
+
+  protected TalonFXConfiguration kickerConfig = new TalonFXConfiguration();
 
   Alert motorConfigAlert = new Alert("Spindexer Motor Configuration Failed", AlertType.kError);
 
-  public Spindexer() {
-    leaderConfig.Slot0.kS = 1.0; // Static friction compensation
-    leaderConfig.Slot0.kP = 20; // Proportional gain
-    leaderConfig.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
-    // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
-    // rotations
-    // Cruise velocity: max SPINDEXER speed during motion profile (RPS)
-    // Acceleration: how quickly the SPINDEXER speeds up/slows down (RPS²)
-    leaderConfig.MotionMagic.MotionMagicCruiseVelocity = 30.0; // RPS
-    leaderConfig.MotionMagic.MotionMagicAcceleration = 60.0; // RPS²
+  Alert kickerMotorConfigAlert = new Alert("Kicker Motor Configuration Failed", AlertType.kError);
 
-    boolean success = TalonFXUtil.applyConfigWithRetries(leader, leaderConfig);
-    motorConfigAlert.set(!success);
+  public Spindexer() {
+    applyConfigs();
   }
 
   public void setVelocity(double velocity) {
-    targetVelocity = velocity;
-    leader.setControl(velocityOut.withVelocity(velocity));
+    spindexer.setControl(velocityOut.withVelocity(velocity));
   }
 
   public void setKickerVelocity(double velocity) {
@@ -52,12 +42,11 @@ public class Spindexer extends SubsystemBase {
   }
 
   public double getVelocity() {
-    return leader.getVelocity().getValueAsDouble();
+    return spindexer.getVelocity().getValueAsDouble();
   }
 
   public boolean isAtTarget() {
-    return leader.getVelocity().getValueAsDouble() + VELOCITY_TOLERANCE > targetVelocity
-        && leader.getVelocity().getValueAsDouble() - VELOCITY_TOLERANCE < targetVelocity;
+    return spindexer.getVelocity().isNear(velocityOut.Velocity, VELOCITY_TOLERANCE);
   }
 
   public Command startCommand() {
@@ -74,5 +63,32 @@ public class Spindexer extends SubsystemBase {
 
   public Command stopKickerCommand() {
     return runOnce(() -> setKickerVelocity(0));
+  }
+
+  public void applyConfigs() {
+    spindexerConfig.Slot0.kS = 1.0; // Static friction compensation
+    spindexerConfig.Slot0.kP = 20; // Proportional gain
+    spindexerConfig.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
+    // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
+    // rotations
+    // Cruise velocity: max SPINDEXER speed during motion profile (RPS)
+    // Acceleration: how quickly the SPINDEXER speeds up/slows down (RPS²)
+    spindexerConfig.MotionMagic.MotionMagicCruiseVelocity = 30.0; // RPS
+    spindexerConfig.MotionMagic.MotionMagicAcceleration = 60.0; // RPS²
+
+    kickerConfig.Slot0.kS = 1.0; // Static friction compensation
+    kickerConfig.Slot0.kP = 20; // Proportional gain
+    kickerConfig.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
+    // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
+    // rotations
+    // Cruise velocity: max SPINDEXER speed during motion profile (RPS)
+    // Acceleration: how quickly the SPINDEXER speeds up/slows down (RPS²)
+    kickerConfig.MotionMagic.MotionMagicCruiseVelocity = 30.0; // RPS
+    kickerConfig.MotionMagic.MotionMagicAcceleration = 60.0; // RPS²
+
+    boolean success = TalonFXUtil.applyConfigWithRetries(spindexer, spindexerConfig);
+    motorConfigAlert.set(!success);
+    success = TalonFXUtil.applyConfigWithRetries(kicker, kickerConfig);
+    kickerMotorConfigAlert.set(!success);
   }
 }

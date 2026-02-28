@@ -50,8 +50,8 @@ public class Superstructure {
     return Commands.sequence(
         spindexer.startCommand(),
         flywheel.spinUp(),
-        Commands.either(
-            spindexer.startKickerCommand(), Commands.none(), () -> flywheel.isAtTarget()));
+        Commands.waitUntil(() -> flywheel.isAtTarget() && turret.isAtTarget()),
+        spindexer.startKickerCommand());
   }
 
   public Command deployIntake() {

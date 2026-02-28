@@ -62,13 +62,13 @@ public class SpindexerSIM extends Spindexer {
     super();
 
     // Configure gear ratio for simulation (direct drive, but set for consistency)
-    leaderConfig.Feedback.RotorToSensorRatio = GEAR_RATIO;
-    leaderConfig.Slot0.kS = 0.0; // Static gain (feedforward)
-    leaderConfig.Slot0.kV = 0.12; // Velocity gain (12V / 100 RPS ≈ 0.12)
-    leaderConfig.Slot0.kP = 100; // Proportional gain (tune this!)
-    leaderConfig.MotionMagic.MotionMagicCruiseVelocity = 100.0; // Max velocity (RPS)
-    leaderConfig.MotionMagic.MotionMagicAcceleration = 400.0; // Max acceleration (RPS²)
-    TalonFXUtil.applyConfigWithRetries(leader, leaderConfig);
+    spindexerConfig.Feedback.RotorToSensorRatio = GEAR_RATIO;
+    spindexerConfig.Slot0.kS = 0.0; // Static gain (feedforward)
+    spindexerConfig.Slot0.kV = 0.12; // Velocity gain (12V / 100 RPS ≈ 0.12)
+    spindexerConfig.Slot0.kP = 100; // Proportional gain (tune this!)
+    spindexerConfig.MotionMagic.MotionMagicCruiseVelocity = 100.0; // Max velocity (RPS)
+    spindexerConfig.MotionMagic.MotionMagicAcceleration = 400.0; // Max acceleration (RPS²)
+    TalonFXUtil.applyConfigWithRetries(spindexer, spindexerConfig);
 
     LinearSystem<N2, N1, N2> linearSystem =
         LinearSystemId.createDCMotorSystem(
@@ -100,7 +100,7 @@ public class SpindexerSIM extends Spindexer {
   @Override
   public void simulationPeriodic() {
     // Feed the motor voltage from the controller into the physics simulation
-    spindexerSim.setInput(leader.getMotorVoltage().getValueAsDouble());
+    spindexerSim.setInput(spindexer.getMotorVoltage().getValueAsDouble());
 
     // Step the simulation forward by one robot loop period
     spindexerSim.update(SIM_PERIOD_SECONDS);
@@ -116,12 +116,12 @@ public class SpindexerSIM extends Spindexer {
     double motorVelocity = velocityRadPerSec * RAD_TO_ROTATIONS * GEAR_RATIO;
 
     // Update the simulated motor encoder velocity
-    leader.getSimState().setRotorVelocity(motorVelocity);
+    spindexer.getSimState().setRotorVelocity(motorVelocity);
 
     // Use the actual position from physics simulation (more accurate than integration)
     double spindexerPositionRad = spindexerSim.getAngularPositionRad();
     double motorPosition = spindexerPositionRad * RAD_TO_ROTATIONS * GEAR_RATIO;
-    leader.getSimState().setRawRotorPosition(motorPosition);
+    spindexer.getSimState().setRawRotorPosition(motorPosition);
 
     // Animate the visual representation
     updateVisualization(velocityRadPerSec);
