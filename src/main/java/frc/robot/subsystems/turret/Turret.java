@@ -83,14 +83,14 @@ public class Turret extends SubsystemBase {
     config.Feedback.SensorToMechanismRatio = DualEncoderCRT.ENCODER_1_MECHANISM_RATIO;
 
     // PID gains
-    config.Slot0.kS = 1.0; // Static friction compensation
-    config.Slot0.kP = 20; // Proportional gain
+    config.Slot0.kS = 0; // Static friction compensation
+    config.Slot0.kP = 0; // Proportional gain
     config.Slot0.kD = 0; // Derivative gain
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // MotionMagic settings - units are mechanism rotations
-    config.MotionMagic.MotionMagicCruiseVelocity = 30.0; // RPS
-    config.MotionMagic.MotionMagicAcceleration = 60.0; // RPS^2
+    config.MotionMagic.MotionMagicCruiseVelocity = 0; // RPS
+    config.MotionMagic.MotionMagicAcceleration = 0; // RPS^2
 
     // Soft limits to prevent exceeding +/-180 degree physical range
     config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;

@@ -48,12 +48,12 @@ public class Flywheel extends SubsystemBase {
 
     // Control values
     config.Slot0.kS = 0.0; // Static friction
-    config.Slot0.kV = 0.125; // Velocity feedforward
+    config.Slot0.kV = 0.0; // Velocity feedforward
     config.Slot0.kP = 0.0; // Proportional gain
 
     // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
-    config.MotionMagic.MotionMagicCruiseVelocity = 100.0; // RPS
-    config.MotionMagic.MotionMagicAcceleration = 1000.0; // RPS²
+    config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // RPS
+    config.MotionMagic.MotionMagicAcceleration = 0.0; // RPS²
 
     // Apply configuration with retries
     boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
