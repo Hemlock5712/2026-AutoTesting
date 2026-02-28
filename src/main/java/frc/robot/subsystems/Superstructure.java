@@ -5,8 +5,8 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.subsystems.flywheel.Flywheel;
-import frc.robot.subsystems.flywheel.FlywheelSIM;
+import frc.robot.subsystems.shooter.Shooter;
+import frc.robot.subsystems.shooter.ShooterSIM;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerSIM;
 import frc.robot.subsystems.turret.Turret;
@@ -31,16 +31,14 @@ import java.util.function.Supplier;
 public class Superstructure {
 
   // ==================== Subsystems ====================
-  private final Flywheel flywheel = RobotBase.isSimulation() ? new FlywheelSIM() : new Flywheel();
+  private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
   private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
   private final Spindexer spindexer =
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
-  private final Supplier<SwerveDriveState> driveState;
 
   // ==================== Constructor ====================
 
   public Superstructure(Supplier<SwerveDriveState> driveState) {
-    this.driveState = driveState;
     turret.setDefaultCommand(turret.trackHubCommand(driveState));
   }
 
@@ -49,8 +47,9 @@ public class Superstructure {
   public Command beginShoot() {
     return Commands.sequence(
         spindexer.startCommand(),
-        flywheel.spinUp(),
-        Commands.waitUntil(() -> flywheel.isAtTarget() && turret.isAtTarget()),
+        shooter.runVelocity(0),
+        Commands.waitUntil(
+            () -> shooter.flywheelIsAtTarget() && shooter.hoodIsAtTarget() && turret.isAtTarget()),
         spindexer.startKickerCommand());
   }
 
