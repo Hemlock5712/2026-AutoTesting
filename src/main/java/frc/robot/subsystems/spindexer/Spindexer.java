@@ -25,11 +25,9 @@ public class Spindexer extends SubsystemBase {
 
   protected TalonFXConfiguration leaderConfig = new TalonFXConfiguration();
 
-  Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
+  Alert motorConfigAlert = new Alert("Spindexer Motor Configuration Failed", AlertType.kError);
 
   public Spindexer() {
-    TalonFXConfiguration leaderConfig = new TalonFXConfiguration();
-
     leaderConfig.Slot0.kS = 1.0; // Static friction compensation
     leaderConfig.Slot0.kP = 20; // Proportional gain
     leaderConfig.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
@@ -58,8 +56,8 @@ public class Spindexer extends SubsystemBase {
   }
 
   public boolean isAtTarget() {
-    return leader.getVelocity().getValueAsDouble() - VELOCITY_TOLERANCE > targetVelocity
-        && leader.getVelocity().getValueAsDouble() + VELOCITY_TOLERANCE < targetVelocity;
+    return leader.getVelocity().getValueAsDouble() + VELOCITY_TOLERANCE > targetVelocity
+        && leader.getVelocity().getValueAsDouble() - VELOCITY_TOLERANCE < targetVelocity;
   }
 
   public Command startCommand() {

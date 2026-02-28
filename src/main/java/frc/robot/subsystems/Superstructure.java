@@ -8,6 +8,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.flywheel.Flywheel;
 import frc.robot.subsystems.flywheel.FlywheelSIM;
 import frc.robot.subsystems.spindexer.Spindexer;
+import frc.robot.subsystems.spindexer.SpindexerSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
 import java.util.function.Supplier;
@@ -32,7 +33,8 @@ public class Superstructure {
   // ==================== Subsystems ====================
   private final Flywheel flywheel = RobotBase.isSimulation() ? new FlywheelSIM() : new Flywheel();
   private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
-  private final Spindexer spindexer = new Spindexer();
+  private final Spindexer spindexer =
+      RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
   private final Supplier<SwerveDriveState> driveState;
 
   // ==================== Constructor ====================
