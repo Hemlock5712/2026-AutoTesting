@@ -2,6 +2,7 @@ package frc.robot.subsystems.turret;
 
 import static edu.wpi.first.units.Units.Rotations;
 
+import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -21,6 +22,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Robot;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.TalonFXUtil;
@@ -45,8 +47,6 @@ public class Turret extends SubsystemBase {
   private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
-
-  private boolean positionInitialized = false;
 
   // Alerts
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
@@ -101,35 +101,13 @@ public class Turret extends SubsystemBase {
     // Calculate absolute mechanism position using CRT
     double mechanismPosition = crt.calculateMechanismPosition();
 
-    if (Double.isNaN(mechanismPosition)) {
-      crtInitAlert.set(true);
-      positionInitialized = false;
-      return;
-    }
-
     // Set the motor's internal position to match the calculated position
     // This does NOT affect the CANcoder - it only syncs the motor's position tracking
-    leader.setPosition(mechanismPosition);
+    StatusCode setPosition = leader.setPosition(mechanismPosition);
 
-    crtInitAlert.set(false);
-    positionInitialized = true;
-  }
+    Robot.telemetry().log("Testing/", mechanismPosition);
 
-  /**
-   * Re-initialize position using CRT. Call this if CRT needs recalibration. Should only be called
-   * when turret is stationary.
-   */
-  public void reinitializePosition() {
-    initializePosition();
-  }
-
-  /**
-   * Check if position was successfully initialized via CRT.
-   *
-   * @return true if position is initialized
-   */
-  public boolean isPositionInitialized() {
-    return positionInitialized;
+    crtInitAlert.set(setPosition.isError());
   }
 
   private void trackHub(SwerveDriveState currentState) {
