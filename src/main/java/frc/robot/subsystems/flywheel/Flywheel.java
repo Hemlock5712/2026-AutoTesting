@@ -6,6 +6,7 @@ package frc.robot.subsystems.flywheel;
 
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
@@ -30,8 +31,8 @@ public class Flywheel extends SubsystemBase {
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(0.25);
 
   // Main motor that spins the flywheel (device ID 21)
-  protected final TalonFX leader = new TalonFX(28, "rio");
-  protected final TalonFX follower = new TalonFX(52, "rio");
+  protected final TalonFX leader = new TalonFX(28, CANBus.roboRIO());
+  protected final TalonFX follower = new TalonFX(52, CANBus.roboRIO());
 
   // Controller for spinning the flywheel at a target speed
   private final MotionMagicVelocityVoltage velocityOut = new MotionMagicVelocityVoltage(0);
