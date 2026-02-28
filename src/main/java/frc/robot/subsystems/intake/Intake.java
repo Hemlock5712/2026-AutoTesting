@@ -7,7 +7,6 @@ package frc.robot.subsystems.intake;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
-import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -21,6 +20,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 
 @Logged
@@ -29,16 +29,13 @@ public class Intake extends SubsystemBase {
   private static final Angle UP = Degrees.of(67);
   private static final Angle DOWN = Degrees.of(89);
 
-  // Connect to the "canivore" CAN bus (communication network for motors)
-  private final CANBus canivore = new CANBus("canivore");
-
   // Main motor that moves the arm (device ID 31)
-  protected final TalonFX arm = new TalonFX(22, canivore);
+  protected final TalonFX arm = new TalonFX(22, TunerConstants.kCANBus);
   // Sensor that tells us the arm's exact angle (device ID 32)
-  protected final CANcoder arm_encoder = new CANcoder(24, canivore);
+  protected final CANcoder arm_encoder = new CANcoder(24, TunerConstants.kCANBus);
 
   // Main motor that moves the intake (device ID 31)
-  protected final TalonFX wheel = new TalonFX(23, canivore);
+  protected final TalonFX wheel = new TalonFX(23, TunerConstants.kCANBus);
 
   // Configuration settings for the arm motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();

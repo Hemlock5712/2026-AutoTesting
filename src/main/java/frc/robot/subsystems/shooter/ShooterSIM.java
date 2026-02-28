@@ -1,4 +1,4 @@
-package frc.robot.subsystems.flywheel;
+package frc.robot.subsystems.shooter;
 
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
@@ -17,10 +17,10 @@ import frc.robot.utils.TalonFXUtil;
  * Simulation implementation of the flywheel subsystem.
  *
  * <p>This class simulates a flywheel mechanism (rotating mass for shooting projectiles) and
- * provides visual feedback through SmartDashboard. It uses WPILib's FlywheelSim for physics
+ * provides visual feedback through SmartDashboard. It uses WPILib's shooterSim for physics
  * simulation and Mechanism2d for visualization.
  */
-public class FlywheelSIM extends Flywheel {
+public class ShooterSIM extends Shooter {
 
   // ==================== Physical Constants ====================
 
@@ -45,18 +45,18 @@ public class FlywheelSIM extends Flywheel {
   private final DCMotor dcMotor = DCMotor.getKrakenX60(2);
 
   /** Physics simulation of the flywheel mechanism */
-  private final DCMotorSim flywheelSim;
+  private final DCMotorSim shooterSim;
 
   /** Mechanism visualization helper */
   private final MechanismUtil.FlywheelMechanism flywheelMechanism;
 
   /**
-   * Constructs a new FlywheelSIM instance.
+   * Constructs a new shooterSim instance.
    *
    * <p>Initializes the physics simulation and creates the visual representation of the flywheel
    * mechanism on SmartDashboard.
    */
-  public FlywheelSIM() {
+  public ShooterSIM() {
     super();
 
     // Configure gear ratio for simulation (direct drive, but set for consistency)
@@ -66,13 +66,13 @@ public class FlywheelSIM extends Flywheel {
     config.Slot0.kP = 0.1; // Proportional gain (tune this!)
     config.MotionMagic.MotionMagicCruiseVelocity = 100.0; // Max velocity (RPS)
     config.MotionMagic.MotionMagicAcceleration = 400.0; // Max acceleration (RPS²)
-    TalonFXUtil.applyConfigWithRetries(leader, config);
+    TalonFXUtil.applyConfigWithRetries(flywheel, config);
 
     LinearSystem<N2, N1, N2> linearSystem =
         LinearSystemId.createDCMotorSystem(
             dcMotor, FLYWHEEL_MOI, GEAR_RATIO); // Direct drive (1:1 ratio)
     // Initialize the physics simulation (no gravity for flywheels)
-    flywheelSim = new DCMotorSim(linearSystem, dcMotor);
+    shooterSim = new DCMotorSim(linearSystem, dcMotor);
 
     // Create the mechanism visualization
     flywheelMechanism = new MechanismUtil.FlywheelMechanism("Flywheel", FLYWHEEL_RADIUS);
@@ -98,34 +98,34 @@ public class FlywheelSIM extends Flywheel {
   @Override
   public void simulationPeriodic() {
     // Feed the motor voltage from the controller into the physics simulation
-    flywheelSim.setInput(leader.getMotorVoltage().getValueAsDouble());
+    shooterSim.setInput(flywheel.getMotorVoltage().getValueAsDouble());
 
     // Step the simulation forward by one robot loop period
-    flywheelSim.update(SIM_PERIOD_SECONDS);
+    shooterSim.update(SIM_PERIOD_SECONDS);
 
     // Simulate battery voltage sag based on current draw
     RoboRioSim.setVInVoltage(
-        BatterySim.calculateDefaultBatteryLoadedVoltage(flywheelSim.getCurrentDrawAmps()));
+        BatterySim.calculateDefaultBatteryLoadedVoltage(shooterSim.getCurrentDrawAmps()));
 
     // Get current flywheel velocity in radians per second
-    double velocityRadPerSec = flywheelSim.getAngularVelocityRadPerSec();
+    double velocityRadPerSec = shooterSim.getAngularVelocityRadPerSec();
 
     // Convert flywheel velocity to motor velocity (accounting for gear ratio)
     double motorVelocity = velocityRadPerSec * RAD_TO_ROTATIONS * GEAR_RATIO;
 
     // Update the simulated motor encoder velocity
-    leader.getSimState().setRotorVelocity(motorVelocity);
+    flywheel.getSimState().setRotorVelocity(motorVelocity);
 
     // Use the actual position from physics simulation (more accurate than integration)
-    double flywheelPositionRad = flywheelSim.getAngularPositionRad();
+    double flywheelPositionRad = shooterSim.getAngularPositionRad();
     double motorPosition = flywheelPositionRad * RAD_TO_ROTATIONS * GEAR_RATIO;
-    leader.getSimState().setRawRotorPosition(motorPosition);
+    flywheel.getSimState().setRawRotorPosition(motorPosition);
 
     // Animate the visual representation
     updateVisualization(velocityRadPerSec);
 
     // Publish sim-specific telemetry (other values are auto-logged from base class)
-    Robot.telemetry().log("Flywheel Sim/Current (A)", flywheelSim.getCurrentDrawAmps());
+    Robot.telemetry().log("Flywheel Sim/Current (A)", shooterSim.getCurrentDrawAmps());
   }
 
   /**
@@ -138,6 +138,6 @@ public class FlywheelSIM extends Flywheel {
    */
   private void updateVisualization(double velocityRadPerSec) {
     // Update the mechanism visualization
-    flywheelMechanism.update(velocityRadPerSec, SIM_PERIOD_SECONDS, isAtTarget());
+    flywheelMechanism.update(velocityRadPerSec, SIM_PERIOD_SECONDS, flywheelIsAtTarget());
   }
 }

@@ -2,7 +2,6 @@ package frc.robot.subsystems.turret;
 
 import static edu.wpi.first.units.Units.Rotations;
 
-import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -23,22 +22,21 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.generated.TunerConstants;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
 
 @Logged
 public class Turret extends SubsystemBase {
-
-  // CAN bus - using canivore for all turret devices
-  private final CANBus canivore = new CANBus("canivore");
-
   // Motor
-  protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, canivore);
+  protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
 
   // Dual absolute encoders for CRT positioning
-  protected final CANcoder encoder1 = new CANcoder(DualEncoderCRT.ENCODER_1_ID, canivore);
-  protected final CANcoder encoder2 = new CANcoder(DualEncoderCRT.ENCODER_2_ID, canivore);
+  protected final CANcoder encoder1 =
+      new CANcoder(DualEncoderCRT.ENCODER_1_ID, TunerConstants.kCANBus);
+  protected final CANcoder encoder2 =
+      new CANcoder(DualEncoderCRT.ENCODER_2_ID, TunerConstants.kCANBus);
 
   // CRT calculator for absolute position determination
   private final DualEncoderCRT crt;

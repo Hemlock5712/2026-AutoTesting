@@ -2,45 +2,53 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
-package frc.robot.subsystems.flywheel;
+package frc.robot.subsystems.shooter;
 
+import static edu.wpi.first.units.Units.Degree;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 
 @Logged
-public class Flywheel extends SubsystemBase {
+public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
-  private static final AngularVelocity SHOOTING_SPEED = RotationsPerSecond.of(25.0);
-  private static final AngularVelocity AMP_SPEED = RotationsPerSecond.of(5.0);
-  private static final AngularVelocity FAR_SHOOTING_SPEED = RotationsPerSecond.of(35.0);
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(0.25);
+  private static final Angle HOOD_TOLERANCE = Degree.of(1);
 
   // Main motor that spins the flywheel (device ID 21)
-  protected final TalonFX leader = new TalonFX(28, TunerConstants.kCANBus);
+  protected final TalonFX flywheel = new TalonFX(28, CANBus.roboRIO());
+
+  //
+  protected final TalonFX hood = new TalonFX(29, CANBus.roboRIO());
+  protected final CANcoder hoodEncoder = new CANcoder(30, CANBus.roboRIO());
 
   // Controller for spinning the flywheel at a target speed
   private final MotionMagicVelocityVoltage velocityOut = new MotionMagicVelocityVoltage(0);
+
+  private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
   // Alert for motor configuration failures
-  Alert motorConfigAlert = new Alert("Flywheel Motor Configuration Failed", AlertType.kError);
+  Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
 
-  public Flywheel() {
+  public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled
     config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
     // Set motor direction: positive power = counterclockwise spin
@@ -56,7 +64,7 @@ public class Flywheel extends SubsystemBase {
     config.MotionMagic.MotionMagicAcceleration = 0.0; // RPS²
 
     // Apply configuration with retries
-    boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
+    boolean success = TalonFXUtil.applyConfigWithRetries(flywheel, config);
     motorConfigAlert.set(!success);
   }
 
@@ -70,44 +78,42 @@ public class Flywheel extends SubsystemBase {
    *
    * @param velocity How fast to spin (rotations per second)
    */
-  private void setVelocity(AngularVelocity velocity) {
-    leader.setControl(velocityOut.withVelocity(velocity));
+  private void setVelocity(double velocity) {
+    flywheel.setControl(velocityOut.withVelocity(velocity));
   }
 
   /**
-   * Command to spin up the flywheel to shooting speed.
+   * Sets the hood to a specific position. Private to enforce Command-based control flow.
    *
-   * @return Command that spins up the flywheel
+   * @param angle What position to go to
    */
-  public Command spinUp() {
-    return runOnce(() -> setVelocity(SHOOTING_SPEED));
+  private void setPosition(Angle angle) {
+    flywheel.setControl(rotationOut.withPosition(angle));
   }
 
   /**
-   * Command to spin at amp scoring speed (slow and controlled).
-   *
-   * @return Command that spins flywheel at amp speed
+   * @param velocity
+   * @return
    */
-  public Command ampSpeed() {
-    return runOnce(() -> setVelocity(AMP_SPEED));
+  public Command runVelocity(double velocity) {
+    return runOnce(() -> setVelocity(velocity));
   }
 
   /**
-   * Command to spin at far shooting speed (fast).
-   *
-   * @return Command that spins flywheel at far speed
+   * @param angle
+   * @return
    */
-  public Command farSpeed() {
-    return runOnce(() -> setVelocity(FAR_SHOOTING_SPEED));
+  public Command runPosition(Angle angle) {
+    return runOnce(() -> setPosition(angle));
   }
 
   /**
-   * Command to stop the flywheel.
+   * Command to stop the motors.
    *
-   * @return Command that stops the flywheel
+   * @return Command that stops the motors
    */
   public Command stopCommand() {
-    return runOnce(() -> stop());
+    return runOnce(() -> stopMotors());
   }
 
   /**
@@ -115,8 +121,17 @@ public class Flywheel extends SubsystemBase {
    *
    * @return true if close enough to target speed, false otherwise
    */
-  public boolean isAtTarget() {
+  public boolean flywheelIsAtTarget() {
     return getVelocity().isNear(getTargetVelocity(), TOLERANCE);
+  }
+
+  /**
+   * Check if the hood has reached its target position.
+   *
+   * @return true if close enough to target position, false otherwise
+   */
+  public boolean hoodIsAtTarget() {
+    return getPosition().isNear(getTargetPosition(), HOOD_TOLERANCE);
   }
 
   /**
@@ -125,7 +140,16 @@ public class Flywheel extends SubsystemBase {
    * @return Current flywheel speed
    */
   public AngularVelocity getVelocity() {
-    return leader.getVelocity().getValue();
+    return flywheel.getVelocity().getValue();
+  }
+
+  /**
+   * Get what position the hood is at.
+   *
+   * @return Current hood position
+   */
+  public Angle getPosition() {
+    return hood.getPosition().getValue();
   }
 
   /**
@@ -138,6 +162,15 @@ public class Flywheel extends SubsystemBase {
   }
 
   /**
+   * Get what position the hood is trying to reach.
+   *
+   * @return Target hood position
+   */
+  public Angle getTargetPosition() {
+    return rotationOut.getPositionMeasure();
+  }
+
+  /**
    * Get the speed tolerance for "at target" checks.
    *
    * @return Speed tolerance
@@ -146,8 +179,18 @@ public class Flywheel extends SubsystemBase {
     return TOLERANCE;
   }
 
-  // Stop the flywheel motors (private to enforce Command-based control flow)
-  private void stop() {
-    leader.stopMotor();
+  /**
+   * Get the position tolerance for "at target" checks.
+   *
+   * @return Position tolerance
+   */
+  public Angle getHoodTolerance() {
+    return HOOD_TOLERANCE;
+  }
+
+  // Stop the shooter motors (private to enforce Command-based control flow)
+  private void stopMotors() {
+    flywheel.stopMotor();
+    hood.stopMotor();
   }
 }
