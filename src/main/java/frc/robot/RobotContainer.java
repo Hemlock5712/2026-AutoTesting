@@ -19,6 +19,7 @@ import frc.robot.commands.AxisLockDrive;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.utils.FieldInfo;
 
@@ -61,8 +62,7 @@ public class RobotContainer {
   private final Superstructure superstructure = new Superstructure(drivetrain::getState);
 
   // Vision camera for tracking robot position
-  // public final LimelightSubsystem limelight = new
-  // LimelightSubsystem("limelight", drivetrain);
+  public final Limelight limelight = new Limelight("limelight-br", drivetrain);
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;
