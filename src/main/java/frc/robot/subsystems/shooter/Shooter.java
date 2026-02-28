@@ -9,11 +9,13 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.units.measure.Angle;
@@ -30,10 +32,11 @@ public class Shooter extends SubsystemBase {
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(0.25);
   private static final Angle HOOD_TOLERANCE = Degree.of(1);
 
-  // Main motor that spins the flywheel (device ID 21)
+  // Main motor that spins the flywheel
   protected final TalonFX flywheel = new TalonFX(28, CANBus.roboRIO());
+  protected final TalonFX follower = new TalonFX(52, CANBus.roboRIO());
 
-  //
+  // Hood motor and encoder for position control
   protected final TalonFX hood = new TalonFX(29, CANBus.roboRIO());
   protected final CANcoder hoodEncoder = new CANcoder(30, CANBus.roboRIO());
 
@@ -66,6 +69,8 @@ public class Shooter extends SubsystemBase {
     // Apply configuration with retries
     boolean success = TalonFXUtil.applyConfigWithRetries(flywheel, config);
     motorConfigAlert.set(!success);
+
+    follower.setControl(new Follower(flywheel.getDeviceID(), MotorAlignmentValue.Opposed));
   }
 
   @Override
@@ -88,7 +93,7 @@ public class Shooter extends SubsystemBase {
    * @param angle What position to go to
    */
   private void setPosition(Angle angle) {
-    flywheel.setControl(rotationOut.withPosition(angle));
+    hood.setControl(rotationOut.withPosition(angle));
   }
 
   /**
