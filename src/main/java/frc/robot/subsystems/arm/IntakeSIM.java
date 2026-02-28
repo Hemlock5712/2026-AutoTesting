@@ -23,7 +23,7 @@ import frc.robot.utils.TalonFXUtil;
  * through SmartDashboard. It uses WPILib's SingleJointedArmSim for physics simulation and
  * Mechanism2d for visualization.
  */
-public class ArmSIM extends Arm {
+public class IntakeSIM extends Intake {
 
   // ==================== Physical Constants ====================
 
@@ -68,7 +68,7 @@ public class ArmSIM extends Arm {
    * <p>Initializes the physics simulation and creates the visual representation of the arm
    * mechanism on SmartDashboard.
    */
-  public ArmSIM() {
+  public IntakeSIM() {
     super();
 
     // Configure gear ratio for simulation (tells Phoenix how motor relates to sensor)
@@ -80,7 +80,7 @@ public class ArmSIM extends Arm {
     config.Slot0.kD = 30; // Derivative gain
     config.MotionMagic.MotionMagicCruiseVelocity = 1; // Max velocity (RPS)
     config.MotionMagic.MotionMagicAcceleration = 4; // Max acceleration (RPS²)
-    TalonFXUtil.applyConfigWithRetries(leader, config);
+    TalonFXUtil.applyConfigWithRetries(arm, config);
 
     // Initialize the physics simulation
     armSim =
@@ -118,7 +118,7 @@ public class ArmSIM extends Arm {
   @Override
   public void simulationPeriodic() {
     // Feed the motor voltage from the controller into the physics simulation
-    armSim.setInput(leader.getMotorVoltage().getValueAsDouble());
+    armSim.setInput(arm.getMotorVoltage().getValueAsDouble());
 
     // Step the simulation forward by one robot loop period
     armSim.update(SIM_PERIOD_SECONDS);
@@ -133,14 +133,14 @@ public class ArmSIM extends Arm {
         RadiansPerSecond.of(armSim.getVelocityRadPerSec()).in(RotationsPerSecond);
 
     // Update the CANcoder simulation (this is what the base class reads from)
-    encoder.getSimState().setRawPosition(encoderPosition);
-    encoder.getSimState().setVelocity(encoderVelocity);
+    arm_encoder.getSimState().setRawPosition(encoderPosition);
+    arm_encoder.getSimState().setVelocity(encoderVelocity);
 
     // Also update motor sim for completeness (motor rotations = encoder * gear ratio)
     double motorPosition = encoderPosition * GEAR_RATIO;
     double motorVelocity = encoderVelocity * GEAR_RATIO;
-    leader.getSimState().setRawRotorPosition(motorPosition);
-    leader.getSimState().setRotorVelocity(motorVelocity);
+    arm.getSimState().setRawRotorPosition(motorPosition);
+    arm.getSimState().setRotorVelocity(motorVelocity);
 
     // Update the visual representation
     updateVisualization();

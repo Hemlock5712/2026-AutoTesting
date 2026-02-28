@@ -24,21 +24,21 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.TalonFXUtil;
 
 @Logged
-public class Arm extends SubsystemBase {
+public class Intake extends SubsystemBase {
   // Position setpoints using Angle objects for type safety
-  private static final Angle VERTICAL_POSITION = Degrees.of(90);
-  private static final Angle HORIZONTAL_POSITION = Degrees.of(180);
-  private static final Angle SCORING_POSITION = Degrees.of(30);
-  private static final Angle SCORING_HIGH_POSITION = Degrees.of(45);
-  private static final Angle TOLERANCE = Degrees.of(1.0);
+  private static final Angle UP = Degrees.of(67);
+  private static final Angle DOWN = Degrees.of(89);
 
   // Connect to the "canivore" CAN bus (communication network for motors)
   private final CANBus canivore = new CANBus("canivore");
 
   // Main motor that moves the arm (device ID 31)
-  protected final TalonFX leader = new TalonFX(31, canivore);
+  protected final TalonFX arm = new TalonFX(31, canivore);
   // Sensor that tells us the arm's exact angle (device ID 32)
-  protected final CANcoder encoder = new CANcoder(32, canivore);
+  protected final CANcoder arm_encoder = new CANcoder(32, canivore);
+
+    // Main motor that moves the intake (device ID 31)
+  protected final TalonFX wheel = new TalonFX(31, canivore);
 
   // Configuration settings for the arm motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
@@ -46,10 +46,13 @@ public class Arm extends SubsystemBase {
   // Controller for moving the arm to specific positions
   private final MotionMagicVoltage positionOut = new MotionMagicVoltage(0);
 
+  // Gets the error between current and target position
+  private Angle TOLERANCE = Degrees.of(1);
+
   // Alert for motor configuration failures
   Alert motorConfigAlert = new Alert("Arm Motor Configuration Failed", AlertType.kError);
 
-  public Arm() {
+  public Intake() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
     config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
     // Set motor direction: positive power = counterclockwise rotation
@@ -67,10 +70,10 @@ public class Arm extends SubsystemBase {
     config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // Max speed
     config.MotionMagic.MotionMagicAcceleration = 0.0; // How fast to speed up
     // Tell the motor to use the CANcoder sensor for position measurements
-    config.Feedback.withRemoteCANcoder(encoder);
+    config.Feedback.withRemoteCANcoder(arm_encoder);
 
     // Apply configuration with retries
-    boolean success = TalonFXUtil.applyConfigWithRetries(leader, config);
+    boolean success = TalonFXUtil.applyConfigWithRetries(arm, config);
     motorConfigAlert.set(!success);
   }
 
@@ -86,25 +89,7 @@ public class Arm extends SubsystemBase {
    */
   private void setPosition(Angle position) {
     // Tell the motor to move to this position (convert to rotations for motor)
-    leader.setControl(positionOut.withPosition(position.in(Rotations)));
-  }
-
-  /**
-   * Command to move the arm to vertical position (safe for transport).
-   *
-   * @return Command that moves arm vertical
-   */
-  public Command vertical() {
-    return runOnce(() -> setPosition(VERTICAL_POSITION));
-  }
-
-  /**
-   * Command to move the arm to horizontal position (for ground intake).
-   *
-   * @return Command that moves arm horizontal
-   */
-  public Command horizontal() {
-    return runOnce(() -> setPosition(HORIZONTAL_POSITION));
+    arm.setControl(positionOut.withPosition(position.in(Rotations)));
   }
 
   /**
@@ -112,8 +97,8 @@ public class Arm extends SubsystemBase {
    *
    * @return Command that moves arm to scoring angle
    */
-  public Command scoringPosition() {
-    return runOnce(() -> setPosition(SCORING_POSITION));
+  public Command intakeStowed() {
+    return runOnce(() -> setPosition(UP));
   }
 
   /**
@@ -121,22 +106,36 @@ public class Arm extends SubsystemBase {
    *
    * @return Command that moves arm to high scoring angle
    */
-  public Command scoringHighPosition() {
-    return runOnce(() -> setPosition(SCORING_HIGH_POSITION));
+  public Command intakeDown() {
+    return runOnce(() -> setPosition(DOWN)).until(() -> isAtTarget()).andThen(stopArm());
   }
 
   /**
    * Command to stop the arm motor.
    *
-   * @return Command that stops the arm
+   * @return Command that stops the wheels
    */
-  public Command stopCommand() {
-    return runOnce(() -> stop());
+  public Command stopWheel() {
+    return runOnce(() -> wheel_stop());
   }
 
-  // Stop the arm motor (private to enforce Command-based control flow)
-  private void stop() {
-    leader.stopMotor();
+  // Stop the wheel motor (private to enforce Command-based control flow)
+  private void wheel_stop() {
+    wheel.stopMotor();
+  }
+
+   /**
+   * Command to stop the arm motor.
+   *
+   * @return Command that stops the wheels
+   */
+  public Command stopArm() {
+    return runOnce(() -> arm_stop());
+  }
+
+  // Stop the wheel motor (private to enforce Command-based control flow)
+  private void arm_stop() {
+    wheel.stopMotor();
   }
 
   /**
@@ -154,7 +153,11 @@ public class Arm extends SubsystemBase {
    * @return Current arm angle
    */
   public Angle getPosition() {
-    return encoder.getPosition().getValue();
+    return arm_encoder.getPosition().getValue();
+  }
+
+  public Double getVelocity() {
+    return wheel.getVelocity().getValueAsDouble();
   }
 
   /**
@@ -174,4 +177,8 @@ public class Arm extends SubsystemBase {
   public Angle getTolerance() {
     return TOLERANCE;
   }
+
+    public void runIntake() {
+    wheel.setVoltage(6);
+    }
 }
