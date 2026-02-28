@@ -19,46 +19,6 @@ public final class FieldInfo {
     ROTATE
   }
 
-  /** Wrapper for Pose2d in blue alliance coordinates. Auto-flips on get(). */
-  public record BluePose(Pose2d blue) {
-    public Pose2d get() {
-      return flip(blue);
-    }
-
-    public BluePose(double x, double y, Rotation2d rotation) {
-      this(new Pose2d(x, y, rotation));
-    }
-
-    public BluePose(Translation2d translation, Rotation2d rotation) {
-      this(new Pose2d(translation, rotation));
-    }
-  }
-
-  /** Wrapper for Translation2d in blue alliance coordinates. Auto-flips on get(). */
-  public record BlueTranslation(Translation2d blue) {
-    public Translation2d get() {
-      return flip(blue);
-    }
-
-    public BlueTranslation(double x, double y) {
-      this(new Translation2d(x, y));
-    }
-  }
-
-  /** Wrapper for Rotation2d in blue alliance frame. Auto-flips on get(). */
-  public record BlueRotation(Rotation2d blue) {
-    public Rotation2d get() {
-      return flip(blue);
-    }
-  }
-
-  /** Wrapper for Y coordinate in blue alliance frame. Auto-flips on get(). */
-  public record BlueY(double blue) {
-    public double get() {
-      return flipY(blue);
-    }
-  }
-
   private static AprilTagFieldLayout layout;
   private static SymmetryType symmetryType;
 
@@ -130,35 +90,57 @@ public final class FieldInfo {
   }
 
   // ==================== Field Positions (Blue Alliance Coordinates) ====================
+  // These are stored in blue alliance coordinates. Use flip() at call sites to get
+  // alliance-correct values.
 
-  /** Hub/target position for turret tracking. */
-  public static final BlueTranslation HUB_POSITION = new BlueTranslation(4.621, 4.030);
+  /** Hub/target position for turret tracking (blue alliance coordinates). */
+  public static final Translation2d HUB_POSITION = new Translation2d(4.621, 4.030);
 
-  /** Y-axis lock position on the right side. */
-  public static final BlueY AXIS_LOCK_Y_RIGHT = new BlueY(0.639445);
+  /** Y-axis lock position on the right side (blue alliance coordinates). */
+  public static final double AXIS_LOCK_Y_RIGHT = 0.639445;
 
-  /** Y-axis lock position on the left side. */
-  public static BlueY axisLockYLeft() {
-    return new BlueY(width().in(Meters) - 0.639445);
+  /** Y-axis lock position on the left side (blue alliance coordinates). */
+  public static double axisLockYLeft() {
+    return width().in(Meters) - 0.639445;
   }
 
-  /** Rotation preset: facing toward opponent alliance wall. */
-  public static final BlueRotation FACING_FORWARD = new BlueRotation(Rotation2d.kZero);
+  /** Rotation preset: facing toward opponent alliance wall (blue alliance coordinates). */
+  public static final Rotation2d FACING_FORWARD = Rotation2d.kZero;
 
   /** Rotation preset: facing left (relative to blue alliance driver station). */
-  public static final BlueRotation FACING_LEFT = new BlueRotation(Rotation2d.fromDegrees(90));
+  public static final Rotation2d FACING_LEFT = Rotation2d.fromDegrees(90);
 
   /** Rotation preset: facing right (relative to blue alliance driver station). */
-  public static final BlueRotation FACING_RIGHT = new BlueRotation(Rotation2d.fromDegrees(-90));
+  public static final Rotation2d FACING_RIGHT = Rotation2d.fromDegrees(-90);
 
-  /** Rotation preset: facing toward own alliance wall. */
-  public static final BlueRotation FACING_BACK = new BlueRotation(Rotation2d.k180deg);
+  /** Rotation preset: facing toward own alliance wall (blue alliance coordinates). */
+  public static final Rotation2d FACING_BACK = Rotation2d.k180deg;
 
   // ==================== Flip Utilities ====================
 
   /** Returns true if coordinates should be flipped (red alliance). */
-  private static boolean shouldFlip() {
+  public static boolean shouldFlip() {
     return DriverStation.getAlliance().map(alliance -> alliance == Alliance.Red).orElse(false);
+  }
+
+  /**
+   * Flips joystick X/Y for BlueAlliance perspective driving. Negates both axes on red alliance so
+   * "forward" = positive field X.
+   *
+   * @param x Joystick X value (forward/back)
+   * @param y Joystick Y value (left/right)
+   * @return Flipped [x, y] array
+   */
+  public static double[] flipJoystick(double x, double y) {
+    if (shouldFlip()) {
+      return new double[] {-x, -y};
+    }
+    return new double[] {x, y};
+  }
+
+  /** Flips rotation input for red alliance. */
+  public static double flipJoystickRotation(double omega) {
+    return shouldFlip() ? -omega : omega;
   }
 
   /** Flips a Pose2d based on alliance and symmetry type. */

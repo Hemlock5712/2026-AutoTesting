@@ -12,6 +12,7 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
+import frc.robot.utils.FieldInfo;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -33,6 +34,9 @@ public class AxisLockDrive extends Command {
 
   // Braking reaction time buffer (matches DriveToPoint)
   private static final double BRAKING_REACTION_TIME = 0.03;
+
+  // Position lock tolerance - stop correcting when within this distance (meters)
+  private static final double POSITION_LOCK_TOLERANCE = 0.02; // 2 cm
 
   // Heading lock parameters (matches OrbitDrive)
   private static final double HEADING_LOCK_REACTION_TIME = 0.03;
@@ -61,7 +65,7 @@ public class AxisLockDrive extends Command {
       new SwerveRequest.ApplyFieldSpeeds()
           .withDriveRequestType(DriveRequestType.Velocity)
           .withSteerRequestType(SteerRequestType.Position)
-          .withForwardPerspective(ForwardPerspectiveValue.OperatorPerspective);
+          .withForwardPerspective(ForwardPerspectiveValue.BlueAlliance);
 
   /**
    * Creates an AxisLockDrive command with full flexibility.
@@ -163,12 +167,18 @@ public class AxisLockDrive extends Command {
     // Get current pose
     Pose2d currentPose = swerve.getPose();
 
+    // Get driver inputs and flip for BlueAlliance perspective
+    // This ensures "forward on joystick" = positive field X on both alliances
+    double[] flippedInputs =
+        FieldInfo.flipJoystick(velocityXSupplier.getAsDouble(), velocityYSupplier.getAsDouble());
+    double flippedOmega = FieldInfo.flipJoystickRotation(rotationalRateSupplier.getAsDouble());
+
     // Calculate X velocity (locked or driver-controlled)
     double velX;
     if (lockedXTarget != null) {
       velX = calculateLockedAxisVelocity(currentPose.getX(), lockedXTarget);
     } else {
-      velX = velocityXSupplier.getAsDouble();
+      velX = flippedInputs[0];
     }
 
     // Calculate Y velocity (locked or driver-controlled)
@@ -176,7 +186,7 @@ public class AxisLockDrive extends Command {
     if (lockedYTarget != null) {
       velY = calculateLockedAxisVelocity(currentPose.getY(), lockedYTarget);
     } else {
-      velY = velocityYSupplier.getAsDouble();
+      velY = flippedInputs[1];
     }
 
     // Calculate rotation (locked, heading lock, or driver-controlled)
@@ -184,7 +194,7 @@ public class AxisLockDrive extends Command {
     if (lockedRotationTarget != null) {
       targetOmega = calculateLockedRotationOmega(currentPose.getRotation());
     } else {
-      targetOmega = calculateHeadingLockedOmega(rotationalRateSupplier.getAsDouble());
+      targetOmega = calculateHeadingLockedOmega(flippedOmega);
     }
 
     // Normalize to prevent module saturation
@@ -207,6 +217,12 @@ public class AxisLockDrive extends Command {
    */
   private double calculateLockedAxisVelocity(double currentPosition, double targetPosition) {
     double distance = Math.abs(targetPosition - currentPosition);
+
+    // Within tolerance - stop correcting to prevent oscillation
+    if (distance < POSITION_LOCK_TOLERANCE) {
+      return 0.0;
+    }
+
     double currentOmega = lastCommandedVelocity.omegaRadiansPerSecond;
 
     // Estimate current speed along this axis

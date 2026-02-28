@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(./gradlew build:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(git stash push:*)",
+      "Bash(git add:*)"
     ]
   }
 }
