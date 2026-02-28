@@ -30,20 +30,10 @@ public class DualEncoderCRT {
   public static final double ENCODER_1_MECHANISM_RATIO = 21.0;
   public static final double ENCODER_2_MECHANISM_RATIO = 22.0;
 
-  // Motor to encoder ratios (for FusedCANcoder config)
+  // Motor to encoder ratio (for FusedCANcoder config)
   // RotorToSensorRatio: motor rotations per encoder rotation
   public static final double MOTOR_TO_ENCODER_1_RATIO =
       MOTOR_TO_MECHANISM_RATIO / ENCODER_1_MECHANISM_RATIO; // 30.8/21 = 1.467
-  public static final double MOTOR_TO_ENCODER_2_RATIO =
-      MOTOR_TO_MECHANISM_RATIO / ENCODER_2_MECHANISM_RATIO; // 30.8/22 = 1.4
-
-  // CRT: unique range is 1 mechanism rotation (since gcd(21,22)=1)
-  public static final double UNIQUE_MECHANISM_RANGE = 1.0;
-
-  // Encoder offsets (calibrate so diff=0 when turret faces forward)
-  // Set these after running calibration procedure
-  public static final double ENCODER_1_OFFSET = 0.0;
-  public static final double ENCODER_2_OFFSET = 0.0;
 
   // CRT consistency tolerance (rotations)
   public static final double CRT_CONSISTENCY_TOLERANCE = 0.02;
@@ -56,57 +46,22 @@ public class DualEncoderCRT {
 
   private final CANcoder encoder1; // 21:1 from mechanism
   private final CANcoder encoder2; // 22:1 from mechanism
-  private final double offset1;
-  private final double offset2;
   private final double mechRatio1; // 21
   private final double mechRatio2; // 22
-  private final double motorToMechanism;
 
   private final Alert inconsistentReadingAlert;
 
   /**
-   * Creates a new DualEncoderCRT calculator with default constants.
+   * Creates a new DualEncoderCRT calculator.
    *
    * @param encoder1 The first CANcoder (21:1 from mechanism)
    * @param encoder2 The second CANcoder (22:1 from mechanism)
    */
   public DualEncoderCRT(CANcoder encoder1, CANcoder encoder2) {
-    this(
-        encoder1,
-        ENCODER_1_MECHANISM_RATIO,
-        ENCODER_1_OFFSET,
-        encoder2,
-        ENCODER_2_MECHANISM_RATIO,
-        ENCODER_2_OFFSET,
-        MOTOR_TO_MECHANISM_RATIO);
-  }
-
-  /**
-   * Creates a new DualEncoderCRT calculator with custom parameters.
-   *
-   * @param encoder1 The first CANcoder (21:1 from mechanism)
-   * @param mechRatio1 Encoder 1 rotations per mechanism rotation (21)
-   * @param offset1 Offset for encoder 1 (raw reading when turret is at 0)
-   * @param encoder2 The second CANcoder (22:1 from mechanism)
-   * @param mechRatio2 Encoder 2 rotations per mechanism rotation (22)
-   * @param offset2 Offset for encoder 2 (raw reading when turret is at 0)
-   * @param motorToMechanism Motor to mechanism gear ratio (30.8)
-   */
-  public DualEncoderCRT(
-      CANcoder encoder1,
-      double mechRatio1,
-      double offset1,
-      CANcoder encoder2,
-      double mechRatio2,
-      double offset2,
-      double motorToMechanism) {
     this.encoder1 = encoder1;
     this.encoder2 = encoder2;
-    this.mechRatio1 = mechRatio1;
-    this.mechRatio2 = mechRatio2;
-    this.offset1 = offset1;
-    this.offset2 = offset2;
-    this.motorToMechanism = motorToMechanism;
+    this.mechRatio1 = ENCODER_1_MECHANISM_RATIO;
+    this.mechRatio2 = ENCODER_2_MECHANISM_RATIO;
 
     this.inconsistentReadingAlert =
         new Alert(
@@ -124,9 +79,9 @@ public class DualEncoderCRT {
     double e1Raw = encoder1.getAbsolutePosition().getValue().in(Rotations);
     double e2Raw = encoder2.getAbsolutePosition().getValue().in(Rotations);
 
-    // Apply offsets (wrap to 0-1 range)
-    double e1 = ((e1Raw - offset1) % 1.0 + 1.0) % 1.0;
-    double e2 = ((e2Raw - offset2) % 1.0 + 1.0) % 1.0;
+    // Wrap to 0-1 range
+    double e1 = ((e1Raw % 1.0) + 1.0) % 1.0;
+    double e2 = ((e2Raw % 1.0) + 1.0) % 1.0;
 
     // CRT: difference directly gives mechanism position within [0, 1)
     // Because (22-21) = 1, the diff advances 1 per mechanism rotation
@@ -185,27 +140,5 @@ public class DualEncoderCRT {
     if (diff > 0.5) diff -= 1.0;
     if (diff < -0.5) diff += 1.0;
     return diff;
-  }
-
-  /**
-   * Convert mechanism position to rotor position.
-   *
-   * @param mechanism Mechanism position in rotations
-   * @return Rotor position in rotations
-   */
-  public double mechanismToRotor(double mechanism) {
-    return mechanism * motorToMechanism;
-  }
-
-  /**
-   * Get raw encoder readings for calibration.
-   *
-   * @return Array of [encoder1, encoder2] raw absolute positions
-   */
-  public double[] getRawEncoderReadings() {
-    return new double[] {
-      encoder1.getAbsolutePosition().getValue().in(Rotations),
-      encoder2.getAbsolutePosition().getValue().in(Rotations)
-    };
   }
 }

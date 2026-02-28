@@ -3,7 +3,6 @@ package frc.robot.subsystems.turret;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.CANBus;
-import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -49,15 +48,11 @@ public class Turret extends SubsystemBase {
   private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
-  protected CANcoderConfiguration encoder1Config = new CANcoderConfiguration();
-  protected CANcoderConfiguration encoder2Config = new CANcoderConfiguration();
 
   private boolean positionInitialized = false;
 
   // Alerts
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
-  Alert encoder1ConfigAlert = new Alert("Turret Encoder 1 Configuration Failed", AlertType.kError);
-  Alert encoder2ConfigAlert = new Alert("Turret Encoder 2 Configuration Failed", AlertType.kError);
   Alert crtInitAlert = new Alert("Turret CRT Position Initialization Failed", AlertType.kWarning);
 
   @NotLogged
@@ -68,25 +63,8 @@ public class Turret extends SubsystemBase {
     // Initialize CRT calculator using default constants
     crt = new DualEncoderCRT(encoder1, encoder2);
 
-    configureEncoders();
     configureMotor();
     initializePosition();
-  }
-
-  /** Configure both CANcoder absolute encoders. */
-  private void configureEncoders() {
-    // Configure Encoder 1 (21:1 from mechanism) - set magnet offset for calibration
-    encoder1Config.MagnetSensor.MagnetOffset = DualEncoderCRT.ENCODER_1_OFFSET;
-
-    // Configure Encoder 2 (22:1 from mechanism) - set magnet offset for calibration
-    encoder2Config.MagnetSensor.MagnetOffset = DualEncoderCRT.ENCODER_2_OFFSET;
-
-    // Apply encoder configurations
-    boolean enc1Success = encoder1.getConfigurator().apply(encoder1Config).isOK();
-    boolean enc2Success = encoder2.getConfigurator().apply(encoder2Config).isOK();
-
-    encoder1ConfigAlert.set(!enc1Success);
-    encoder2ConfigAlert.set(!enc2Success);
   }
 
   /** Configure motor with FusedCANcoder feedback using encoder 1. */
@@ -163,18 +141,9 @@ public class Turret extends SubsystemBase {
     return positionInitialized;
   }
 
-  /**
-   * Get raw encoder readings for calibration purposes.
-   *
-   * @return Array of [encoder1, encoder2] raw absolute positions
-   */
-  public double[] getRawEncoderReadings() {
-    return crt.getRawEncoderReadings();
-  }
-
   private void trackHub(SwerveDriveState currentState) {
     Pose2d robotPose = currentState.Pose;
-    Translation2d hubPosition = FieldInfo.HUB_POSITION.get();
+    Translation2d hubPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
     Translation2d toTarget = hubPosition.minus(robotPose.getTranslation());
 
     // Skip tracking if robot is too close to hub (avoids numerical instability)
