@@ -24,23 +24,18 @@ public class DualEncoderCRT {
   public static final int ENCODER_2_ID = 27; // 22:1 from mechanism
 
   // Gear ratios
-  public static final double MOTOR_TO_MECHANISM_RATIO = 110.0 / 25.0 * 7.0; // 30.8
+  public static final double MOTOR_TO_MECHANISM_RATIO = 110.0 / 25.0 * 5.0; // 30.8
 
   // Encoder ratios (encoder rotations per mechanism rotation)
   public static final double ENCODER_1_MECHANISM_RATIO = 21.0;
   public static final double ENCODER_2_MECHANISM_RATIO = 22.0;
 
-  // Motor to encoder ratio (for FusedCANcoder config)
-  // RotorToSensorRatio: motor rotations per encoder rotation
-  public static final double MOTOR_TO_ENCODER_1_RATIO =
-      MOTOR_TO_MECHANISM_RATIO / ENCODER_1_MECHANISM_RATIO; // 30.8/21 = 1.467
-
   // CRT consistency tolerance (rotations)
   public static final double CRT_CONSISTENCY_TOLERANCE = 0.02;
 
   // Position limits (mechanism rotations)
-  public static final double FORWARD_LIMIT = 0.5; // +180 degrees
-  public static final double REVERSE_LIMIT = -0.5; // -180 degrees
+  public static final double FORWARD_LIMIT = 0.75; // +270 degrees
+  public static final double REVERSE_LIMIT = -0.25; // -90 degrees
 
   // ==================== Instance Fields ====================
 
@@ -96,8 +91,8 @@ public class DualEncoderCRT {
 
     inconsistentReadingAlert.set(false);
 
-    // Center around 0 for turret (±0.5 rotations)
-    if (mechanismPosition > 0.5) {
+    // Shift to turret range [-0.25, 0.75)
+    if (mechanismPosition > 0.75) {
       mechanismPosition -= 1.0;
     }
 

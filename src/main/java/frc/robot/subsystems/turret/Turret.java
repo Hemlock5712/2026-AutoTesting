@@ -6,7 +6,6 @@ import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
@@ -65,20 +64,14 @@ public class Turret extends SubsystemBase {
     initializePosition();
   }
 
-  /** Configure motor with FusedCANcoder feedback using encoder 1. */
+  /** Configure motor with RotorSensor feedback (internal encoder only). */
   private void configureMotor() {
-    // Configure FusedCANcoder with encoder 1 as feedback source
-    // This fuses encoder data with motor rotor for best accuracy and backlash compensation
-    config.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
-    config.Feedback.FeedbackRemoteSensorID = encoder1.getDeviceID();
+    // Use motor's internal rotor sensor for feedback (RotorSensor is default)
+    // Position is seeded from CRT calculation at startup via initializePosition()
 
-    // RotorToSensorRatio: motor rotations per encoder rotation
-    // Motor spins 30.8/21 = 1.467 times per encoder 1 rotation
-    config.Feedback.RotorToSensorRatio = DualEncoderCRT.MOTOR_TO_ENCODER_1_RATIO;
-
-    // SensorToMechanismRatio: encoder rotations per mechanism rotation
-    // Encoder 1 spins 21 times per mechanism rotation
-    config.Feedback.SensorToMechanismRatio = DualEncoderCRT.ENCODER_1_MECHANISM_RATIO;
+    // SensorToMechanismRatio: rotor rotations per mechanism rotation
+    // Motor spins 30.8 times per mechanism rotation
+    config.Feedback.SensorToMechanismRatio = DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO;
 
     // PID gains
     config.Slot0.kS = 0; // Static friction compensation
@@ -90,7 +83,7 @@ public class Turret extends SubsystemBase {
     config.MotionMagic.MotionMagicCruiseVelocity = 0; // RPS
     config.MotionMagic.MotionMagicAcceleration = 0; // RPS^2
 
-    // Soft limits to prevent exceeding +/-180 degree physical range
+    // Soft limits to prevent exceeding -90 to +270 degree physical range
     config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
     config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = DualEncoderCRT.FORWARD_LIMIT;
     config.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
@@ -154,8 +147,8 @@ public class Turret extends SubsystemBase {
 
     // Calculate turret angle relative to robot forward (oppose robot rotation)
     double turretToTarget = angleToTargetField.minus(robotPose.getRotation()).getRotations();
-    // Wrap angle to [-0.5, 0.5] rotations (+/-180 degrees) for shortest path
-    turretToTarget = MathUtil.inputModulus(turretToTarget, -0.5, 0.5);
+    // Wrap angle to [-0.25, 0.75] rotations (-90 to +270 degrees) turret range
+    turretToTarget = MathUtil.inputModulus(turretToTarget, -0.25, 0.75);
 
     setAngle(Rotations.of(turretToTarget));
   }
