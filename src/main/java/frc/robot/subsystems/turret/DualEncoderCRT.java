@@ -19,9 +19,9 @@ public class DualEncoderCRT {
   // ==================== Constants ====================
 
   // CAN IDs (all on canivore bus)
-  public static final int MOTOR_ID = 41;
-  public static final int ENCODER_1_ID = 42; // 21:1 from mechanism
-  public static final int ENCODER_2_ID = 43; // 22:1 from mechanism
+  public static final int MOTOR_ID = 25;
+  public static final int ENCODER_1_ID = 26; // 21:1 from mechanism
+  public static final int ENCODER_2_ID = 27; // 22:1 from mechanism
 
   // Gear ratios
   public static final double MOTOR_TO_MECHANISM_RATIO = 110.0 / 25.0 * 7.0; // 30.8

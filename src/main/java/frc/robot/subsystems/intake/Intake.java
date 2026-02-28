@@ -2,7 +2,7 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
-package frc.robot.subsystems.arm;
+package frc.robot.subsystems.intake;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
@@ -33,12 +33,12 @@ public class Intake extends SubsystemBase {
   private final CANBus canivore = new CANBus("canivore");
 
   // Main motor that moves the arm (device ID 31)
-  protected final TalonFX arm = new TalonFX(31, canivore);
+  protected final TalonFX arm = new TalonFX(22, canivore);
   // Sensor that tells us the arm's exact angle (device ID 32)
-  protected final CANcoder arm_encoder = new CANcoder(32, canivore);
+  protected final CANcoder arm_encoder = new CANcoder(24, canivore);
 
-    // Main motor that moves the intake (device ID 31)
-  protected final TalonFX wheel = new TalonFX(31, canivore);
+  // Main motor that moves the intake (device ID 31)
+  protected final TalonFX wheel = new TalonFX(23, canivore);
 
   // Configuration settings for the arm motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
@@ -124,7 +124,7 @@ public class Intake extends SubsystemBase {
     wheel.stopMotor();
   }
 
-   /**
+  /**
    * Command to stop the arm motor.
    *
    * @return Command that stops the wheels
@@ -178,7 +178,7 @@ public class Intake extends SubsystemBase {
     return TOLERANCE;
   }
 
-    public void runIntake() {
+  public void runIntake() {
     wheel.setVoltage(6);
-    }
+  }
 }

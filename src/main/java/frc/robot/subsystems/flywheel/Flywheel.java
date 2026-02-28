@@ -29,7 +29,7 @@ public class Flywheel extends SubsystemBase {
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(0.25);
 
   // Main motor that spins the flywheel (device ID 21)
-  protected final TalonFX leader = new TalonFX(21, TunerConstants.kCANBus);
+  protected final TalonFX leader = new TalonFX(28, TunerConstants.kCANBus);
 
   // Controller for spinning the flywheel at a target speed
   private final MotionMagicVelocityVoltage velocityOut = new MotionMagicVelocityVoltage(0);

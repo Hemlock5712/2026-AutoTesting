@@ -17,9 +17,9 @@ public class Spindexer extends SubsystemBase {
 
   protected final double VELOCITY_TOLERANCE = 0.2;
 
-  protected final TalonFX leader = new TalonFX(51, CANBus.roboRIO());
+  protected final TalonFX leader = new TalonFX(20, CANBus.roboRIO());
 
-  protected final TalonFX kicker = new TalonFX(52, CANBus.roboRIO());
+  protected final TalonFX kicker = new TalonFX(21, CANBus.roboRIO());
 
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
