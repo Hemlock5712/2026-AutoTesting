@@ -18,6 +18,7 @@ import edu.wpi.first.wpilibj.simulation.RoboRioSim;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Robot;
+import frc.robot.subsystems.Superstructure;
 import frc.robot.utils.MechanismUtil;
 
 /**
@@ -76,7 +77,7 @@ public class TurretSIM extends Turret {
   private final MechanismUtil.TurretMechanism turretMechanism;
 
   @Logged(name = "Turret Mechanism3D")
-  public Pose3d[] turretPose = new Pose3d[] {Turret.TURRET_HOLE_CENTER, new Pose3d()};
+  public Pose3d[] turretPose = new Pose3d[] {Superstructure.TURRET_HOLE_CENTER, new Pose3d()};
 
   /**
    * Constructs a new TurretSIM instance.
@@ -160,7 +161,7 @@ public class TurretSIM extends Turret {
 
     // Turret base - rotates around Z-axis
     turretPose[0] =
-        Turret.TURRET_HOLE_CENTER.transformBy(
+        Superstructure.TURRET_HOLE_CENTER.transformBy(
             new Transform3d(Translation3d.kZero, new Rotation3d(0, 0, turretSim.getAngleRads())));
 
     // Shooter position - offset from base with fixed pitch

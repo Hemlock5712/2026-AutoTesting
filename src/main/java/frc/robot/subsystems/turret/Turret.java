@@ -8,16 +8,7 @@ import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
-import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.NotLogged;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
@@ -25,7 +16,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Robot;
 import frc.robot.generated.TunerConstants;
-import frc.robot.utils.FieldInfo;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
 
@@ -52,13 +42,6 @@ public class Turret extends SubsystemBase {
   // Alerts
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
   Alert crtInitAlert = new Alert("Turret CRT Position Initialization Failed", AlertType.kWarning);
-
-  @NotLogged
-  public static final Pose3d TURRET_HOLE_CENTER =
-      new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
-
-  public static final Transform2d TURRET_TRANSFORM =
-      new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
   public Turret() {
     // Initialize CRT calculator using default constants
@@ -114,33 +97,7 @@ public class Turret extends SubsystemBase {
     crtInitAlert.set(setPosition.isError());
   }
 
-  private void trackHub(SwerveDriveState currentState) {
-    Pose2d robotPose = currentState.Pose;
-    Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
-    Translation2d hubPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
-    Translation2d toTarget = hubPosition.minus(turretPose.getTranslation());
-
-    // Skip tracking if robot is too close to hub (avoids numerical instability)
-    if (toTarget.getNorm() < 0.1) {
-      return;
-    }
-
-    // Calculate the angle to the target in field coordinates
-    Rotation2d angleToTargetField = toTarget.getAngle();
-
-    // Calculate turret angle relative to robot forward (oppose robot rotation)
-    double turretToTarget = angleToTargetField.minus(robotPose.getRotation()).getRotations();
-    // Wrap angle to [-0.25, 0.75] rotations (-90 to +270 degrees) turret range
-    turretToTarget = MathUtil.inputModulus(turretToTarget, -0.25, 0.75);
-
-    setAngle(Rotations.of(turretToTarget));
-  }
-
-  public Command trackHubCommand(Supplier<SwerveDriveState> swerveState) {
-    return run(() -> trackHub(swerveState.get()));
-  }
-
-  public void setAngle(Angle angle) {
+  public void setAngle(double angle) {
     leader.setControl(angleOut.withPosition(angle));
   }
 
@@ -158,6 +115,11 @@ public class Turret extends SubsystemBase {
 
   public boolean isAtTarget() {
     return getAngle().isNear(getTargetAngle(), TOLERANCE);
+  }
+
+  /** Command that continuously tracks the hub using a supplied angle. */
+  public Command trackHubCommand(Supplier<Double> angleSupplier) {
+    return run(() -> setAngle(angleSupplier.get()));
   }
 
   public Command stopCommand() {

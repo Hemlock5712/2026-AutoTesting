@@ -19,24 +19,15 @@ import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
-import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.NotLogged;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.utils.FieldInfo;
 import frc.robot.utils.TalonFXUtil;
-import java.util.function.Supplier;
+import java.util.function.DoubleSupplier;
 
 @Logged
 public class Shooter extends SubsystemBase {
@@ -65,13 +56,6 @@ public class Shooter extends SubsystemBase {
 
   // Alert for motor configuration failures
   Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
-
-  @NotLogged
-  public static final Pose3d TURRET_HOLE_CENTER =
-      new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
-
-  public static final Transform2d TURRET_TRANSFORM =
-      new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
   public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled
@@ -261,17 +245,23 @@ public class Shooter extends SubsystemBase {
     hood.stopMotor();
   }
 
-  public void dynamicMotor(SwerveDriveState currentState) {
-    Pose2d robotPose = currentState.Pose;
-    Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
-    Translation2d hubPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
-    double distance = hubPosition.getDistance(turretPose.getTranslation());
-
-    setVelocity(ShooterLookup.getFlywheelMap().get(distance));
-    setPosition(ShooterLookup.getHoodMap().get(distance));
+  /**
+   * Set flywheel velocity and hood position based on distance to target.
+   *
+   * @param distanceMeters Distance to target in meters
+   */
+  public void setForDistance(double distanceMeters) {
+    setVelocity(ShooterLookup.getFlywheelMap().get(distanceMeters));
+    setPosition(ShooterLookup.getHoodMap().get(distanceMeters));
   }
 
-  public Command runDynamic(Supplier<SwerveDriveState> driveState) {
-    return run(() -> dynamicMotor(driveState.get()));
+  /**
+   * Command that sets shooter for the given distance.
+   *
+   * @param distanceSupplier Supplier for distance to target in meters
+   * @return Command that sets flywheel and hood based on distance
+   */
+  public Command runDynamic(DoubleSupplier distanceSupplier) {
+    return runOnce(() -> setForDistance(distanceSupplier.getAsDouble()));
   }
 }

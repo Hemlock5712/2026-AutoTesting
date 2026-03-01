@@ -148,4 +148,8 @@ public class RobotContainer {
     scaledJoyStick = MathUtil.applyDeadband(scaledJoyStick, 0.05);
     return MathUtil.copyDirectionPow(scaledJoyStick, 2);
   }
+
+  public Superstructure getSuperstructure() {
+    return superstructure;
+  }
 }
