@@ -47,26 +47,13 @@ public class Superstructure {
   public Command beginShoot() {
     return Commands.sequence(
         spindexer.startCommand(),
-        shooter.runVelocity(0),
+        shooter.runVelocity(50),
         Commands.waitUntil(
-            () -> shooter.flywheelIsAtTarget() && shooter.hoodIsAtTarget() && turret.isAtTarget()),
+            () -> shooter.flywheelIsAtTarget()),
         spindexer.startKickerCommand());
   }
 
-  public Command deployIntake() {
-    return Commands.none();
-  }
-
-  public Command RetractIntake() {
-    return Commands.none();
-  }
-
-  public Command test() {
-    return Commands.sequence(
-        spindexer.startCommand(), spindexer.startKickerVoltageCommand(), shooter.runVelocity(50));
-  }
-
-  public Command test1() {
+  public Command stopShoot() {
     return Commands.sequence(
         spindexer.stopCommand(), spindexer.stopKickerCommand(), shooter.stopCommand());
   }
