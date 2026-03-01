@@ -71,7 +71,7 @@ public class Superstructure {
 
   // ==================== Periodic ====================
 
-  public void periodic() {
+  public void update() {
     // Calculate targeting data once per loop (used by turret tracking and shooter)
     SwerveDriveState state = driveState.get();
     Pose2d robotPose = state.Pose;
@@ -101,8 +101,7 @@ public class Superstructure {
 
   public Command beginShoot() {
     return Commands.sequence(
-        // shooter.runDynamic(() -> distanceToHub),
-        shooter.runVelocity(35),
+        shooter.runDynamic(() -> distanceToHub),
         new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
         spindexer.startCommand(),
         spindexer.startKickerVoltageCommand());

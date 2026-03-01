@@ -39,6 +39,8 @@ public class DualEncoderCRT {
   // This accounts for the actual gear ratios (110/21 and 110/22)
   public static final double CRT_MULTIPLIER = 21.0 * 22.0 / 110.0;
 
+  public static final double ROTOR_TO_ENCODER_RATIO = MOTOR_TO_MECHANISM_RATIO / 21.0;
+
   // ==================== Instance Fields ====================
 
   private final CANcoder encoder1; // 21:1 from mechanism

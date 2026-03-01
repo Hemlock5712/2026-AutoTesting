@@ -59,6 +59,9 @@ public class Turret extends SubsystemBase {
     // SensorToMechanismRatio: rotor rotations per mechanism rotation
     // Motor spins 30.8 times per mechanism rotation
     config.Feedback.SensorToMechanismRatio = DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO;
+    config.Feedback.RotorToSensorRatio = DualEncoderCRT.ROTOR_TO_ENCODER_RATIO;
+
+    config.Feedback.withRemoteCANcoder(encoder1);
 
     // PID gains
     config.Slot0.kS = 0.349609375; // Static friction compensation
