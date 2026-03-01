@@ -128,9 +128,9 @@ public class RobotContainer {
                 FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
                 FieldInfo.flip(FieldInfo.FACING_FORWARD))); // Lock rotation to 0°
 
-    joystick.rightTrigger(0.5).onTrue(superstructure.beginShoot()).onFalse(superstructure.stopShoot());
+    joystick.rightTrigger(0.5).whileTrue(superstructure.beginShoot()).onFalse(superstructure.stopShoot());
 
-    joystick.leftTrigger(0.5).onTrue(superstructure.startIntake()).onFalse(superstructure.stopIntake());
+    joystick.leftTrigger(0.5).whileTrue(superstructure.startIntake()).onFalse(superstructure.stopIntake());
     joystick.x().onTrue(superstructure.stowIntake());
   }
 
