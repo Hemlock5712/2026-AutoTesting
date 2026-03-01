@@ -26,8 +26,8 @@ import frc.robot.utils.TalonFXUtil;
 @Logged
 public class Intake extends SubsystemBase {
   // Position setpoints using Angle objects for type safety
-  private static final Angle UP = Degrees.of(67);
-  private static final Angle DOWN = Degrees.of(89);
+  private static final Angle UP = Degrees.of(90);
+  private static final Angle DOWN = Degrees.of(0);
 
   // Main motor that moves the arm (device ID 31)
   protected final TalonFX arm = new TalonFX(22, TunerConstants.kCANBus);
@@ -153,7 +153,7 @@ public class Intake extends SubsystemBase {
     return arm_encoder.getPosition().getValue();
   }
 
-  public Double getVelocity() {
+  public double getVelocity() {
     return wheel.getVelocity().getValueAsDouble();
   }
 
