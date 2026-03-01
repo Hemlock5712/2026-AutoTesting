@@ -4,7 +4,18 @@
       "Bash(./gradlew build:*)",
       "Bash(findstr:*)",
       "Bash(git stash push:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(gh pr view:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(JAVA_HOME=/c/Users/Public/wpilib/2026/jdk ./gradlew.bat build:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(cmd.exe /c \"cd /d c:\\\\Users\\\\joeoj\\\\Downloads\\\\2026-AutoTesting && gradlew.bat build\")",
+      "Bash(git stash:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash pop:*)"
     ]
   }
 }

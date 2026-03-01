@@ -2,9 +2,12 @@ package frc.robot.subsystems.turret;
 
 import static edu.wpi.first.units.Units.Rotations;
 
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.hardware.CANcoder;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.units.measure.Angle;
+import frc.robot.Robot;
 
 /**
  * Calculates absolute turret position using Chinese Remainder Theorem from two encoders with gear
@@ -24,27 +27,24 @@ public class DualEncoderCRT {
   public static final int ENCODER_2_ID = 27; // 22:1 from mechanism
 
   // Gear ratios
-  public static final double MOTOR_TO_MECHANISM_RATIO = 110.0 / 25.0 * 5.0; // 30.8
+  public static final double MOTOR_TO_MECHANISM_RATIO = 110.0 / 15.0 * 5.0; // 30.8
 
   // Encoder ratios (encoder rotations per mechanism rotation)
-  public static final double ENCODER_1_MECHANISM_RATIO = 21.0;
-  public static final double ENCODER_2_MECHANISM_RATIO = 22.0;
-
-  // CRT consistency tolerance (rotations)
-  public static final double CRT_CONSISTENCY_TOLERANCE = 0.02;
+  public static final double ENCODER_1_MECHANISM_RATIO = 110.0 / 21.0;
+  public static final double ENCODER_2_MECHANISM_RATIO = 110.0 / 22.0;
 
   // Position limits (mechanism rotations)
   public static final double FORWARD_LIMIT = 0.75; // +270 degrees
   public static final double REVERSE_LIMIT = -0.25; // -90 degrees
 
+  // CRT multiplier: 21 * 22 / 110 = 462/110 ≈ 4.2
+  // This accounts for the actual gear ratios (110/21 and 110/22)
+  public static final double CRT_MULTIPLIER = 21.0 * 22.0 / 110.0;
+
   // ==================== Instance Fields ====================
 
   private final CANcoder encoder1; // 21:1 from mechanism
   private final CANcoder encoder2; // 22:1 from mechanism
-  private final double mechRatio1; // 21
-  private final double mechRatio2; // 22
-
-  private final Alert inconsistentReadingAlert;
 
   /**
    * Creates a new DualEncoderCRT calculator.
@@ -55,85 +55,52 @@ public class DualEncoderCRT {
   public DualEncoderCRT(CANcoder encoder1, CANcoder encoder2) {
     this.encoder1 = encoder1;
     this.encoder2 = encoder2;
-    this.mechRatio1 = ENCODER_1_MECHANISM_RATIO;
-    this.mechRatio2 = ENCODER_2_MECHANISM_RATIO;
-
-    this.inconsistentReadingAlert =
-        new Alert(
-            "CRT: Encoder readings inconsistent - possible slip or failure", AlertType.kError);
   }
 
   /**
    * Calculate the absolute mechanism position using CRT. With 21:1 and 22:1 ratios, diff = e2 - e1
    * directly gives mechanism position.
    *
-   * @return mechanism position in rotations (centered around 0), or NaN if failed
+   * @return mechanism position in rotations (centered around 0)
    */
   public double calculateMechanismPosition() {
-    // Get absolute encoder positions (0 to 1 rotations)
-    double e1Raw = encoder1.getAbsolutePosition().getValue().in(Rotations);
-    double e2Raw = encoder2.getAbsolutePosition().getValue().in(Rotations);
+    // Get status signals for both encoders
+    StatusSignal<Angle> e1Signal = encoder1.getPosition();
+    StatusSignal<Angle> e2Signal = encoder2.getPosition();
 
-    // Wrap to 0-1 range
-    double e1 = ((e1Raw % 1.0) + 1.0) % 1.0;
-    double e2 = ((e2Raw % 1.0) + 1.0) % 1.0;
+    // Wait for both signals to be valid (up to 10ms timeout)
+    BaseStatusSignal.waitForAll(10, e1Signal, e2Signal);
 
-    // CRT: difference directly gives mechanism position within [0, 1)
-    // Because (22-21) = 1, the diff advances 1 per mechanism rotation
-    double diff = ((e2 - e1) % 1.0 + 1.0) % 1.0;
-    double mechanismPosition = diff;
+    // Get absolute encoder positions
+    double e1Raw = e1Signal.getValueAsDouble();
+    double e2Raw = e2Signal.getValueAsDouble();
 
-    // Verify consistency
-    if (!verifyConsistency(mechanismPosition, e1, e2)) {
-      inconsistentReadingAlert.set(true);
-      return Double.NaN;
-    }
+    // Wrap to [0, 1) range using MathUtil for robustness
+    double e1 = MathUtil.inputModulus(e1Raw, 0.0, 1.0);
+    double e2 = MathUtil.inputModulus(e2Raw, 0.0, 1.0);
 
-    inconsistentReadingAlert.set(false);
+    Robot.telemetry().log("Testing/E1Raw", e1Raw);
+    Robot.telemetry().log("Testing/E2Raw", e2Raw);
+    Robot.telemetry().log("Testing/E1Wrapped", e1);
+    Robot.telemetry().log("Testing/E2Wrapped", e2);
 
-    // Shift to turret range [-0.25, 0.75)
-    if (mechanismPosition > 0.75) {
-      mechanismPosition -= 1.0;
-    }
+    // Compute wrapped difference to handle encoder wrap-around at 0/1 boundary
+    // This ensures diff is in [-0.5, 0.5] regardless of which encoder wrapped
+    double diff = MathUtil.inputModulus(e2 - e1, -0.5, 0.5);
+
+    Robot.telemetry().log("Testing/CRT_Diff", diff);
+
+    // CRT: with ratios 110/21 and 110/22, we need diff * multiplier
+    // The multiplier (21*22/110) accounts for the non-unit difference between ratios
+    double mechanismPosition = diff * CRT_MULTIPLIER;
+
+    Robot.telemetry().log("Testing/CRT_MechPos", mechanismPosition);
+
+    // Wrap to valid turret range [-0.25, 0.75)
+    mechanismPosition = MathUtil.inputModulus(mechanismPosition, -0.25, 0.75);
+
+    Robot.telemetry().log("Testing/CRT_MechPosFinal", mechanismPosition);
 
     return mechanismPosition;
-  }
-
-  /**
-   * Verify that calculated position is consistent with both encoder readings.
-   *
-   * @param mech The calculated mechanism position
-   * @param e1 The offset-adjusted encoder 1 reading
-   * @param e2 The offset-adjusted encoder 2 reading
-   * @return true if readings are consistent, false if possible slip/failure
-   */
-  private boolean verifyConsistency(double mech, double e1, double e2) {
-    // Expected encoder readings for this mechanism position
-    double expectedE1 = (mech * mechRatio1) % 1.0;
-    if (expectedE1 < 0) expectedE1 += 1.0;
-
-    double expectedE2 = (mech * mechRatio2) % 1.0;
-    if (expectedE2 < 0) expectedE2 += 1.0;
-
-    double tolerance = CRT_CONSISTENCY_TOLERANCE;
-
-    double error1 = Math.abs(wrapDiff(e1, expectedE1));
-    double error2 = Math.abs(wrapDiff(e2, expectedE2));
-
-    return error1 < tolerance && error2 < tolerance;
-  }
-
-  /**
-   * Calculate wrapped difference between two angles in [0, 1) range.
-   *
-   * @param a First angle (0 to 1)
-   * @param b Second angle (0 to 1)
-   * @return Wrapped difference in range (-0.5, 0.5]
-   */
-  private double wrapDiff(double a, double b) {
-    double diff = a - b;
-    if (diff > 0.5) diff -= 1.0;
-    if (diff < -0.5) diff += 1.0;
-    return diff;
   }
 }

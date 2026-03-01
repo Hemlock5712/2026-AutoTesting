@@ -2,6 +2,7 @@ package frc.robot.subsystems.turret;
 
 import static edu.wpi.first.units.Units.Rotations;
 
+import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -15,12 +16,14 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Robot;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.TalonFXUtil;
@@ -46,8 +49,6 @@ public class Turret extends SubsystemBase {
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
-  private boolean positionInitialized = false;
-
   // Alerts
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
   Alert crtInitAlert = new Alert("Turret CRT Position Initialization Failed", AlertType.kWarning);
@@ -55,6 +56,9 @@ public class Turret extends SubsystemBase {
   @NotLogged
   public static final Pose3d TURRET_HOLE_CENTER =
       new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
+
+  public static final Transform2d TURRET_TRANSFORM =
+      new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
   public Turret() {
     // Initialize CRT calculator using default constants
@@ -101,41 +105,20 @@ public class Turret extends SubsystemBase {
     // Calculate absolute mechanism position using CRT
     double mechanismPosition = crt.calculateMechanismPosition();
 
-    if (Double.isNaN(mechanismPosition)) {
-      crtInitAlert.set(true);
-      positionInitialized = false;
-      return;
-    }
-
     // Set the motor's internal position to match the calculated position
     // This does NOT affect the CANcoder - it only syncs the motor's position tracking
-    leader.setPosition(mechanismPosition);
+    StatusCode setPosition = leader.setPosition(mechanismPosition);
 
-    crtInitAlert.set(false);
-    positionInitialized = true;
-  }
+    Robot.telemetry().log("Testing/", mechanismPosition);
 
-  /**
-   * Re-initialize position using CRT. Call this if CRT needs recalibration. Should only be called
-   * when turret is stationary.
-   */
-  public void reinitializePosition() {
-    initializePosition();
-  }
-
-  /**
-   * Check if position was successfully initialized via CRT.
-   *
-   * @return true if position is initialized
-   */
-  public boolean isPositionInitialized() {
-    return positionInitialized;
+    crtInitAlert.set(setPosition.isError());
   }
 
   private void trackHub(SwerveDriveState currentState) {
     Pose2d robotPose = currentState.Pose;
+    Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
     Translation2d hubPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
-    Translation2d toTarget = hubPosition.minus(robotPose.getTranslation());
+    Translation2d toTarget = hubPosition.minus(turretPose.getTranslation());
 
     // Skip tracking if robot is too close to hub (avoids numerical instability)
     if (toTarget.getNorm() < 0.1) {
