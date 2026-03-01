@@ -1,7 +1,5 @@
 package frc.robot.subsystems.turret;
 
-import static edu.wpi.first.units.Units.Rotations;
-
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.hardware.CANcoder;

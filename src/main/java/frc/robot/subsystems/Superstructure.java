@@ -36,21 +36,23 @@ public class Superstructure {
   private final Spindexer spindexer =
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
+  private final Supplier<SwerveDriveState> driveState;
+
   // ==================== Constructor ====================
 
   public Superstructure(Supplier<SwerveDriveState> driveState) {
-    turret.setDefaultCommand(turret.trackHubCommand(driveState));
+    this.driveState = driveState;
+    // turret.setDefaultCommand(turret.trackHubCommand(driveState));
   }
 
   // ==================== Coordinated Commands ====================
 
   public Command beginShoot() {
     return Commands.sequence(
+        shooter.runDynamic(driveState),
+        Commands.waitUntil(() -> shooter.flywheelIsAtTarget()),
         spindexer.startCommand(),
-        shooter.runVelocity(50),
-        Commands.waitUntil(
-            () -> shooter.flywheelIsAtTarget()),
-        spindexer.startKickerCommand());
+        spindexer.startKickerVoltageCommand());
   }
 
   public Command stopShoot() {

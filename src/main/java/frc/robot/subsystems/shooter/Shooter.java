@@ -11,21 +11,32 @@ import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
-import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
+import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
+import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.NotLogged;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.utils.FieldInfo;
 import frc.robot.utils.TalonFXUtil;
+import java.util.function.Supplier;
 
 @Logged
 public class Shooter extends SubsystemBase {
@@ -42,15 +53,25 @@ public class Shooter extends SubsystemBase {
   protected final CANcoder hoodEncoder = new CANcoder(30, CANBus.roboRIO());
 
   // Controller for spinning the flywheel at a target speed
-  private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
+  private final VelocityVoltage velocityOut = new VelocityVoltage(0);
 
   private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
+  // Configuration settings for the flywheel motor
+  protected TalonFXConfiguration confighood = new TalonFXConfiguration();
+
   // Alert for motor configuration failures
   Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
+
+  @NotLogged
+  public static final Pose3d TURRET_HOLE_CENTER =
+      new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
+
+  public static final Transform2d TURRET_TRANSFORM =
+      new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
   public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled
@@ -59,9 +80,9 @@ public class Shooter extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // Control values
-    config.Slot0.kS = 0.26; // Static friction
-    config.Slot0.kV = 0.11749999970197678; // Velocity feedforward
-    config.Slot0.kP = 0.25; // Proportional gain
+    config.Slot0.kS = 0.06; // Static friction
+    config.Slot0.kV = 0.242; // Velocity feedforward
+    config.Slot0.kP = 0.3; // Proportional gain
     config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
 
     config.Feedback.SensorToMechanismRatio = 2.0;
@@ -73,6 +94,39 @@ public class Shooter extends SubsystemBase {
     // Apply configuration with retries
     boolean success = TalonFXUtil.applyConfigWithRetries(flywheel, config);
     motorConfigAlert.set(!success);
+
+    // Coast mode: Flywheel can spin freely by hand when disabled
+    confighood.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    // Set motor direction: positive power = counterclockwise spin
+    confighood.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+
+    // Control values
+    confighood.Slot0.kS = 0.33; // Static friction
+    confighood.Slot0.kV = 0.0; // Velocity feedforward
+    confighood.Slot0.kP = 200; // Proportional gain
+    confighood.Slot0.kD = 3; // Proportional gain
+    confighood.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
+
+    confighood.Feedback.SensorToMechanismRatio = 2.0;
+
+    // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
+    confighood.MotionMagic.MotionMagicCruiseVelocity = 0.5; // RPS
+    confighood.MotionMagic.MotionMagicAcceleration = 1.0; // RPS²
+
+    confighood.Feedback.FeedbackRemoteSensorID = hoodEncoder.getDeviceID();
+    confighood.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RemoteCANcoder;
+    confighood.Feedback.SensorToMechanismRatio = 3;
+    confighood.Feedback.RotorToSensorRatio = 75.38;
+
+    // Soft limits to prevent exceeding -90 to +270 degree physical range
+    confighood.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
+    confighood.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.044;
+    confighood.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
+    confighood.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
+
+    // Apply configuration with retries
+    boolean successhood = TalonFXUtil.applyConfigWithRetries(hood, confighood);
+    motorConfigAlert.set(!successhood);
 
     follower.setControl(new Follower(flywheel.getDeviceID(), MotorAlignmentValue.Opposed));
   }
@@ -97,6 +151,10 @@ public class Shooter extends SubsystemBase {
    * @param angle What position to go to
    */
   public void setPosition(Angle angle) {
+    hood.setControl(rotationOut.withPosition(angle));
+  }
+
+  public void setPosition(double angle) {
     hood.setControl(rotationOut.withPosition(angle));
   }
 
@@ -201,5 +259,19 @@ public class Shooter extends SubsystemBase {
   private void stopMotors() {
     flywheel.stopMotor();
     hood.stopMotor();
+  }
+
+  public void dynamicMotor(SwerveDriveState currentState) {
+    Pose2d robotPose = currentState.Pose;
+    Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
+    Translation2d hubPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+    double distance = hubPosition.getDistance(turretPose.getTranslation());
+
+    setVelocity(ShooterLookup.getFlywheelMap().get(distance));
+    setPosition(ShooterLookup.getHoodMap().get(distance));
+  }
+
+  public Command runDynamic(Supplier<SwerveDriveState> driveState) {
+    return run(() -> dynamicMotor(driveState.get()));
   }
 }

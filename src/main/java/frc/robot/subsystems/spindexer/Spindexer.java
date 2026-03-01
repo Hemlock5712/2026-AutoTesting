@@ -1,7 +1,7 @@
 package frc.robot.subsystems.spindexer;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
+import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import edu.wpi.first.epilogue.Logged;
@@ -20,7 +20,7 @@ public class Spindexer extends SubsystemBase {
 
   protected final TalonFX kicker = new TalonFX(21, TunerConstants.kCANBus);
 
-  private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
+  private final VelocityVoltage velocityOut = new VelocityVoltage(0);
 
   protected TalonFXConfiguration spindexerConfig = new TalonFXConfiguration();
 

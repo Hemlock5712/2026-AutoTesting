@@ -4,7 +4,7 @@ import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
@@ -43,7 +43,7 @@ public class Turret extends SubsystemBase {
   // CRT calculator for absolute position determination
   private final DualEncoderCRT crt;
 
-  private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
+  private final PositionVoltage angleOut = new PositionVoltage(0);
 
   private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
 
@@ -78,14 +78,14 @@ public class Turret extends SubsystemBase {
     config.Feedback.SensorToMechanismRatio = DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO;
 
     // PID gains
-    config.Slot0.kS = 0; // Static friction compensation
-    config.Slot0.kP = 0; // Proportional gain
-    config.Slot0.kD = 0; // Derivative gain
+    config.Slot0.kS = 0.349609375; // Static friction compensation
+    config.Slot0.kP = 1000; // Proportional gain
+    config.Slot0.kD = 3; // Derivative gain
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // MotionMagic settings - units are mechanism rotations
-    config.MotionMagic.MotionMagicCruiseVelocity = 0; // RPS
-    config.MotionMagic.MotionMagicAcceleration = 0; // RPS^2
+    config.MotionMagic.MotionMagicCruiseVelocity = 2; // RPS
+    config.MotionMagic.MotionMagicAcceleration = 10; // RPS^2
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
     config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
