@@ -127,7 +127,8 @@ public class RobotContainer {
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
                 FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
                 FieldInfo.flip(FieldInfo.FACING_FORWARD))); // Lock rotation to 0°
-    joystick.axisGreaterThan(3, 0.7).onTrue(superstructure.beginShoot());
+
+    joystick.rightTrigger(0.5).onTrue(superstructure.beginShoot()).onFalse(superstructure.stopShoot());
   }
 
   public Command getAutonomousCommand() {

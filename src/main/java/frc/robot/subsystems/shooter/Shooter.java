@@ -10,13 +10,14 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.Follower;
-import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
+import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
@@ -41,7 +42,7 @@ public class Shooter extends SubsystemBase {
   protected final CANcoder hoodEncoder = new CANcoder(30, CANBus.roboRIO());
 
   // Controller for spinning the flywheel at a target speed
-  private final MotionMagicVelocityVoltage velocityOut = new MotionMagicVelocityVoltage(0);
+  private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
   private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
 
@@ -58,9 +59,12 @@ public class Shooter extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // Control values
-    config.Slot0.kS = 0.0; // Static friction
-    config.Slot0.kV = 0.0; // Velocity feedforward
-    config.Slot0.kP = 0.0; // Proportional gain
+    config.Slot0.kS = 0.26; // Static friction
+    config.Slot0.kV = 0.11749999970197678; // Velocity feedforward
+    config.Slot0.kP = 0.25; // Proportional gain
+    config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
+
+    config.Feedback.SensorToMechanismRatio = 2.0;
 
     // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
     config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // RPS
@@ -83,7 +87,7 @@ public class Shooter extends SubsystemBase {
    *
    * @param velocity How fast to spin (rotations per second)
    */
-  private void setVelocity(double velocity) {
+  public void setVelocity(double velocity) {
     flywheel.setControl(velocityOut.withVelocity(velocity));
   }
 
@@ -92,7 +96,7 @@ public class Shooter extends SubsystemBase {
    *
    * @param angle What position to go to
    */
-  private void setPosition(Angle angle) {
+  public void setPosition(Angle angle) {
     hood.setControl(rotationOut.withPosition(angle));
   }
 
