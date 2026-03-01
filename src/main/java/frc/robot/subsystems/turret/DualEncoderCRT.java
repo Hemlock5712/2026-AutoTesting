@@ -72,8 +72,8 @@ public class DualEncoderCRT {
     BaseStatusSignal.waitForAll(10, e1Signal, e2Signal);
 
     // Get absolute encoder positions
-    double e1Raw = e1Signal.getValue().in(Rotations);
-    double e2Raw = e2Signal.getValue().in(Rotations);
+    double e1Raw = e1Signal.getValueAsDouble();
+    double e2Raw = e2Signal.getValueAsDouble();
 
     // Wrap to [0, 1) range using MathUtil for robustness
     double e1 = MathUtil.inputModulus(e1Raw, 0.0, 1.0);
