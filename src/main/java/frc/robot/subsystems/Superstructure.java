@@ -63,7 +63,7 @@ public class Superstructure {
 
   public Command test() {
     return Commands.sequence(
-        spindexer.startCommand(), spindexer.startKickerCommand(), shooter.runVelocity(50));
+        spindexer.startCommand(), spindexer.startKickerVoltageCommand(), shooter.runVelocity(50));
   }
 
   public Command test1() {

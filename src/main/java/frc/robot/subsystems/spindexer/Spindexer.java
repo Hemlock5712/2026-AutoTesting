@@ -59,7 +59,11 @@ public class Spindexer extends SubsystemBase {
   }
 
   public Command startKickerCommand() {
-    return runOnce(() -> setKickerVelocity(17));
+    return runOnce(() -> setKickerVelocity(17.2));
+  }
+
+  public Command startKickerVoltageCommand() {
+    return runOnce(() -> kicker.setVoltage(12));
   }
 
   public Command stopKickerCommand() {
@@ -85,7 +89,7 @@ public class Spindexer extends SubsystemBase {
     kickerConfig.Slot0.kP = 0.1; // Proportional gain
     kickerConfig.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
     // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
-    kickerConfig.Slot0.kV = 0.679;
+    kickerConfig.Slot0.kV = 0.685;
     // rotations
     // Cruise velocity: max SPINDEXER speed during motion profile (RPS)
     // Acceleration: how quickly the SPINDEXER speeds up/slows down (RPS²)
