@@ -30,12 +30,16 @@ public class DualEncoderCRT {
   public static final double MOTOR_TO_MECHANISM_RATIO = 110.0 / 15.0 * 5.0; // 30.8
 
   // Encoder ratios (encoder rotations per mechanism rotation)
-  public static final double ENCODER_1_MECHANISM_RATIO = 21.0;
-  public static final double ENCODER_2_MECHANISM_RATIO = 22.0;
+  public static final double ENCODER_1_MECHANISM_RATIO = 110.0 / 21.0;
+  public static final double ENCODER_2_MECHANISM_RATIO = 110.0 / 22.0;
 
   // Position limits (mechanism rotations)
   public static final double FORWARD_LIMIT = 0.75; // +270 degrees
   public static final double REVERSE_LIMIT = -0.25; // -90 degrees
+
+  // CRT multiplier: 21 * 22 / 110 = 462/110 ≈ 4.2
+  // This accounts for the actual gear ratios (110/21 and 110/22)
+  public static final double CRT_MULTIPLIER = 21.0 * 22.0 / 110.0;
 
   // ==================== Instance Fields ====================
 
@@ -61,8 +65,8 @@ public class DualEncoderCRT {
    */
   public double calculateMechanismPosition() {
     // Get status signals for both encoders
-    StatusSignal<Angle> e1Signal = encoder1.getAbsolutePosition();
-    StatusSignal<Angle> e2Signal = encoder2.getAbsolutePosition();
+    StatusSignal<Angle> e1Signal = encoder1.getPosition();
+    StatusSignal<Angle> e2Signal = encoder2.getPosition();
 
     // Wait for both signals to be valid (up to 10ms timeout)
     BaseStatusSignal.waitForAll(10, e1Signal, e2Signal);
@@ -80,16 +84,20 @@ public class DualEncoderCRT {
     Robot.telemetry().log("Testing/E1Wrapped", e1);
     Robot.telemetry().log("Testing/E2Wrapped", e2);
 
-    // CRT: difference directly gives mechanism position within [0, 1)
-    // Because (22-21) = 1, the diff advances 1 per mechanism rotation
-    double mechanismPosition = MathUtil.inputModulus(e2 - e1, 0.0, 1.0);
+    // Compute wrapped difference to handle encoder wrap-around at 0/1 boundary
+    // This ensures diff is in [-0.5, 0.5] regardless of which encoder wrapped
+    double diff = MathUtil.inputModulus(e2 - e1, -0.5, 0.5);
+
+    Robot.telemetry().log("Testing/CRT_Diff", diff);
+
+    // CRT: with ratios 110/21 and 110/22, we need diff * multiplier
+    // The multiplier (21*22/110) accounts for the non-unit difference between ratios
+    double mechanismPosition = diff * CRT_MULTIPLIER;
 
     Robot.telemetry().log("Testing/CRT_MechPos", mechanismPosition);
 
-    // Shift to turret range [-0.25, 0.75)
-    if (mechanismPosition > 0.75) {
-      mechanismPosition -= 1.0;
-    }
+    // Wrap to valid turret range [-0.25, 0.75)
+    mechanismPosition = MathUtil.inputModulus(mechanismPosition, -0.25, 0.75);
 
     Robot.telemetry().log("Testing/CRT_MechPosFinal", mechanismPosition);
 

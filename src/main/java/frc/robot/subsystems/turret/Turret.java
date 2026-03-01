@@ -16,6 +16,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
@@ -55,6 +56,9 @@ public class Turret extends SubsystemBase {
   @NotLogged
   public static final Pose3d TURRET_HOLE_CENTER =
       new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
+
+  public static final Transform2d TURRET_TRANSFORM =
+      new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
   public Turret() {
     // Initialize CRT calculator using default constants
@@ -112,8 +116,9 @@ public class Turret extends SubsystemBase {
 
   private void trackHub(SwerveDriveState currentState) {
     Pose2d robotPose = currentState.Pose;
+    Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
     Translation2d hubPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
-    Translation2d toTarget = hubPosition.minus(robotPose.getTranslation());
+    Translation2d toTarget = hubPosition.minus(turretPose.getTranslation());
 
     // Skip tracking if robot is too close to hub (avoids numerical instability)
     if (toTarget.getNorm() < 0.1) {
