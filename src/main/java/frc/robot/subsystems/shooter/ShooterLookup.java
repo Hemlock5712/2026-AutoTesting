@@ -12,11 +12,11 @@ public class ShooterLookup {
   }
 
   private void buildFlywheel() {
-    flywheelMap.put(0.0, 0.0);
+    flywheelMap.put(0.0, 40.0);
   }
 
   private void buildHood() {
-    hoodMap.put(0.0, 0.0);
+    hoodMap.put(0.0, 0.02);
   }
 
   public static InterpolatingDoubleTreeMap getFlywheelMap() {

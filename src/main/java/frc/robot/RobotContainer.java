@@ -9,6 +9,7 @@ import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -21,6 +22,8 @@ import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
+import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.intake.IntakeSIM;
 import frc.robot.utils.FieldInfo;
 
 /**
@@ -61,8 +64,13 @@ public class RobotContainer {
   /* Create subsystems (uses simulated versions when running in simulation) */
   private final Superstructure superstructure = new Superstructure(drivetrain::getState);
 
+  private final Intake intake = RobotBase.isSimulation() ? new IntakeSIM() : new Intake();
+
   // Vision camera for tracking robot position
   public final Limelight limelight = new Limelight("limelight-br", drivetrain);
+
+  // Vision camera for tracking robot position
+  public final Limelight limelight1 = new Limelight("limelight-bl", drivetrain);
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;
@@ -132,6 +140,9 @@ public class RobotContainer {
         .rightTrigger(0.5)
         .onTrue(superstructure.beginShoot())
         .onFalse(superstructure.stopShoot());
+
+    joystick.a().onTrue(intake.runIntake());
+    joystick.b().onFalse(intake.stopWheel());
   }
 
   public Command getAutonomousCommand() {

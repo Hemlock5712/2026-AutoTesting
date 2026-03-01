@@ -26,7 +26,7 @@ import frc.robot.utils.TalonFXUtil;
 @Logged
 public class Intake extends SubsystemBase {
   // Position setpoints using Angle objects for type safety
-  private static final Angle UP = Degrees.of(90);
+  private static final Angle UP = Rotations.of(.27);
   private static final Angle DOWN = Degrees.of(0);
 
   // Main motor that moves the arm (device ID 31)
@@ -39,12 +39,13 @@ public class Intake extends SubsystemBase {
 
   // Configuration settings for the arm motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
+  protected TalonFXConfiguration configWheel = new TalonFXConfiguration();
 
   // Controller for moving the arm to specific positions
   private final MotionMagicVoltage positionOut = new MotionMagicVoltage(0);
 
   // Gets the error between current and target position
-  private Angle TOLERANCE = Degrees.of(1);
+  private Angle TOLERANCE = Degrees.of(3);
 
   // Alert for motor configuration failures
   Alert motorConfigAlert = new Alert("Arm Motor Configuration Failed", AlertType.kError);
@@ -53,25 +54,51 @@ public class Intake extends SubsystemBase {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
     config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
     // Set motor direction: positive power = counterclockwise rotation
-    config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
+    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     config.Slot0.GravityType =
         GravityTypeValue.Arm_Cosine; // Automatically fights gravity using math
 
     // Control values (TODO: CRITICAL - Tune these on the real robot!)
-    config.Slot0.kG = 0.0; // Gravity compensation
+    config.Slot0.kG = 0.7998046875; // Gravity compensation
     config.Slot0.kS = 0.0; // Static friction
-    config.Slot0.kP = 0.0; // Proportional gain (speed of correction)
-    config.Slot0.kD = 0.0; // Derivative gain (smoothness)
+    config.Slot0.kP = 16; // Proportional gain (speed of correction)
+    config.Slot0.kD = 1; // Derivative gain (smoothness)
 
     // Motion limits (TODO: CRITICAL - Set non-zero values!)
     config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // Max speed
     config.MotionMagic.MotionMagicAcceleration = 0.0; // How fast to speed up
     // Tell the motor to use the CANcoder sensor for position measurements
     config.Feedback.withRemoteCANcoder(arm_encoder);
+    config.Feedback.RotorToSensorRatio = 25;
+
+    // Coast mode: Motor can be moved by hand when disabled (easier for testing)
+    configWheel.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+
+    // Set motor direction: positive power = counterclockwise rotation
+    configWheel.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+    configWheel.Slot0.GravityType =
+        GravityTypeValue.Arm_Cosine; // Automatically fights gravity using math
+
+    // Control values (TODO: CRITICAL - Tune these on the real robot!)
+    configWheel.Slot0.kG = 0.0; // Gravity compensation
+    configWheel.Slot0.kS = 0.0; // Static friction
+    configWheel.Slot0.kP = 0.0; // Proportional gain (speed of correction)
+    configWheel.Slot0.kD = 0.0; // Derivative gain (smoothness)
+
+    // Motion limits (TODO: CRITICAL - Set non-zero values!)
+    configWheel.MotionMagic.MotionMagicCruiseVelocity = 0.0; // Max speed
+    configWheel.MotionMagic.MotionMagicAcceleration = 0.0; // How fast to speed up
+
+    // 2.33
+
+    configWheel.Feedback.SensorToMechanismRatio = 2.33;
 
     // Apply configuration with retries
     boolean success = TalonFXUtil.applyConfigWithRetries(arm, config);
     motorConfigAlert.set(!success);
+
+    boolean successWheel = TalonFXUtil.applyConfigWithRetries(wheel, configWheel);
+    motorConfigAlert.set(!successWheel);
   }
 
   @Override
@@ -175,7 +202,7 @@ public class Intake extends SubsystemBase {
     return TOLERANCE;
   }
 
-  public void runIntake() {
-    wheel.setVoltage(6);
+  public Command runIntake() {
+    return run(() -> wheel.setVoltage(6));
   }
 }

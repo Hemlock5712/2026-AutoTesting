@@ -31,13 +31,13 @@ public final class AccelerationLimiter {
   public static final double MAX_VELOCITY = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
 
   // Friction coefficient of 1.0 assumes good tread on carpet. Max acceleration = coefficient * g
-  public static final double MAX_FRICTION_ACCEL = 1.0 * GRAVITY;
+  public static final double MAX_FRICTION_ACCEL = 1.1 * GRAVITY;
 
   // Robot parameters for motor torque calculations
   private static final Motor MOTOR = Motor.KRAKEN_X60_FOC;
   private static final double GEAR_RATIO = TunerConstants.FrontLeft.DriveMotorGearRatio;
   private static final double WHEEL_RADIUS = TunerConstants.FrontLeft.WheelRadius;
-  private static final double ROBOT_MASS = 56.7; // kg, including bumpers and battery
+  private static final double ROBOT_MASS = 60; // kg, including bumpers and battery
   private static final int NUM_DRIVE_MOTORS = 4;
 
   // Stator current limit for torque model (150A per motor, 600A total max)

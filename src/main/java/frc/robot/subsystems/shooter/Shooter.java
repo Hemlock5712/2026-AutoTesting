@@ -32,7 +32,7 @@ import java.util.function.DoubleSupplier;
 @Logged
 public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
-  private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(0.25);
+  private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(1);
   private static final Angle HOOD_TOLERANCE = Degree.of(1);
 
   // Main motor that spins the flywheel

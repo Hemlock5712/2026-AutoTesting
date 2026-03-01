@@ -32,7 +32,7 @@ public class OrbitDrive extends Command {
   private final SwerveRequest.ApplyFieldSpeeds request =
       new SwerveRequest.ApplyFieldSpeeds()
           .withDriveRequestType(DriveRequestType.Velocity)
-          .withSteerRequestType(SteerRequestType.Position)
+          .withSteerRequestType(SteerRequestType.MotionMagicExpo)
           .withForwardPerspective(ForwardPerspectiveValue.OperatorPerspective);
 
   /**
