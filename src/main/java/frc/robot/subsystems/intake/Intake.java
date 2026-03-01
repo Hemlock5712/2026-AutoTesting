@@ -107,17 +107,8 @@ public class Intake extends SubsystemBase {
     return runOnce(() -> setPosition(DOWN)).until(() -> isAtTarget()).andThen(stopArm());
   }
 
-  /**
-   * Command to stop the arm motor.
-   *
-   * @return Command that stops the wheels
-   */
-  public Command stopWheel() {
-    return runOnce(() -> wheel_stop());
-  }
-
   // Stop the wheel motor (private to enforce Command-based control flow)
-  private void wheel_stop() {
+  private void zeroIntake() {
     wheel.stopMotor();
   }
 
@@ -173,6 +164,14 @@ public class Intake extends SubsystemBase {
    */
   public Angle getTolerance() {
     return TOLERANCE;
+  }
+
+  public Command startIntake() {
+    return runOnce(() -> runIntake());
+  }
+
+  public Command stopIntake() {
+    return runOnce(() -> zeroIntake());
   }
 
   public void runIntake() {

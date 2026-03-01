@@ -5,6 +5,8 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.intake.IntakeSIM;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterSIM;
 import frc.robot.subsystems.spindexer.Spindexer;
@@ -35,6 +37,9 @@ public class Superstructure {
   private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
   private final Spindexer spindexer =
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
+  private final Intake intake = RobotBase.isSimulation() ? new IntakeSIM() : new Intake();
+
+  public boolean isIntakeDeployed = false;
 
   // ==================== Constructor ====================
 
@@ -56,5 +61,23 @@ public class Superstructure {
   public Command stopShoot() {
     return Commands.sequence(
         spindexer.stopCommand(), spindexer.stopKickerCommand(), shooter.stopCommand());
+  }
+
+  public Command startIntake() {
+    return Commands.either(
+        intake.startIntake(),
+        Commands.parallel(
+          intake.intakeDown(),
+          intake.startIntake()
+        ), () -> isIntakeDeployed
+      );
+  }
+
+  public Command stopIntake() {
+    return intake.stopIntake();
+  }
+
+  public Command stowIntake() {
+    return intake.intakeStowed();
   }
 }

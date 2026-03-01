@@ -2,6 +2,8 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
 
+import javax.sql.rowset.JoinRowSet;
+
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
@@ -128,7 +130,10 @@ public class RobotContainer {
                 FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
                 FieldInfo.flip(FieldInfo.FACING_FORWARD))); // Lock rotation to 0°
 
-    joystick.rightTrigger(0.5).onTrue(superstructure.beginShoot()).onFalse(superstructure.stopShoot());
+    joystick.rightTrigger(0.5).toggleOnTrue(superstructure.beginShoot()).toggleOnFalse(superstructure.stopShoot());
+
+    joystick.leftTrigger(0.5).toggleOnTrue(superstructure.startIntake()).toggleOnFalse(superstructure.stopIntake());
+    joystick.x().onTrue(superstructure.stowIntake());
   }
 
   public Command getAutonomousCommand() {
