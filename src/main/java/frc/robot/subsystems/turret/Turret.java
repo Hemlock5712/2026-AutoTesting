@@ -59,9 +59,9 @@ public class Turret extends SubsystemBase {
     // SensorToMechanismRatio: rotor rotations per mechanism rotation
     // Motor spins 30.8 times per mechanism rotation
     config.Feedback.SensorToMechanismRatio = DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO;
-    config.Feedback.RotorToSensorRatio = DualEncoderCRT.ROTOR_TO_ENCODER_RATIO;
+    // config.Feedback.RotorToSensorRatio = DualEncoderCRT.ROTOR_TO_ENCODER_RATIO;
 
-    config.Feedback.withRemoteCANcoder(encoder1);
+    // config.Feedback.withRemoteCANcoder(encoder1);
 
     // PID gains
     config.Slot0.kS = 0.349609375; // Static friction compensation
@@ -70,8 +70,8 @@ public class Turret extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // MotionMagic settings - units are mechanism rotations
-    config.MotionMagic.MotionMagicCruiseVelocity = 2; // RPS
-    config.MotionMagic.MotionMagicAcceleration = 10; // RPS^2
+    config.MotionMagic.MotionMagicCruiseVelocity = 1; // RPS
+    config.MotionMagic.MotionMagicAcceleration = 2; // RPS^2
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
     config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
