@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.Meters;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rectangle2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
@@ -96,6 +97,22 @@ public final class FieldInfo {
   /** Hub/target position for turret tracking (blue alliance coordinates). */
   public static final Translation2d HUB_POSITION = new Translation2d(4.621, 4.030);
 
+  public static final Translation2d LEFT_FEED_POSITION = new Translation2d(1.5, 1.500);
+
+  public static final Translation2d RIGHT_FEED_POSITION = new Translation2d(1.5, 6.500);
+
+  public static final Rectangle2d RED_ALLIANCE_ZONE =
+      new Rectangle2d(
+          new Translation2d(FieldInfo.length().baseUnitMagnitude(), 0),
+          new Translation2d(
+              FieldInfo.length().baseUnitMagnitude() - 4.625594,
+              FieldInfo.width().baseUnitMagnitude()));
+
+  public static final Rectangle2d BLUE_ALLIANCE_ZONE =
+      new Rectangle2d(
+          new Translation2d(0, 0),
+          new Translation2d(4.625594, FieldInfo.width().baseUnitMagnitude()));
+
   /** Y-axis lock position on the right side (blue alliance coordinates). */
   public static final double AXIS_LOCK_Y_RIGHT = 0.639445;
 
@@ -141,6 +158,10 @@ public final class FieldInfo {
   /** Flips rotation input for red alliance. */
   public static double flipJoystickRotation(double omega) {
     return shouldFlip() ? -omega : omega;
+  }
+
+  public static Rectangle2d getAllianceZone() {
+    return shouldFlip() ? RED_ALLIANCE_ZONE : BLUE_ALLIANCE_ZONE;
   }
 
   /** Flips a Pose2d based on alliance and symmetry type. */

@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.utils.HubShiftUtil;
 
 @Logged
 public class Robot extends TimedRobot {
@@ -77,10 +78,14 @@ public class Robot extends TimedRobot {
     if (m_autonomousCommand != null) {
       m_autonomousCommand.cancel();
     }
+
+    HubShiftUtil.initialize();
   }
 
   @Override
-  public void teleopPeriodic() {}
+  public void teleopPeriodic() {
+    HubShiftUtil.update();
+  }
 
   @Override
   public void teleopExit() {}
@@ -98,5 +103,9 @@ public class Robot extends TimedRobot {
 
   public static EpilogueBackend telemetry() {
     return Epilogue.getConfig().backend;
+  }
+
+  public static boolean isHubActive() {
+    return HubShiftUtil.isHubActive();
   }
 }

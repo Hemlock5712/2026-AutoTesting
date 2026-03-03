@@ -58,6 +58,8 @@ public class Superstructure {
   private final Supplier<SwerveDriveState> driveState;
 
   // ==================== Targeting Data (calculated once per loop) ====================
+
+  private Translation2d targetPosition = FieldInfo.HUB_POSITION;
   private double distanceToHub = 0;
   private double angleToHub = 0;
 
@@ -75,8 +77,24 @@ public class Superstructure {
     // Calculate targeting data once per loop (used by turret tracking and shooter)
     SwerveDriveState state = driveState.get();
     Pose2d robotPose = state.Pose;
+
+    if (FieldInfo.getAllianceZone().contains(robotPose.getTranslation())) {
+      targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+    } else {
+      targetPosition =
+          robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0
+              ? FieldInfo.flip(
+                  FieldInfo.shouldFlip()
+                      ? FieldInfo.LEFT_FEED_POSITION
+                      : FieldInfo.RIGHT_FEED_POSITION)
+              : FieldInfo.flip(
+                  FieldInfo.shouldFlip()
+                      ? FieldInfo.RIGHT_FEED_POSITION
+                      : FieldInfo.LEFT_FEED_POSITION);
+    }
+
     Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
-    Translation2d hubPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+    Translation2d hubPosition = FieldInfo.flip(targetPosition);
     Translation2d toTarget = hubPosition.minus(turretPose.getTranslation());
 
     distanceToHub = toTarget.getNorm();
@@ -95,6 +113,10 @@ public class Superstructure {
 
   public double getAngleToHub() {
     return angleToHub;
+  }
+
+  public Pose2d getTargetPosition() {
+    return new Pose2d(targetPosition, new Rotation2d());
   }
 
   // ==================== Coordinated Commands ====================
