@@ -42,14 +42,6 @@ public class AutoCommands {
     return new DriveToPoint(drivetrain, pose);
   }
 
-  public DriveToPoint driveTo(double endSpeed, Supplier<Pose2d> pose) {
-    return new DriveToPoint(drivetrain, pose).withWaypointEnding(endSpeed);
-  }
-
-  public DriveToPoint driveTo(double endSpeed, double maxSpeed, Supplier<Pose2d> pose) {
-    return new DriveToPoint(drivetrain, pose).withWaypointEnding(endSpeed).withMaxSpeed(maxSpeed);
-  }
-
   public Command resetPose(Pose2d pose) {
     return drivetrain.runOnce(() -> drivetrain.resetPose(pose));
   }
