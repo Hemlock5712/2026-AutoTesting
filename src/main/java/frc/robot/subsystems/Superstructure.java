@@ -81,21 +81,18 @@ public class Superstructure {
     if (FieldInfo.getAllianceZone().contains(robotPose.getTranslation())) {
       targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
     } else {
+      // Compute both feed positions in current-alliance coordinates, then pick the one
+      // on the same side of the field (upper vs. lower Y half) as the robot.
+      Translation2d feedA = FieldInfo.flip(FieldInfo.LEFT_FEED_POSITION);
+      Translation2d feedB = FieldInfo.flip(FieldInfo.RIGHT_FEED_POSITION);
+      Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
+      Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
       targetPosition =
-          robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0
-              ? FieldInfo.flip(
-                  FieldInfo.shouldFlip()
-                      ? FieldInfo.LEFT_FEED_POSITION
-                      : FieldInfo.RIGHT_FEED_POSITION)
-              : FieldInfo.flip(
-                  FieldInfo.shouldFlip()
-                      ? FieldInfo.RIGHT_FEED_POSITION
-                      : FieldInfo.LEFT_FEED_POSITION);
+          robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
     }
 
     Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
-    Translation2d hubPosition = targetPosition;
-    Translation2d toTarget = hubPosition.minus(turretPose.getTranslation());
+    Translation2d toTarget = targetPosition.minus(turretPose.getTranslation());
 
     distanceToHub = toTarget.getNorm();
 
