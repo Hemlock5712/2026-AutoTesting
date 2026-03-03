@@ -4,7 +4,9 @@
 
 package frc.robot.subsystems;
 
+import static edu.wpi.first.units.Units.DegreesPerSecond;
 import static edu.wpi.first.units.Units.Meter;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
 
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.VecBuilder;
@@ -51,11 +53,11 @@ public class Limelight extends SubsystemBase {
         return;
       }
 
-      // if (RadiansPerSecond.of(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond)
-      //         .in(DegreesPerSecond)
-      //     > 70) {
-      //   return;
-      // }
+      if (RadiansPerSecond.of(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond)
+              .in(DegreesPerSecond)
+          > 70) {
+        return;
+      }
       // Cache the latest valid estimate so it can be accessed elsewhere when needed.
       lastPoseEstimate = poseEstimate;
 
