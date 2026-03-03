@@ -1,5 +1,7 @@
 package frc.robot.subsystems;
 
+import static edu.wpi.first.units.Units.Degrees;
+
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.MathUtil;
@@ -125,6 +127,7 @@ public class Superstructure {
     return Commands.sequence(
         // shooter.runDynamic(() -> distanceToHub),
         shooter.runVelocity(35),
+        shooter.runPosition(Degrees.of(0)),
         new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
         spindexer.startCommand(),
         spindexer.startKickerVoltageCommand());

@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
+import frc.robot.commands.AxisLockDrive;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
@@ -23,6 +24,7 @@ import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeSIM;
+import frc.robot.utils.FieldInfo;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -118,26 +120,26 @@ public class RobotContainer {
             drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(1.5, 1, Rotation2d.kZero))));
 
     // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
-    // joystick
-    //     .leftBumper()
-    //     .whileTrue(
-    //         AxisLockDrive.lockY(
-    //             drivetrain,
-    //             () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
-    //             () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-    //             FieldInfo.flipY(FieldInfo.axisLockYLeft()),
-    //             null)); // null = heading lock behavior (driver controls rotation)
+    joystick
+        .leftBumper()
+        .whileTrue(
+            AxisLockDrive.lockY(
+                drivetrain,
+                () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
+                FieldInfo.flipY(FieldInfo.axisLockYLeft()),
+                null)); // null = heading lock behavior (driver controls rotation)
 
     // // AxisLockDrive - Lock Y axis and rotation, driver controls X only
-    // joystick
-    //     .rightBumper()
-    //     .whileTrue(
-    //         AxisLockDrive.lockY(
-    //             drivetrain,
-    //             () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
-    //             () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-    //             FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
-    //             FieldInfo.flip(FieldInfo.FACING_FORWARD))); // Lock rotation to 0°
+    joystick
+        .rightBumper()
+        .whileTrue(
+            AxisLockDrive.lockY(
+                drivetrain,
+                () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
+                FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
+                FieldInfo.flip(FieldInfo.FACING_FORWARD))); // Lock rotation to 0°
 
     joystick
         .rightTrigger(0.5)
