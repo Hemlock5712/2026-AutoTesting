@@ -68,7 +68,7 @@ public class Superstructure {
   public Superstructure(Supplier<SwerveDriveState> driveState) {
     this.driveState = driveState;
     // Set turret tracking as default command (can be overridden by other commands)
-    // turret.setDefaultCommand(turret.trackHubCommand(() -> angleToHub));
+    turret.setDefaultCommand(turret.trackHubCommand(() -> angleToHub));
   }
 
   // ==================== Periodic ====================

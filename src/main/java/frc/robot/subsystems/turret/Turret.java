@@ -4,7 +4,7 @@ import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.PositionVoltage;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
@@ -33,7 +33,7 @@ public class Turret extends SubsystemBase {
   // CRT calculator for absolute position determination
   private final DualEncoderCRT crt;
 
-  private final PositionVoltage angleOut = new PositionVoltage(0);
+  private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
 
   private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
 
@@ -71,7 +71,7 @@ public class Turret extends SubsystemBase {
 
     // MotionMagic settings - units are mechanism rotations
     config.MotionMagic.MotionMagicCruiseVelocity = 1; // RPS
-    config.MotionMagic.MotionMagicAcceleration = 2; // RPS^2
+    config.MotionMagic.MotionMagicAcceleration = 3; // RPS^2
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
     config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;

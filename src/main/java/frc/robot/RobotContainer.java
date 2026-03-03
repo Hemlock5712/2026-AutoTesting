@@ -112,6 +112,11 @@ public class RobotContainer {
         .start()
         .onTrue(drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(0, 0, Rotation2d.kZero))));
 
+    joystick
+        .back()
+        .onTrue(
+            drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(1.5, 1, Rotation2d.kZero))));
+
     // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
     // joystick
     //     .leftBumper()
@@ -138,6 +143,11 @@ public class RobotContainer {
         .rightTrigger(0.5)
         .onTrue(superstructure.beginShoot())
         .onFalse(superstructure.stopShoot());
+
+    joystick
+        .leftTrigger(0.5)
+        .onTrue(intake.intakeDown().andThen(intake.runIntake()))
+        .onFalse(intake.stopWheel());
 
     joystick.a().onTrue(intake.runIntake());
     joystick.b().onFalse(intake.stopWheel());
