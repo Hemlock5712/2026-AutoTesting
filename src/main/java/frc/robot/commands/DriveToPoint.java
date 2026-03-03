@@ -206,80 +206,41 @@ public class DriveToPoint extends Command {
     return this;
   }
 
-  /**
-   * Configures this command to end like a waypoint - passing through at speed.
-   *
-   * <p>Sets a looser position tolerance appropriate for chaining commands where the robot should
-   * maintain momentum through this point.
-   *
-   * @param speed Target speed at endpoint in m/s
-   * @return This command for chaining
-   */
-  public DriveToPoint withWaypointEnding(double speed) {
-    return withWaypointEnding(speed, WAYPOINT_TOLERANCE);
-  }
-
-  /**
-   * Configures this command to end like a waypoint with custom tolerance.
-   *
-   * @param speed Target speed at endpoint in m/s
-   * @param tolerance Position tolerance in meters
-   * @return This command for chaining
-   */
-  public DriveToPoint withWaypointEnding(double speed, double tolerance) {
-    this.endTargetSpeed = speed;
-    this.positionTolerance = tolerance;
-    return this;
-  }
-
   public DriveToPoint withTolerance(double tolerance) {
     this.positionTolerance = tolerance;
     return this;
   }
 
-  /**
-   * Sets maximum X velocity at the endpoint (field-centric).
-   *
-   * <p>This is a MAXIMUM constraint - the robot may arrive at or below this speed. Use this to
-   * ensure the robot approaches with limited velocity in a specific field direction, such as
-   * approaching a field edge with controlled X velocity to prevent overshooting.
-   *
-   * @param maxSpeedX Maximum X velocity magnitude in m/s (POSITIVE_INFINITY = no constraint)
-   * @return This command for chaining
-   */
-  public DriveToPoint withMaxEndSpeedX(double maxSpeedX) {
-    this.maxEndSpeedX = Math.abs(maxSpeedX);
+  public DriveToPoint withWaypointTolerance() {
+    this.positionTolerance = WAYPOINT_TOLERANCE;
     return this;
   }
 
   /**
-   * Sets maximum Y velocity at the endpoint (field-centric).
+   * Configures this command as a waypoint - passing through at the target speed. Sets looser
+   * position tolerance appropriate for chaining commands.
    *
-   * <p>This is a MAXIMUM constraint - the robot may arrive at or below this speed. Use this to
-   * ensure the robot approaches with limited velocity in a specific field direction, such as
-   * approaching a field edge with controlled Y velocity to prevent overshooting.
-   *
-   * @param maxSpeedY Maximum Y velocity magnitude in m/s (POSITIVE_INFINITY = no constraint)
+   * @param targetSpeed Target speed at endpoint in m/s (0 = stop with waypoint tolerance)
    * @return This command for chaining
    */
-  public DriveToPoint withMaxEndSpeedY(double maxSpeedY) {
-    this.maxEndSpeedY = Math.abs(maxSpeedY);
-    return this;
+  public DriveToPoint withWaypoint(double targetSpeed) {
+    return withWaypoint(targetSpeed, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY);
   }
 
   /**
-   * Sets maximum X and Y velocities at the endpoint (field-centric).
+   * Configures this command as a waypoint with axis-constrained approach. Sets looser position
+   * tolerance and constrains velocity on each axis.
    *
-   * <p>These are MAXIMUM constraints - the robot may arrive at or below these speeds. Use this to
-   * shape the approach trajectory, ensuring the robot arrives moving in a specific direction.
-   *
-   * @param maxSpeedX Maximum X velocity magnitude in m/s (POSITIVE_INFINITY = no constraint)
-   * @param maxSpeedY Maximum Y velocity magnitude in m/s (POSITIVE_INFINITY = no constraint)
+   * @param targetSpeed Target speed at endpoint in m/s (0 = stop with waypoint tolerance)
+   * @param maxSpeedX End X speed
+   * @param maxSpeedY End Y speed
    * @return This command for chaining
    */
-  public DriveToPoint withMaxEndSpeeds(double maxSpeedX, double maxSpeedY) {
-    this.maxEndSpeedX = Math.abs(maxSpeedX);
-    this.maxEndSpeedY = Math.abs(maxSpeedY);
+  public DriveToPoint withWaypoint(double targetSpeed, double maxEndSpeedX, double maxEndSpeedY) {
+    this.endTargetSpeed = targetSpeed;
+    this.maxEndSpeedX = Math.abs(maxEndSpeedX);
+    this.maxEndSpeedY = Math.abs(maxEndSpeedY);
+    this.positionTolerance = WAYPOINT_TOLERANCE;
     return this;
   }
 }

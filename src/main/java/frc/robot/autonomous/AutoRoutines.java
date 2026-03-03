@@ -39,7 +39,7 @@ public class AutoRoutines {
   public Command sequentialScoringAuto() {
     return Commands.sequence(
         Commands.print("=== Sequential Scoring Auto ==="),
-        autoCommands.resetPose(Pose2d.kZero),
+        autoCommands.resetPose(() -> Pose2d.kZero),
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(3.0, 0, Rotation2d.kZero))),
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(3.0, 3.0, Rotation2d.kZero))),
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(0, 0, Rotation2d.kZero))));
@@ -50,16 +50,18 @@ public class AutoRoutines {
     return Commands.sequence(
         Commands.print("=== AutoHumanPlayerSIMONLY ==="),
         autoCommands.resetPose(
-            FieldInfo.flip(new Pose2d(new Translation2d(4.400169, 0.639445), Rotation2d.kZero))),
+            () ->
+                FieldInfo.flip(
+                    new Pose2d(new Translation2d(4.400169, 0.639445), Rotation2d.kZero))),
         autoCommands
             .driveTo(() -> FieldInfo.flip(new Pose2d(6, 0.639445, Rotation2d.kZero)))
-            .withTolerance(.15),
+            .withWaypoint(4),
         autoCommands
             .driveTo(() -> FieldInfo.flip(new Pose2d(8, 3.0, Rotation2d.kCCW_90deg)))
-            .withWaypointEnding(0),
+            .withWaypoint(4),
         autoCommands
             .driveTo(() -> FieldInfo.flip(new Pose2d(6, 0.639445, Rotation2d.k180deg)))
-            .withMaxEndSpeedY(0),
+            .withWaypoint(0.1, 0, 4),
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(2, 0.639445, Rotation2d.k180deg))),
         superstructure.beginShoot(),
         Commands.waitSeconds(5));

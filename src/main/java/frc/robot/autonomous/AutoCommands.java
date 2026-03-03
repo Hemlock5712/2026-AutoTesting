@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -42,8 +43,8 @@ public class AutoCommands {
     return new DriveToPoint(drivetrain, pose);
   }
 
-  public Command resetPose(Pose2d pose) {
-    return drivetrain.runOnce(() -> drivetrain.resetPose(pose));
+  public Command resetPose(Supplier<Pose2d> pose) {
+    return drivetrain.runOnce(() -> drivetrain.resetPose(pose.get()));
   }
 
   /**
@@ -66,16 +67,14 @@ public class AutoCommands {
 
     // Chain DriveToPoint commands - pass through intermediate poses, stop at final
     Command chain =
-        new DriveToPoint(drivetrain, () -> poses[0])
-            .withWaypointEnding(maxSpeed)
-            .withMaxSpeed(maxSpeed);
+        new DriveToPoint(drivetrain, () -> poses[0]).withWaypoint(maxSpeed).withMaxSpeed(maxSpeed);
 
     for (int i = 1; i < poses.length - 1; i++) {
       final int idx = i;
       chain =
           chain.andThen(
               new DriveToPoint(drivetrain, () -> poses[idx])
-                  .withWaypointEnding(maxSpeed)
+                  .withWaypoint(maxSpeed)
                   .withMaxSpeed(maxSpeed));
     }
 
@@ -122,5 +121,56 @@ public class AutoCommands {
                     drivetrain.getPose().getTranslation().getDistance(targetPose.getTranslation())
                         < triggerDistance),
             commandToRun));
+  }
+
+  // ==================== Time-Triggered Actions ====================
+
+  /**
+   * Drive to a pose and trigger a command after a specified time delay.
+   *
+   * <p>Useful for timed actions during the drive (e.g., start intake after 1 second of driving).
+   *
+   * @param targetPose Pose to drive to
+   * @param delaySeconds Time in seconds before triggering the command
+   * @param commandToRun Command to run after the delay
+   * @return Command that drives and triggers the action after the delay
+   */
+  public Command driveToWithTimedTrigger(
+      Supplier<Pose2d> targetPose, double delaySeconds, Command commandToRun) {
+    return Commands.deadline(
+        driveTo(targetPose), Commands.sequence(Commands.waitSeconds(delaySeconds), commandToRun));
+  }
+
+  // ==================== Conditional Actions ====================
+
+  /**
+   * Drive to a pose and wait for a condition to be true before continuing.
+   *
+   * <p>The robot will hold position at the target pose until the condition is satisfied. Useful for
+   * waiting on sensor feedback, game state changes, or mechanism readiness.
+   *
+   * @param targetPose Pose to drive to
+   * @param condition Condition to wait for (returns true when ready to continue)
+   * @return Command that drives and waits for the condition
+   */
+  public Command driveToAndWaitFor(Supplier<Pose2d> targetPose, BooleanSupplier condition) {
+    return Commands.sequence(driveTo(targetPose), Commands.waitUntil(condition));
+  }
+
+  /**
+   * Drive to a pose and execute different commands based on a condition.
+   *
+   * <p>Evaluates the condition after arriving at the pose and branches accordingly. Useful for
+   * dynamic autonomous decisions (e.g., check if game piece was collected, then score or retry).
+   *
+   * @param targetPose Pose to drive to
+   * @param condition Condition to evaluate (returns true for ifTrue command, false for ifFalse)
+   * @param ifTrue Command to run if condition is true
+   * @param ifFalse Command to run if condition is false
+   * @return Command that drives and conditionally executes an action
+   */
+  public Command driveToThenBranch(
+      Supplier<Pose2d> targetPose, BooleanSupplier condition, Command ifTrue, Command ifFalse) {
+    return Commands.sequence(driveTo(targetPose), Commands.either(ifTrue, ifFalse, condition));
   }
 }
