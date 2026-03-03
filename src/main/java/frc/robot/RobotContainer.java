@@ -24,6 +24,7 @@ import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeSIM;
+import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.utils.FieldInfo;
 
 /**
@@ -78,6 +79,7 @@ public class RobotContainer {
   private final AutoRoutines autoRoutines;
 
   public RobotContainer() {
+    ShooterLookup.initialize();
 
     // Set up autonomous routines
     autoChooser = new SendableChooser<>();
