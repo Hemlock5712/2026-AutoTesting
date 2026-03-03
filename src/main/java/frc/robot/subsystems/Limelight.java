@@ -4,10 +4,13 @@
 
 package frc.robot.subsystems;
 
+import static edu.wpi.first.units.Units.Meter;
+
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
 
@@ -41,12 +44,12 @@ public class Limelight extends SubsystemBase {
         return;
       }
 
-      // if (poseEstimate.pose.getY() > FieldInfo.length().in(Meter)
-      //     || poseEstimate.pose.getY() < 0
-      //     || poseEstimate.pose.getX() > FieldInfo.width().in(Meter)
-      //     || poseEstimate.pose.getX() < 0) {
-      //   return;
-      // }
+      if (poseEstimate.pose.getX() > FieldInfo.length().in(Meter)
+          || poseEstimate.pose.getX() < 0
+          || poseEstimate.pose.getY() > FieldInfo.width().in(Meter)
+          || poseEstimate.pose.getY() < 0) {
+        return;
+      }
 
       // if (RadiansPerSecond.of(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond)
       //         .in(DegreesPerSecond)

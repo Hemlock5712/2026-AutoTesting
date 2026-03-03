@@ -94,7 +94,7 @@ public class Superstructure {
     }
 
     Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
-    Translation2d hubPosition = FieldInfo.flip(targetPosition);
+    Translation2d hubPosition = targetPosition;
     Translation2d toTarget = hubPosition.minus(turretPose.getTranslation());
 
     distanceToHub = toTarget.getNorm();
