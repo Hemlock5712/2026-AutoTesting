@@ -167,15 +167,46 @@ public final class DriveToPointUtils {
     double effectiveEndSpeedX = Math.min(projectedEndSpeedX, maxEndSpeedX);
     double effectiveEndSpeedY = Math.min(projectedEndSpeedY, maxEndSpeedY);
 
-    // Scale acceleration per-axis so total stays within friction circle
-    // When distanceX = distanceY (45°), each axis gets availableLinearAccel / sqrt(2)
-    // This ensures hypot(accelX, accelY) = availableLinearAccel
-    double accelX = availableLinearAccel * Math.abs(dirX);
-    double accelY = availableLinearAccel * Math.abs(dirY);
-
-    // Calculate target speed for each axis using shared braking kinematics
     double currentSpeedX = Math.abs(currentVelocity.getX());
     double currentSpeedY = Math.abs(currentVelocity.getY());
+
+    // Two-pass demand-ratio budget split: distributes braking acceleration proportional
+    // to what each axis actually needs, so the constrained axis gets enough budget.
+    // This matches the acceleration direction the AccelerationLimiter will see at execution.
+
+    // Pass 1: Optimistic target speeds using full budget per axis
+    double optTargetX =
+        calculateAxisBrakingSpeed(
+            distanceX,
+            currentSpeedX,
+            brakingReactionTime,
+            availableLinearAccel,
+            effectiveEndSpeedX);
+    double optTargetY =
+        calculateAxisBrakingSpeed(
+            distanceY,
+            currentSpeedY,
+            brakingReactionTime,
+            availableLinearAccel,
+            effectiveEndSpeedY);
+
+    // Pass 2: Measure velocity-change demand from each axis
+    double demandX = Math.abs(optTargetX - currentSpeedX);
+    double demandY = Math.abs(optTargetY - currentSpeedY);
+    double totalDemand = Math.hypot(demandX, demandY);
+
+    // Pass 3: Split budget proportional to demands (hypot(accelX, accelY) = availableLinearAccel)
+    double accelX, accelY;
+    if (totalDemand < EPSILON) {
+      // No significant demand on either axis — use direction-based fallback
+      accelX = availableLinearAccel * Math.abs(dirX);
+      accelY = availableLinearAccel * Math.abs(dirY);
+    } else {
+      accelX = availableLinearAccel * (demandX / totalDemand);
+      accelY = availableLinearAccel * (demandY / totalDemand);
+    }
+
+    // Pass 4: Recompute target speeds with demand-proportional budgets
     double targetSpeedX =
         calculateAxisBrakingSpeed(
             distanceX, currentSpeedX, brakingReactionTime, accelX, effectiveEndSpeedX);

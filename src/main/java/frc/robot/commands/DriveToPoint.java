@@ -37,6 +37,7 @@ public class DriveToPoint extends Command {
   private double endTargetSpeed = 0; // m/s (0 = stop at endpoint)
   private double maxEndSpeedX = Double.POSITIVE_INFINITY; // m/s (no constraint)
   private double maxEndSpeedY = Double.POSITIVE_INFINITY; // m/s (no constraint)
+  private boolean isWaypoint = false;
 
   // State tracking between execute cycles
   private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
@@ -152,7 +153,10 @@ public class DriveToPoint extends Command {
 
   @Override
   public boolean isFinished() {
-    // Use cached values from execute() to avoid redundant calculations
+    // Waypoints finish on position only — rotation continues into the next command
+    if (isWaypoint) {
+      return cachedDistance < positionTolerance;
+    }
     return cachedDistance < positionTolerance && cachedAngleError < rotationTolerance;
   }
 
@@ -241,6 +245,7 @@ public class DriveToPoint extends Command {
     this.maxEndSpeedX = Math.abs(maxEndSpeedX);
     this.maxEndSpeedY = Math.abs(maxEndSpeedY);
     this.positionTolerance = WAYPOINT_TOLERANCE;
+    this.isWaypoint = true;
     return this;
   }
 }
