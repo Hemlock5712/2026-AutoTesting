@@ -52,7 +52,7 @@ public class Intake extends SubsystemBase {
 
   public Intake() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
-    config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     // Set motor direction: positive power = counterclockwise rotation
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     config.Slot0.GravityType =
@@ -72,7 +72,7 @@ public class Intake extends SubsystemBase {
     config.Feedback.RotorToSensorRatio = 25;
 
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
-    configWheel.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    configWheel.MotorOutput.NeutralMode = NeutralModeValue.Brake;
 
     // Set motor direction: positive power = counterclockwise rotation
     configWheel.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;

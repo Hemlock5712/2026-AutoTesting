@@ -28,6 +28,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 
 @Logged
 public class Shooter extends SubsystemBase {
@@ -151,11 +152,27 @@ public class Shooter extends SubsystemBase {
   }
 
   /**
+   * @param velocity
+   * @return
+   */
+  public Command runVelocity(DoubleSupplier velocity) {
+    return runOnce(() -> setVelocity(velocity.getAsDouble()));
+  }
+
+  /**
    * @param angle
    * @return
    */
   public Command runPosition(Angle angle) {
     return runOnce(() -> setPosition(angle));
+  }
+
+  /**
+   * @param angle
+   * @return
+   */
+  public Command runPosition(Supplier<Angle> angle) {
+    return runOnce(() -> setPosition(angle.get()));
   }
 
   /**

@@ -151,6 +151,8 @@ public class RobotContainer {
         .onTrue(intake.intakeDown().andThen(intake.runIntake()))
         .onFalse(intake.stopWheel());
 
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+
     joystick.a().onTrue(intake.runIntake());
     joystick.b().onFalse(intake.stopWheel());
   }

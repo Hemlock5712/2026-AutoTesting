@@ -22,6 +22,8 @@ import frc.robot.subsystems.spindexer.SpindexerSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.Tunables;
+import frc.robot.utils.Tunables.TunableDouble;
 import java.util.function.Supplier;
 
 /**
@@ -58,6 +60,9 @@ public class Superstructure {
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
   private final Supplier<SwerveDriveState> driveState;
+
+  private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
+  private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
 
   // ==================== Targeting Data (calculated once per loop) ====================
 
@@ -125,6 +130,15 @@ public class Superstructure {
         // shooter.runDynamic(() -> distanceToHub),
         shooter.runVelocity(35),
         shooter.runPosition(Degrees.of(0)),
+        new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
+        spindexer.startCommand(),
+        spindexer.startKickerVoltageCommand());
+  }
+
+  public Command tuningShoot() {
+    return Commands.sequence(
+        shooter.runVelocity(() -> targetFlywheelVelocity.get()),
+        shooter.runPosition(() -> Degrees.of(targetHoodAngle.get())),
         new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
         spindexer.startCommand(),
         spindexer.startKickerVoltageCommand());
