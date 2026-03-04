@@ -129,8 +129,7 @@ public class RobotContainer {
                 () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
                 () ->
                     AutoRoutines.snapToNearest180Degrees(
-                        drivetrain
-                            .getRotation()))); // Lock to closest 180
+                        drivetrain.getRotation()))); // Lock to closest 180
     // rotation)
 
     // // AxisLockDrive - Lock Y axis and rotation, driver controls X only
@@ -160,6 +159,11 @@ public class RobotContainer {
 
     joystick.a().onTrue(intake.runIntake());
     joystick.b().onFalse(intake.stopWheel());
+
+    joystick
+        .x()
+        .onTrue(superstructure.spinSpinDexerBack())
+        .onFalse(superstructure.spinSpinDexerStop());
   }
 
   public Command getAutonomousCommand() {

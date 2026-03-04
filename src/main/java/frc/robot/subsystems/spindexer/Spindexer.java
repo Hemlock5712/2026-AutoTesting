@@ -54,6 +54,10 @@ public class Spindexer extends SubsystemBase {
     return runOnce(() -> setVelocity(12));
   }
 
+  public Command backCommand() {
+    return runOnce(() -> setVelocity(-12));
+  }
+
   public Command stopCommand() {
     return runOnce(() -> setVelocity(0));
   }

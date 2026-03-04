@@ -49,7 +49,8 @@ public class DualEncoderCRT {
   public static final double REVERSE_LIMIT = -0.25; // -90 degrees
 
   // 36.667 motor rotations per mechanism rotation / 5 encoder rotations per mechanism rotation
-  public static final double ROTOR_TO_ENCODER_RATIO = MOTOR_TO_MECHANISM_RATIO / ENCODER_1_MECHANISM_RATIO;
+  public static final double ROTOR_TO_ENCODER_RATIO =
+      MOTOR_TO_MECHANISM_RATIO / ENCODER_1_MECHANISM_RATIO;
 
   // ==================== Instance Fields ====================
 
