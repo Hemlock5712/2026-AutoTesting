@@ -71,6 +71,7 @@ public class RobotContainer {
 
   // Vision camera for tracking robot position
   public final Limelight limelight1 = new Limelight("limelight-bl", drivetrain);
+  public final Limelight limelight2 = new Limelight("limelight-fl", drivetrain);
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;

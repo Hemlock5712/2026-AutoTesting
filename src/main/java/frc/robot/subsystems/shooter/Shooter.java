@@ -5,6 +5,7 @@
 package frc.robot.subsystems.shooter;
 
 import static edu.wpi.first.units.Units.Degree;
+import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.CANBus;
@@ -139,10 +140,6 @@ public class Shooter extends SubsystemBase {
     hood.setControl(rotationOut.withPosition(angle));
   }
 
-  public void setPosition(double angle) {
-    hood.setControl(rotationOut.withPosition(angle));
-  }
-
   /**
    * @param velocity
    * @return
@@ -269,7 +266,7 @@ public class Shooter extends SubsystemBase {
    */
   public void setForDistance(double distanceMeters) {
     setVelocity(ShooterLookup.getFlywheelMap().get(distanceMeters));
-    setPosition(ShooterLookup.getHoodMap().get(distanceMeters));
+    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
   }
 
   /**

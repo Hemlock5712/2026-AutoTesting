@@ -17,7 +17,7 @@ public class ShooterLookup {
     flywheelMap.put(2.0, 26.0);
     flywheelMap.put(3.0, 27.0);
     flywheelMap.put(4.0, 33.0);
-    flywheelMap.put(5.0, 40.0);
+    flywheelMap.put(5.0, 38.0);
   }
 
   private static void buildHood() {
@@ -26,7 +26,7 @@ public class ShooterLookup {
     hoodMap.put(2.0, 3.0);
     hoodMap.put(3.0, 12.0);
     hoodMap.put(4.0, 13.0);
-    hoodMap.put(5.0, 16.00);
+    hoodMap.put(5.0, 15.00);
   }
 
   public static InterpolatingDoubleTreeMap getFlywheelMap() {
