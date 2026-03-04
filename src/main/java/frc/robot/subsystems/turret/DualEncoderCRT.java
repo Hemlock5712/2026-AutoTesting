@@ -3,8 +3,11 @@ package frc.robot.subsystems.turret;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.hardware.CANcoder;
+import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import frc.robot.Robot;
 
 /**
  * Calculates absolute turret position using Chinese Remainder Theorem from two encoders driven by a
@@ -14,6 +17,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
  * 110/22 encoder rotations per mechanism rotation. 21 and 22 are coprime, providing unique position
  * identification within 1 full mechanism rotation.
  */
+@Logged(strategy = Strategy.OPT_IN)
 public class DualEncoderCRT {
 
   // ==================== Constants ====================
@@ -38,7 +42,7 @@ public class DualEncoderCRT {
       MECHANISM_GEAR_TEETH / ENCODER_2_GEAR_TEETH;
 
   // CRT consistency tolerance (rotations)
-  public static final double CRT_CONSISTENCY_TOLERANCE = 0.02;
+  public static final double CRT_CONSISTENCY_TOLERANCE = 1.0 / 42.0; // ~0.0238
 
   // Position limits (mechanism rotations)
   public static final double FORWARD_LIMIT = 0.75; // +270 degrees
@@ -73,6 +77,7 @@ public class DualEncoderCRT {
    *
    * @return mechanism position in rotations (centered around 0), or NaN if failed
    */
+  @Logged
   public double calculateMechanismPosition() {
     double e1Raw = encoder1.getPosition().getValue().in(Rotations);
     double e2Raw = encoder2.getPosition().getValue().in(Rotations);
@@ -86,7 +91,11 @@ public class DualEncoderCRT {
   }
 
   /**
-   * Pure calculation of mechanism position from encoder readings. Extracted for unit testing.
+   * Pure calculation of mechanism position from encoder readings.
+   *
+   * <p>Uses best-candidate selection: all candidates are evaluated and the one with the smallest
+   * encoder 2 error is chosen. The tolerance is only used as a sanity check to detect hardware
+   * failures (slipped gear, dead encoder), not for candidate selection.
    *
    * @param e1Raw Raw encoder 1 position in rotations (any range, will be wrapped to [0, 1))
    * @param e2Raw Raw encoder 2 position in rotations (any range, will be wrapped to [0, 1))
@@ -98,42 +107,42 @@ public class DualEncoderCRT {
     double e1 = ((e1Raw % 1.0) + 1.0) % 1.0;
     double e2 = ((e2Raw % 1.0) + 1.0) % 1.0;
 
-    // CRT search: turret = (n + e1) * e1_teeth / t_teeth. Search n from 0 to e2_teeth-1.
-    // The matching n gives turret where (turret * R2) mod 1 = e2.
-    double mechanismPosition = Double.NaN;
-    int searchLimit = (int) ENCODER_2_GEAR_TEETH;
+    Robot.telemetry().log("Testing/E1Raw", e1Raw);
+    Robot.telemetry().log("Testing/E2Raw", e2Raw);
+    Robot.telemetry().log("Testing/E1Wrapped", e1);
+    Robot.telemetry().log("Testing/E2Wrapped", e2);
+
+    // CRT search: candidate mechanism positions from encoder 1 reading.
+    // Only ENCODER_1_MECHANISM_RATIO (5) candidates are unique; beyond that they repeat.
+    // Select the candidate whose predicted encoder 2 reading best matches actual encoder 2.
+    int searchLimit = (int) ENCODER_1_MECHANISM_RATIO;
+    double bestMech = Double.NaN;
+    double bestError = Double.MAX_VALUE;
+
     for (int n = 0; n < searchLimit; n++) {
       double candidate = (n + e1) * ENCODER_1_GEAR_TEETH / MECHANISM_GEAR_TEETH;
       double mech = ((candidate % 1.0) + 1.0) % 1.0; // fractional part in [0, 1)
 
-      if (verifyConsistencyStatic(mech, e1, e2)) {
-        mechanismPosition = mech;
-        break;
+      double expectedE2 = ((mech * ENCODER_2_MECHANISM_RATIO) % 1.0 + 1.0) % 1.0;
+      double error = Math.abs(wrapDiffStatic(e2, expectedE2));
+
+      if (error < bestError) {
+        bestError = error;
+        bestMech = mech;
       }
     }
 
-    if (Double.isNaN(mechanismPosition)) {
+    // Sanity check: if the best candidate still has large error, something is wrong
+    if (bestError > CRT_CONSISTENCY_TOLERANCE) {
       return Double.NaN;
     }
 
     // Shift to turret range [-0.25, 0.75): values in [0.75, 1) map to [-0.25, 0)
-    if (mechanismPosition >= 0.75) {
-      mechanismPosition -= 1.0;
+    if (bestMech >= 0.75) {
+      bestMech -= 1.0;
     }
-
-    return mechanismPosition;
-  }
-
-  private static boolean verifyConsistencyStatic(double mech, double e1, double e2) {
-    double expectedE1 = ((mech * ENCODER_1_MECHANISM_RATIO) % 1.0 + 1.0) % 1.0;
-    double expectedE2 = ((mech * ENCODER_2_MECHANISM_RATIO) % 1.0 + 1.0) % 1.0;
-
-    double tolerance = CRT_CONSISTENCY_TOLERANCE;
-
-    double error1 = Math.abs(wrapDiffStatic(e1, expectedE1));
-    double error2 = Math.abs(wrapDiffStatic(e2, expectedE2));
-
-    return error1 < tolerance && error2 < tolerance;
+    Robot.telemetry().log("Testing/CRT_MechPosFinal", bestMech);
+    return bestMech;
   }
 
   private static double wrapDiffStatic(double a, double b) {
