@@ -33,7 +33,7 @@ public class ShooterLookup {
     hoodMap.put(3.0, 10.0);
     hoodMap.put(3.5, 11.0);
     hoodMap.put(4.0, 13.0);
-    hoodMap.put(4.0, 14.5);
+    hoodMap.put(4.5, 14.5);
     hoodMap.put(5.0, 15.00);
   }
 

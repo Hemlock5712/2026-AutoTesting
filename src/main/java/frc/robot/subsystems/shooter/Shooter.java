@@ -293,10 +293,10 @@ public class Shooter extends SubsystemBase {
    * @return Command that sets flywheel and hood based on distance
    */
   public Command runDynamic(DoubleSupplier distanceSupplier) {
-    return runOnce(() -> setForDistance(distanceSupplier.getAsDouble()));
+    return run(() -> setForDistance(distanceSupplier.getAsDouble()));
   }
 
   public Command runHoodDynamic(DoubleSupplier distanceSupplier) {
-    return runOnce(() -> setHoodForDistance(distanceSupplier.getAsDouble()));
+    return run(() -> setHoodForDistance(distanceSupplier.getAsDouble()));
   }
 }

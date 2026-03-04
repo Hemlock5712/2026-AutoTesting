@@ -130,7 +130,7 @@ public class RobotContainer {
                 () ->
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain
-                            .getRotation()))); // null = heading lock behavior (driver controls
+                            .getRotation()))); // Lock to closest 180
     // rotation)
 
     // // AxisLockDrive - Lock Y axis and rotation, driver controls X only
@@ -144,7 +144,7 @@ public class RobotContainer {
                 () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
                 () ->
                     AutoRoutines.snapToNearest180Degrees(
-                        drivetrain.getRotation()))); // Lock rotation to 0°
+                        drivetrain.getRotation()))); // Lock to closest 180
 
     joystick
         .rightTrigger(0.5)

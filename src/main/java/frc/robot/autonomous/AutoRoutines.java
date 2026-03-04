@@ -31,10 +31,10 @@ public class AutoRoutines {
   }
 
   /**
-   * Snaps a rotation angle to the nearest 90 degree increment.
+   * Snaps a rotation angle to the nearest 180 degree increment.
    *
    * @param rotation The rotation to snap
-   * @return The rotation snapped to the nearest 90 degrees (0, 90, 180, or 270)
+   * @return The rotation snapped to the nearest 180 degrees (0 or 180)
    */
   public static Rotation2d snapToNearest180Degrees(Rotation2d rotation) {
     double degrees = rotation.getDegrees();
