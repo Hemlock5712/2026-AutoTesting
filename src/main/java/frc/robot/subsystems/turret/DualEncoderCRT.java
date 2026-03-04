@@ -20,17 +20,18 @@ public class DualEncoderCRT {
 
   // CAN IDs (all on canivore bus)
   public static final int MOTOR_ID = 25;
-  public static final int ENCODER_1_ID = 26; // 21:1 from mechanism
-  public static final int ENCODER_2_ID = 27; // 22:1 from mechanism
+  public static final int ENCODER_1_ID = 26; // 22:1 from mechanism (22-tooth gear)
+  public static final int ENCODER_2_ID = 27; // 21:1 from mechanism (21-tooth gear)
 
   // Gear ratios
   public static final double MOTOR_TO_MECHANISM_RATIO = 110.0 / 15.0 * 5.0; // 36.67
 
   // Mechanism gear: 110 teeth, 1:1 with turret. Encoder gears: 21 and 22 teeth.
-  // Encoder rotations per mechanism rotation = 110/21 and 110/22
+  // Encoder 1 (CAN 26) is on 22-tooth gear, Encoder 2 (CAN 27) is on 21-tooth gear.
+  // Encoder rotations per mechanism rotation = 110/22 and 110/21
   public static final double MECHANISM_GEAR_TEETH = 110.0;
-  public static final double ENCODER_1_GEAR_TEETH = 21.0;
-  public static final double ENCODER_2_GEAR_TEETH = 22.0;
+  public static final double ENCODER_1_GEAR_TEETH = 22.0; // Encoder 1 is on 22-tooth gear
+  public static final double ENCODER_2_GEAR_TEETH = 21.0; // Encoder 2 is on 21-tooth gear
   public static final double ENCODER_1_MECHANISM_RATIO =
       MECHANISM_GEAR_TEETH / ENCODER_1_GEAR_TEETH;
   public static final double ENCODER_2_MECHANISM_RATIO =
@@ -47,16 +48,16 @@ public class DualEncoderCRT {
 
   // ==================== Instance Fields ====================
 
-  private final CANcoder encoder1; // 21:1 from mechanism
-  private final CANcoder encoder2; // 22:1 from mechanism
+  private final CANcoder encoder1; // 22-tooth gear (110/22 ratio)
+  private final CANcoder encoder2; // 21-tooth gear (110/21 ratio)
 
   private final Alert inconsistentReadingAlert;
 
   /**
    * Creates a new DualEncoderCRT calculator.
    *
-   * @param encoder1 The first CANcoder (21:1 from mechanism)
-   * @param encoder2 The second CANcoder (22:1 from mechanism)
+   * @param encoder1 The first CANcoder (22-tooth gear, CAN ID 26)
+   * @param encoder2 The second CANcoder (21-tooth gear, CAN ID 27)
    */
   public DualEncoderCRT(CANcoder encoder1, CANcoder encoder2) {
     this.encoder1 = encoder1;
