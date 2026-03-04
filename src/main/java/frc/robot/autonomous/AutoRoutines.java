@@ -31,6 +31,18 @@ public class AutoRoutines {
   }
 
   /**
+   * Snaps a rotation angle to the nearest 90 degree increment.
+   *
+   * @param rotation The rotation to snap
+   * @return The rotation snapped to the nearest 90 degrees (0, 90, 180, or 270)
+   */
+  public static Rotation2d snapToNearest180Degrees(Rotation2d rotation) {
+    double degrees = rotation.getDegrees();
+    double snapped = Math.round(degrees / 180.0) * 180.0;
+    return Rotation2d.fromDegrees(snapped);
+  }
+
+  /**
    * Example autonomous using WAITING commands for sequential operations.
    *
    * <p>Demonstrates using AndWait variants to ensure mechanisms are ready before continuing. Good

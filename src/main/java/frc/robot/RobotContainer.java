@@ -68,8 +68,6 @@ public class RobotContainer {
 
   // Vision camera for tracking robot position
   public final Limelight limelight = new Limelight("limelight-br", drivetrain);
-
-  // Vision camera for tracking robot position
   public final Limelight limelight1 = new Limelight("limelight-bl", drivetrain);
   public final Limelight limelight2 = new Limelight("limelight-fl", drivetrain);
 
@@ -128,8 +126,12 @@ public class RobotContainer {
                 drivetrain,
                 () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-                FieldInfo.flipY(FieldInfo.axisLockYLeft()),
-                null)); // null = heading lock behavior (driver controls rotation)
+                () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
+                () ->
+                    AutoRoutines.snapToNearest180Degrees(
+                        drivetrain
+                            .getRotation()))); // null = heading lock behavior (driver controls
+    // rotation)
 
     // // AxisLockDrive - Lock Y axis and rotation, driver controls X only
     joystick
@@ -139,8 +141,10 @@ public class RobotContainer {
                 drivetrain,
                 () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-                FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
-                FieldInfo.flip(FieldInfo.FACING_FORWARD))); // Lock rotation to 0°
+                () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
+                () ->
+                    AutoRoutines.snapToNearest180Degrees(
+                        drivetrain.getRotation()))); // Lock rotation to 0°
 
     joystick
         .rightTrigger(0.5)
@@ -152,7 +156,7 @@ public class RobotContainer {
         .onTrue(intake.intakeDown().andThen(intake.runIntake()))
         .onFalse(intake.stopWheel());
 
-    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.a().onTrue(intake.runIntake());
     joystick.b().onFalse(intake.stopWheel());

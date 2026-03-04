@@ -172,6 +172,14 @@ public class Shooter extends SubsystemBase {
     return runOnce(() -> setPosition(angle.get()));
   }
 
+  public Command runShooterTestMode(DoubleSupplier velocity, Supplier<Angle> angle) {
+    return run(
+        () -> {
+          setVelocity(velocity.getAsDouble());
+          setPosition(angle.get());
+        });
+  }
+
   /**
    * Command to stop the motors.
    *
@@ -270,6 +278,15 @@ public class Shooter extends SubsystemBase {
   }
 
   /**
+   * Set flywheel velocity and hood position based on distance to target.
+   *
+   * @param distanceMeters Distance to target in meters
+   */
+  public void setHoodForDistance(double distanceMeters) {
+    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
+  }
+
+  /**
    * Command that sets shooter for the given distance.
    *
    * @param distanceSupplier Supplier for distance to target in meters
@@ -277,5 +294,9 @@ public class Shooter extends SubsystemBase {
    */
   public Command runDynamic(DoubleSupplier distanceSupplier) {
     return runOnce(() -> setForDistance(distanceSupplier.getAsDouble()));
+  }
+
+  public Command runHoodDynamic(DoubleSupplier distanceSupplier) {
+    return runOnce(() -> setHoodForDistance(distanceSupplier.getAsDouble()));
   }
 }

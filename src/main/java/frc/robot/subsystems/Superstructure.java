@@ -76,6 +76,7 @@ public class Superstructure {
     this.driveState = driveState;
     // Set turret tracking as default command (can be overridden by other commands)
     turret.setDefaultCommand(turret.trackHubCommand(() -> angleToHub));
+    shooter.setDefaultCommand(shooter.runHoodDynamic(() -> distanceToHub));
   }
 
   // ==================== Periodic ====================
@@ -136,12 +137,15 @@ public class Superstructure {
   }
 
   public Command tuningShoot() {
-    return Commands.sequence(
-        shooter.runVelocity(() -> targetFlywheelVelocity.get()),
-        shooter.runPosition(() -> Degrees.of(targetHoodAngle.get())),
-        new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
-        spindexer.startCommand(),
-        spindexer.startKickerVoltageCommand());
+
+    return shooter
+        .runShooterTestMode(
+            () -> targetFlywheelVelocity.get(), () -> Degrees.of(targetHoodAngle.get()))
+        .alongWith(
+            Commands.sequence(
+                Commands.waitUntil(() -> shooter.flywheelIsAtTarget()),
+                spindexer.startCommand(),
+                spindexer.startKickerVoltageCommand()));
   }
 
   public Command stopShoot() {

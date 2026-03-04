@@ -70,8 +70,8 @@ public class Turret extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // MotionMagic settings - units are mechanism rotations
-    config.MotionMagic.MotionMagicCruiseVelocity = 1; // RPS
-    config.MotionMagic.MotionMagicAcceleration = 3; // RPS^2
+    config.MotionMagic.MotionMagicCruiseVelocity = 2; // RPS
+    config.MotionMagic.MotionMagicAcceleration = 8; // RPS^2
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
     config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
