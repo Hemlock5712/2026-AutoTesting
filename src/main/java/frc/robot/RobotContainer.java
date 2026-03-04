@@ -125,7 +125,7 @@ public class RobotContainer {
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
-                () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
                 FieldInfo.flipY(FieldInfo.axisLockYLeft()),
                 null)); // null = heading lock behavior (driver controls rotation)
@@ -136,7 +136,7 @@ public class RobotContainer {
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
-                () -> -rescaleInputs(joystick.getLeftX()) * MaxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
                 FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
                 FieldInfo.flip(FieldInfo.FACING_FORWARD))); // Lock rotation to 0°

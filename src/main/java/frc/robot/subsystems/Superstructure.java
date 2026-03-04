@@ -127,9 +127,9 @@ public class Superstructure {
 
   public Command beginShoot() {
     return Commands.sequence(
-        // shooter.runDynamic(() -> distanceToHub),
-        shooter.runVelocity(35),
-        shooter.runPosition(Degrees.of(0)),
+        shooter.runDynamic(() -> distanceToHub),
+        // shooter.runVelocity(35),
+        // shooter.runPosition(Degrees.of(0)),
         new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
         spindexer.startCommand(),
         spindexer.startKickerVoltageCommand());
