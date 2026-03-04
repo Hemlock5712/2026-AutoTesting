@@ -67,8 +67,8 @@ public class Turret extends SubsystemBase {
 
     // PID gains
     config.Slot0.kS = 0.349609375; // Static friction compensation
-    config.Slot0.kP = 1000; // Proportional gain
-    config.Slot0.kD = 3; // Derivative gain
+    config.Slot0.kP = 128; // Proportional gain
+    config.Slot0.kD = 0; // Derivative gain
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // MotionMagic settings - units are mechanism rotations

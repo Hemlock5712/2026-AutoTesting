@@ -12,7 +12,7 @@ import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
-import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
@@ -46,7 +46,7 @@ public class Shooter extends SubsystemBase {
   protected final CANcoder hoodEncoder = new CANcoder(30, CANBus.roboRIO());
 
   // Controller for spinning the flywheel at a target speed
-  private final VelocityVoltage velocityOut = new VelocityVoltage(0);
+  private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
   private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
 
@@ -66,10 +66,10 @@ public class Shooter extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // Control values
-    config.Slot0.kS = 0.06; // Static friction
-    config.Slot0.kV = 0.242; // Velocity feedforward
-    config.Slot0.kP = 0.3; // Proportional gain
-    config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
+    config.Slot0.kS = 5.0; // Static friction
+    config.Slot0.kV = 0.16; // Velocity feedforward
+    config.Slot0.kP = 10; // Proportional gain
+    config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseVelocitySign;
 
     config.Feedback.SensorToMechanismRatio = 2.0;
 
@@ -114,6 +114,7 @@ public class Shooter extends SubsystemBase {
     boolean successhood = TalonFXUtil.applyConfigWithRetries(hood, confighood);
     motorConfigAlert.set(!successhood);
 
+    flywheel.getTorqueCurrent().setUpdateFrequency(500);
     follower.setControl(new Follower(flywheel.getDeviceID(), MotorAlignmentValue.Opposed));
   }
 
