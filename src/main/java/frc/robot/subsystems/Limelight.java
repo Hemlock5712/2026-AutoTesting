@@ -4,9 +4,7 @@
 
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.DegreesPerSecond;
 import static edu.wpi.first.units.Units.Meter;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
 
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.VecBuilder;
@@ -19,15 +17,15 @@ import frc.robot.utils.LimelightHelpers.PoseEstimate;
 @Logged
 public class Limelight extends SubsystemBase {
 
-  /** Limelight name. */
+  private static final double XY_STD_DEV_COEFFICIENT = 0.5;
+  private static final double ROTATION_STD_DEV_COEFFICIENT = 5.0;
+  private static final double MEGATAG2_ROTATION_STD_DEV = 9999;
+  private static final double MAX_ANGULAR_VELOCITY_DEG_PER_SEC = 70;
+
   private final String m_limelightName;
-
   private final CommandSwerveDrivetrain m_drivetrain;
-
-  /** Cached last valid pose estimate from the Limelight. */
   private PoseEstimate lastPoseEstimate = new PoseEstimate();
 
-  /** Creates a new Limelight. */
   public Limelight(String limelightName, CommandSwerveDrivetrain drivetrain) {
     m_limelightName = limelightName;
     m_drivetrain = drivetrain;
@@ -35,8 +33,18 @@ public class Limelight extends SubsystemBase {
 
   @Override
   public void periodic() {
-    // Called once per scheduler run: pull a fresh pose estimate from Limelight
-    // using the WPILib (blue alliance) coordinate frame.
+    updateRobotOrientation();
+
+    PoseEstimate poseEstimate = getValidPoseEstimate();
+    if (poseEstimate == null) {
+      return;
+    }
+
+    lastPoseEstimate = poseEstimate;
+    addVisionMeasurement(poseEstimate);
+  }
+
+  private void updateRobotOrientation() {
     LimelightHelpers.SetRobotOrientation(
         m_limelightName,
         m_drivetrain.getPose().getRotation().getDegrees(),
@@ -45,81 +53,75 @@ public class Limelight extends SubsystemBase {
         0,
         0,
         0);
+  }
+
+  private PoseEstimate getValidPoseEstimate() {
     PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiBlue(m_limelightName);
-    PoseEstimate poseEstimate2 =
-        LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(m_limelightName);
 
-    // Validate that the estimate is trustworthy (e.g., sufficient targets, ambiguity, etc.).
-    boolean valid = LimelightHelpers.validPoseEstimate(poseEstimate);
-    if (valid) {
-      if (poseEstimate.tagCount == 1) {
-        if (LimelightHelpers.validPoseEstimate(poseEstimate2)) {
-          poseEstimate = poseEstimate2;
-        } else {
-          return;
-        }
-      }
-
-      if (poseEstimate.pose.getX() > FieldInfo.length().in(Meter)
-          || poseEstimate.pose.getX() < 0
-          || poseEstimate.pose.getY() > FieldInfo.width().in(Meter)
-          || poseEstimate.pose.getY() < 0) {
-        return;
-      }
-
-      if (RadiansPerSecond.of(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond)
-              .in(DegreesPerSecond)
-          > 70) {
-        return;
-      }
-      // Cache the latest valid estimate so it can be accessed elsewhere when needed.
-      lastPoseEstimate = poseEstimate;
-
-      // Heuristic measurement noise model:
-      // - Uncertainty grows with the square of the average tag distance
-      // - Uncertainty decreases as more tags are observed
-      // These values inform pose estimators how much to trust this measurement.
-      // Lower the value higher the trust. https://www.desmos.com/calculator/2e0cd4c36b
-      double xyStandardDev = 0.5 * Math.pow(poseEstimate.avgTagDist, 2.0) / poseEstimate.tagCount;
-      double rotationStandardDev =
-          5.0 * Math.pow(poseEstimate.avgTagDist, 2.0) / poseEstimate.tagCount;
-
-      if (poseEstimate.isMegaTag2) {
-        rotationStandardDev = 9999;
-      }
-
-      // Provide the measurement (pose, timestamp, per-axis std devs) to the drivetrain,
-      // typically a pose estimator. X/Y in meters, rotation in radians.
-      m_drivetrain.addVisionMeasurement(
-          poseEstimate.pose,
-          poseEstimate.timestampSeconds,
-          VecBuilder.fill(xyStandardDev, xyStandardDev, rotationStandardDev));
+    if (!LimelightHelpers.validPoseEstimate(poseEstimate)) {
+      return null;
     }
+
+    // Use MegaTag2 for single tag estimates
+    if (poseEstimate.tagCount == 1) {
+      PoseEstimate megaTag2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(m_limelightName);
+      if (!LimelightHelpers.validPoseEstimate(megaTag2)) {
+        return null;
+      }
+      poseEstimate = megaTag2;
+    }
+
+    if (!isPoseOnField(poseEstimate.pose)) {
+      return null;
+    }
+
+    if (isRotatingTooFast()) {
+      return null;
+    }
+
+    return poseEstimate;
   }
 
-  /** Getter for last pose estimate. */
-  private PoseEstimate getPoseEstimate() {
-    return lastPoseEstimate;
+  private boolean isPoseOnField(Pose2d pose) {
+    return pose.getX() >= 0
+        && pose.getX() <= FieldInfo.length().in(Meter)
+        && pose.getY() >= 0
+        && pose.getY() <= FieldInfo.width().in(Meter);
   }
 
-  // Expose latest vision values for Epilogue logging/telemetry.
-  /** Logging: latest estimated robot pose from vision. */
+  private boolean isRotatingTooFast() {
+    double angularVelocityDegPerSec =
+        Math.toDegrees(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond);
+    return Math.abs(angularVelocityDegPerSec) > MAX_ANGULAR_VELOCITY_DEG_PER_SEC;
+  }
+
+  private void addVisionMeasurement(PoseEstimate poseEstimate) {
+    double distanceSquared = poseEstimate.avgTagDist * poseEstimate.avgTagDist;
+    double xyStdDev = XY_STD_DEV_COEFFICIENT * distanceSquared / poseEstimate.tagCount;
+    double rotationStdDev =
+        poseEstimate.isMegaTag2
+            ? MEGATAG2_ROTATION_STD_DEV
+            : ROTATION_STD_DEV_COEFFICIENT * distanceSquared / poseEstimate.tagCount;
+
+    m_drivetrain.addVisionMeasurement(
+        poseEstimate.pose,
+        poseEstimate.timestampSeconds,
+        VecBuilder.fill(xyStdDev, xyStdDev, rotationStdDev));
+  }
+
   public Pose2d getPose() {
-    return getPoseEstimate().pose;
+    return lastPoseEstimate.pose;
   }
 
-  /** Logging: timestamp (seconds) of the last valid vision estimate. */
   public double getTimestampSeconds() {
-    return getPoseEstimate().timestampSeconds;
+    return lastPoseEstimate.timestampSeconds;
   }
 
-  /** Logging: average tag distance used in the last estimate (meters). */
   public double getAvgTagDist() {
-    return getPoseEstimate().avgTagDist;
+    return lastPoseEstimate.avgTagDist;
   }
 
-  /** Logging: number of tags contributing to the last estimate. */
-  public double getTagCount() {
-    return getPoseEstimate().tagCount;
+  public int getTagCount() {
+    return lastPoseEstimate.tagCount;
   }
 }

@@ -5,6 +5,7 @@
 package frc.robot.subsystems.shooter;
 
 import static edu.wpi.first.units.Units.Degree;
+import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.CANBus;
@@ -139,10 +140,6 @@ public class Shooter extends SubsystemBase {
     hood.setControl(rotationOut.withPosition(angle));
   }
 
-  public void setPosition(double angle) {
-    hood.setControl(rotationOut.withPosition(angle));
-  }
-
   /**
    * @param velocity
    * @return
@@ -173,6 +170,14 @@ public class Shooter extends SubsystemBase {
    */
   public Command runPosition(Supplier<Angle> angle) {
     return runOnce(() -> setPosition(angle.get()));
+  }
+
+  public Command runShooterTestMode(DoubleSupplier velocity, Supplier<Angle> angle) {
+    return run(
+        () -> {
+          setVelocity(velocity.getAsDouble());
+          setPosition(angle.get());
+        });
   }
 
   /**
@@ -269,7 +274,16 @@ public class Shooter extends SubsystemBase {
    */
   public void setForDistance(double distanceMeters) {
     setVelocity(ShooterLookup.getFlywheelMap().get(distanceMeters));
-    setPosition(ShooterLookup.getHoodMap().get(distanceMeters));
+    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
+  }
+
+  /**
+   * Set flywheel velocity and hood position based on distance to target.
+   *
+   * @param distanceMeters Distance to target in meters
+   */
+  public void setHoodForDistance(double distanceMeters) {
+    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
   }
 
   /**
@@ -279,6 +293,10 @@ public class Shooter extends SubsystemBase {
    * @return Command that sets flywheel and hood based on distance
    */
   public Command runDynamic(DoubleSupplier distanceSupplier) {
-    return runOnce(() -> setForDistance(distanceSupplier.getAsDouble()));
+    return run(() -> setForDistance(distanceSupplier.getAsDouble()));
+  }
+
+  public Command runHoodDynamic(DoubleSupplier distanceSupplier) {
+    return run(() -> setHoodForDistance(distanceSupplier.getAsDouble()));
   }
 }

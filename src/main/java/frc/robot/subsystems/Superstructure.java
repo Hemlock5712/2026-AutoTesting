@@ -14,7 +14,6 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterSIM;
 import frc.robot.subsystems.spindexer.Spindexer;
@@ -76,6 +75,7 @@ public class Superstructure {
     this.driveState = driveState;
     // Set turret tracking as default command (can be overridden by other commands)
     turret.setDefaultCommand(turret.trackHubCommand(() -> angleToHub));
+    shooter.setDefaultCommand(shooter.runHoodDynamic(() -> distanceToHub));
   }
 
   // ==================== Periodic ====================
@@ -126,26 +126,38 @@ public class Superstructure {
   // ==================== Coordinated Commands ====================
 
   public Command beginShoot() {
-    return Commands.sequence(
-        shooter.runDynamic(() -> distanceToHub),
-        // shooter.runVelocity(35),
-        // shooter.runPosition(Degrees.of(0)),
-        new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
-        spindexer.startCommand(),
-        spindexer.startKickerVoltageCommand());
+
+    return shooter
+        .runDynamic(() -> getDistanceToHub())
+        .alongWith(
+            Commands.sequence(
+                Commands.waitUntil(() -> shooter.flywheelIsAtTarget()),
+                spindexer.startCommand(),
+                spindexer.startKickerVoltageCommand()));
   }
 
   public Command tuningShoot() {
-    return Commands.sequence(
-        shooter.runVelocity(() -> targetFlywheelVelocity.get()),
-        shooter.runPosition(() -> Degrees.of(targetHoodAngle.get())),
-        new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
-        spindexer.startCommand(),
-        spindexer.startKickerVoltageCommand());
+
+    return shooter
+        .runShooterTestMode(
+            () -> targetFlywheelVelocity.get(), () -> Degrees.of(targetHoodAngle.get()))
+        .alongWith(
+            Commands.sequence(
+                Commands.waitUntil(() -> shooter.flywheelIsAtTarget()),
+                spindexer.startCommand(),
+                spindexer.startKickerVoltageCommand()));
   }
 
   public Command stopShoot() {
     return Commands.sequence(
         spindexer.stopCommand(), spindexer.stopKickerCommand(), shooter.stopCommand());
+  }
+
+  public Command spinSpinDexerBack() {
+    return spindexer.backCommand();
+  }
+
+  public Command spinSpinDexerStop() {
+    return spindexer.stopCommand();
   }
 }

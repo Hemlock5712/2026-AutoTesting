@@ -14,6 +14,7 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
 import frc.robot.utils.FieldInfo;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 
 /**
  * Hybrid teleop command that locks field axes to preset coordinates.
@@ -49,9 +50,9 @@ public class AxisLockDrive extends Command {
   private final DoubleSupplier rotationalRateSupplier;
 
   // Locked axis targets (null means driver controls that axis)
-  private final Double lockedXTarget;
-  private final Double lockedYTarget;
-  private final Rotation2d lockedRotationTarget;
+  private final DoubleSupplier lockedXTarget;
+  private final DoubleSupplier lockedYTarget;
+  private final Supplier<Rotation2d> lockedRotationTarget;
 
   // State tracking between execute cycles
   private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
@@ -85,9 +86,9 @@ public class AxisLockDrive extends Command {
       DoubleSupplier velocityX,
       DoubleSupplier velocityY,
       DoubleSupplier rotationalRate,
-      Double lockedXTarget,
-      Double lockedYTarget,
-      Rotation2d lockedRotationTarget) {
+      DoubleSupplier lockedXTarget,
+      DoubleSupplier lockedYTarget,
+      Supplier<Rotation2d> lockedRotationTarget) {
     this.swerve = swerve;
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
@@ -111,8 +112,8 @@ public class AxisLockDrive extends Command {
       CommandSwerveDrivetrain swerve,
       DoubleSupplier velocityX,
       DoubleSupplier rotationalRate,
-      double lockedYTarget,
-      Rotation2d lockedRotationTarget) {
+      DoubleSupplier lockedYTarget,
+      Supplier<Rotation2d> lockedRotationTarget) {
     return new AxisLockDrive(
         swerve,
         velocityX,
@@ -136,8 +137,8 @@ public class AxisLockDrive extends Command {
       CommandSwerveDrivetrain swerve,
       DoubleSupplier velocityY,
       DoubleSupplier rotationalRate,
-      double lockedXTarget,
-      Rotation2d lockedRotationTarget) {
+      DoubleSupplier lockedXTarget,
+      Supplier<Rotation2d> lockedRotationTarget) {
     return new AxisLockDrive(
         swerve,
         () -> 0.0, // X not used when locked
@@ -176,7 +177,7 @@ public class AxisLockDrive extends Command {
     // Calculate X velocity (locked or driver-controlled)
     double velX;
     if (lockedXTarget != null) {
-      velX = calculateLockedAxisVelocity(currentPose.getX(), lockedXTarget);
+      velX = calculateLockedAxisVelocity(currentPose.getX(), lockedXTarget.getAsDouble());
     } else {
       velX = flippedInputs[0];
     }
@@ -184,7 +185,7 @@ public class AxisLockDrive extends Command {
     // Calculate Y velocity (locked or driver-controlled)
     double velY;
     if (lockedYTarget != null) {
-      velY = calculateLockedAxisVelocity(currentPose.getY(), lockedYTarget);
+      velY = calculateLockedAxisVelocity(currentPose.getY(), lockedYTarget.getAsDouble());
     } else {
       velY = flippedInputs[1];
     }
@@ -248,7 +249,7 @@ public class AxisLockDrive extends Command {
    */
   private double calculateLockedRotationOmega(Rotation2d currentRotation) {
     double angleError =
-        MathUtil.angleModulus(lockedRotationTarget.minus(currentRotation).getRadians());
+        MathUtil.angleModulus(lockedRotationTarget.get().minus(currentRotation).getRadians());
 
     // Apply deadband to avoid oscillation
     if (Math.abs(angleError) < HEADING_LOCK_DEADBAND) {
