@@ -37,13 +37,27 @@ public class Limelight extends SubsystemBase {
   public void periodic() {
     // Called once per scheduler run: pull a fresh pose estimate from Limelight
     // using the WPILib (blue alliance) coordinate frame.
+    LimelightHelpers.SetRobotOrientation(
+        m_limelightName,
+        m_drivetrain.getPose().getRotation().getDegrees(),
+        Math.toDegrees(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond),
+        0,
+        0,
+        0,
+        0);
     PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiBlue(m_limelightName);
+    PoseEstimate poseEstimate2 =
+        LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(m_limelightName);
 
     // Validate that the estimate is trustworthy (e.g., sufficient targets, ambiguity, etc.).
     boolean valid = LimelightHelpers.validPoseEstimate(poseEstimate);
     if (valid) {
-      if (poseEstimate.tagCount == 1 && poseEstimate.rawFiducials[0].ambiguity > 0.7) {
-        return;
+      if (poseEstimate.tagCount == 1) {
+        if (LimelightHelpers.validPoseEstimate(poseEstimate2)) {
+          poseEstimate = poseEstimate2;
+        } else {
+          return;
+        }
       }
 
       if (poseEstimate.pose.getX() > FieldInfo.length().in(Meter)
@@ -69,6 +83,10 @@ public class Limelight extends SubsystemBase {
       double xyStandardDev = 0.5 * Math.pow(poseEstimate.avgTagDist, 2.0) / poseEstimate.tagCount;
       double rotationStandardDev =
           5.0 * Math.pow(poseEstimate.avgTagDist, 2.0) / poseEstimate.tagCount;
+
+      if (poseEstimate.isMegaTag2) {
+        rotationStandardDev = 9999;
+      }
 
       // Provide the measurement (pose, timestamp, per-axis std devs) to the drivetrain,
       // typically a pose estimator. X/Y in meters, rotation in radians.

@@ -3,6 +3,8 @@ package frc.robot.subsystems.turret;
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.hardware.CANcoder;
+import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.units.measure.Angle;
 import frc.robot.Robot;
@@ -15,6 +17,7 @@ import frc.robot.Robot;
  * gives the mechanism position since (22-21) = 1. This provides unique position identification
  * within 1 full mechanism rotation.
  */
+@Logged(strategy = Strategy.OPT_IN)
 public class DualEncoderCRT {
 
   // ==================== Constants ====================
@@ -63,6 +66,7 @@ public class DualEncoderCRT {
    *
    * @return mechanism position in rotations (centered around 0)
    */
+  @Logged
   public double calculateMechanismPosition() {
     // Get status signals for both encoders
     StatusSignal<Angle> e1Signal = encoder1.getPosition();

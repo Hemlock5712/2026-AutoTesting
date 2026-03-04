@@ -22,6 +22,8 @@ import frc.robot.subsystems.spindexer.SpindexerSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.Tunables;
+import frc.robot.utils.Tunables.TunableDouble;
 import java.util.function.Supplier;
 
 /**
@@ -59,6 +61,9 @@ public class Superstructure {
 
   private final Supplier<SwerveDriveState> driveState;
 
+  private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
+  private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
+
   // ==================== Targeting Data (calculated once per loop) ====================
 
   private Translation2d targetPosition = FieldInfo.HUB_POSITION;
@@ -83,21 +88,18 @@ public class Superstructure {
     if (FieldInfo.getAllianceZone().contains(robotPose.getTranslation())) {
       targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
     } else {
+      // Compute both feed positions in current-alliance coordinates, then pick the one
+      // on the same side of the field (upper vs. lower Y half) as the robot.
+      Translation2d feedA = FieldInfo.flip(FieldInfo.LEFT_FEED_POSITION);
+      Translation2d feedB = FieldInfo.flip(FieldInfo.RIGHT_FEED_POSITION);
+      Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
+      Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
       targetPosition =
-          robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0
-              ? FieldInfo.flip(
-                  FieldInfo.shouldFlip()
-                      ? FieldInfo.LEFT_FEED_POSITION
-                      : FieldInfo.RIGHT_FEED_POSITION)
-              : FieldInfo.flip(
-                  FieldInfo.shouldFlip()
-                      ? FieldInfo.RIGHT_FEED_POSITION
-                      : FieldInfo.LEFT_FEED_POSITION);
+          robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
     }
 
     Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
-    Translation2d hubPosition = targetPosition;
-    Translation2d toTarget = hubPosition.minus(turretPose.getTranslation());
+    Translation2d toTarget = targetPosition.minus(turretPose.getTranslation());
 
     distanceToHub = toTarget.getNorm();
 
@@ -128,6 +130,15 @@ public class Superstructure {
         // shooter.runDynamic(() -> distanceToHub),
         shooter.runDynamic(() -> distanceToHub),
         shooter.runPosition(Degrees.of(0)),
+        new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
+        spindexer.startCommand(),
+        spindexer.startKickerVoltageCommand());
+  }
+
+  public Command tuningShoot() {
+    return Commands.sequence(
+        shooter.runVelocity(() -> targetFlywheelVelocity.get()),
+        shooter.runPosition(() -> Degrees.of(targetHoodAngle.get())),
         new WaitUntilCommand(() -> shooter.flywheelIsAtTarget()),
         spindexer.startCommand(),
         spindexer.startKickerVoltageCommand());
