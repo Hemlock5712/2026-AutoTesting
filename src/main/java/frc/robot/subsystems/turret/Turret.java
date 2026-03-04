@@ -2,11 +2,11 @@ package frc.robot.subsystems.turret;
 
 import static edu.wpi.first.units.Units.Rotations;
 
-import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.units.measure.Angle;
@@ -14,7 +14,6 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Robot;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
@@ -47,21 +46,24 @@ public class Turret extends SubsystemBase {
     // Initialize CRT calculator using default constants
     crt = new DualEncoderCRT(encoder1, encoder2);
 
-    configureMotor();
+    // Seed encoder 1's continuous position before configuring FusedCANcoder,
+    // so the motor sees the correct position from the start.
     initializePosition();
+    configureMotor();
   }
 
-  /** Configure motor with RotorSensor feedback (internal encoder only). */
+  /** Configure motor with FusedCANcoder feedback (encoder 1 fused with internal rotor). */
   private void configureMotor() {
-    // Use motor's internal rotor sensor for feedback (RotorSensor is default)
-    // Position is seeded from CRT calculation at startup via initializePosition()
+    // Fuse encoder 1 (22-tooth gear) with the motor's internal rotor for high-bandwidth
+    // absolute position tracking. CRT seeds encoder 1's continuous position at startup
+    // via initializePosition(), then FusedCANcoder handles tracking from there.
+    config.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
+    config.Feedback.FeedbackRemoteSensorID = encoder1.getDeviceID();
 
-    // SensorToMechanismRatio: rotor rotations per mechanism rotation
-    // Motor spins 30.8 times per mechanism rotation
-    config.Feedback.SensorToMechanismRatio = DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO;
-    // config.Feedback.RotorToSensorRatio = DualEncoderCRT.ROTOR_TO_ENCODER_RATIO;
-
-    // config.Feedback.withRemoteCANcoder(encoder1);
+    // SensorToMechanismRatio: encoder rotations per mechanism rotation
+    config.Feedback.SensorToMechanismRatio = DualEncoderCRT.ENCODER_1_MECHANISM_RATIO;
+    // RotorToSensorRatio: motor rotor rotations per encoder rotation
+    config.Feedback.RotorToSensorRatio = DualEncoderCRT.ROTOR_TO_ENCODER_RATIO;
 
     // PID gains
     config.Slot0.kS = 0.349609375; // Static friction compensation
@@ -84,20 +86,13 @@ public class Turret extends SubsystemBase {
   }
 
   /**
-   * Initialize the motor position using CRT calculation from dual encoders. This should be called
-   * once at startup when the turret is stationary.
+   * Initialize the encoder position using CRT calculation from dual encoders. This seeds encoder
+   * 1's continuous position so FusedCANcoder reports the correct mechanism position. Should be
+   * called once at startup when the turret is stationary.
    */
   private void initializePosition() {
-    // Calculate absolute mechanism position using CRT
-    double mechanismPosition = crt.calculateMechanismPosition();
-
-    // Set the motor's internal position to match the calculated position
-    // This does NOT affect the CANcoder - it only syncs the motor's position tracking
-    StatusCode setPosition = leader.setPosition(mechanismPosition);
-
-    Robot.telemetry().log("Testing/", mechanismPosition);
-
-    crtInitAlert.set(setPosition.isError());
+    boolean success = crt.seedEncoderPosition();
+    crtInitAlert.set(!success);
   }
 
   public void setAngle(double angle) {
