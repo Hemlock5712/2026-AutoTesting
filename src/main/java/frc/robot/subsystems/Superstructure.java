@@ -67,7 +67,6 @@ public class Superstructure {
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
 
   private final TunableDouble kDrag = Tunables.value("Tuning/Drag", 1.0); // units: 1/s
-
   // ==================== Targeting Data (calculated once per loop) ====================
 
   private Translation2d targetPosition = FieldInfo.HUB_POSITION;
@@ -76,6 +75,9 @@ public class Superstructure {
 
   // SWM state
   private Translation2d virtualTargetPosition = FieldInfo.HUB_POSITION;
+  private Transform2d virtualTargetPositionPose =
+      new Transform2d(
+          FieldInfo.HUB_POSITION.getX(), FieldInfo.HUB_POSITION.getY(), Rotation2d.kZero);
   private double distanceToVirtualTarget = 0;
   private double angleToVirtualTarget = 0;
 
@@ -120,6 +122,7 @@ public class Superstructure {
 
     // Calculate SWM targeting values
     virtualTargetPosition = virtualTarget(state);
+    virtualTargetPositionPose = new Transform2d(virtualTargetPosition, Rotation2d.kZero);
     Translation2d toVirtualTarget = virtualTargetPosition.minus(turretPose.getTranslation());
     distanceToVirtualTarget = toVirtualTarget.getNorm();
     Rotation2d angleToVirtualTargetField = toVirtualTarget.getAngle();
@@ -211,7 +214,7 @@ public class Superstructure {
     return spindexer.stopCommand();
   }
 
- private Translation2d virtualTarget(SwerveDriveState state) {
+  private Translation2d virtualTarget(SwerveDriveState state) {
     Translation2d realTarget = getTargetPosition().getTranslation();
     Pose2d turretPose = state.Pose.transformBy(TURRET_TRANSFORM);
     Translation2d robotPosition = turretPose.getTranslation();

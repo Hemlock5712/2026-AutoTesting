@@ -145,12 +145,15 @@ public class RobotContainer {
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
 
-    joystick
-        .rightTrigger(0.5)
-        .whileTrue(superstructure.shoot())
-        .onFalse(superstructure.stopShoot());
+    // joystick
+    //     .rightTrigger(0.5)
+    //     .whileTrue(superstructure.shoot())
+    //     .onFalse(superstructure.stopShoot());
 
-    joystick.povDown().whileTrue(superstructure.swmShoot()).onFalse(superstructure.stopShoot());
+    joystick
+        .rightTrigger()
+        .whileTrue(superstructure.swmShoot())
+        .onFalse(superstructure.stopShoot());
 
     joystick
         .leftTrigger(0.5)

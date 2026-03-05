@@ -106,7 +106,7 @@ public class Shooter extends SubsystemBase {
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
     confighood.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
-    confighood.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.044;
+    confighood.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.0555;
     confighood.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
     confighood.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
 
