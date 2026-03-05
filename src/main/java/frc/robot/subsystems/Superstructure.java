@@ -244,8 +244,8 @@ public class Superstructure {
       // double dragFactor = (1.0 - Math.exp(-kDrag.get() * tof)) / kDrag.get();
       double dragFactor = tof;
 
-      // Tangential: apply drag compensation for aim angle
-      Translation2d tangentialOffset = tangentialVelocity.times(dragFactor);
+      // Tangential: apply drag compensation for aim angle (kDrag scales tangential independently)
+      Translation2d tangentialOffset = tangentialVelocity.times(dragFactor * kDrag.get());
 
       // Radial: adjust effective distance based on robot motion during flight
       double radialOffset = radialSpeed * tof;
