@@ -242,7 +242,7 @@ public class Superstructure {
 
       double tof = ShooterLookup.getToFMap().get(dist);
       // double dragFactor = (1.0 - Math.exp(-kDrag.get() * tof)) / kDrag.get();
-      double dragFactor = 0.0;
+      double dragFactor = tof;
 
       // Tangential: apply drag compensation for aim angle
       Translation2d tangentialOffset = tangentialVelocity.times(dragFactor);
