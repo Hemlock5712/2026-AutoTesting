@@ -220,7 +220,7 @@ public class Superstructure {
     Translation2d robotPosition = turretPose.getTranslation();
 
     ChassisSpeeds fieldSpeeds =
-        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.RawHeading);
+        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation());
     Translation2d velocity =
         new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
 
@@ -241,7 +241,8 @@ public class Superstructure {
       Translation2d tangentialVelocity = velocity.minus(radialVelocity);
 
       double tof = ShooterLookup.getToFMap().get(dist);
-      double dragFactor = (1.0 - Math.exp(-kDrag.get() * tof)) / kDrag.get();
+      // double dragFactor = (1.0 - Math.exp(-kDrag.get() * tof)) / kDrag.get();
+      double dragFactor = 0.0;
 
       // Tangential: apply drag compensation for aim angle
       Translation2d tangentialOffset = tangentialVelocity.times(dragFactor);
