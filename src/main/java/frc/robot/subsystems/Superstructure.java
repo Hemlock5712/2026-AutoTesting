@@ -66,7 +66,6 @@ public class Superstructure {
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
 
-  private final TunableDouble kDrag = Tunables.value("Tuning/Drag", 1.0); // units: 1/s
   // ==================== Targeting Data (calculated once per loop) ====================
 
   private Translation2d targetPosition = FieldInfo.HUB_POSITION;
@@ -230,7 +229,7 @@ public class Superstructure {
       double dist = robotPosition.getDistance(virtualTarget);
       if (dist < 0.001) break;
       double tof = ShooterLookup.getToFMap().get(dist);
-      virtualTarget = realTarget.minus(velocity.times(tof * kDrag.get()));
+      virtualTarget = realTarget.minus(velocity.times(tof));
     }
     return virtualTarget;
   }
