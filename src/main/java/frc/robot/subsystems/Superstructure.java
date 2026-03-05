@@ -230,10 +230,26 @@ public class Superstructure {
       double dist = robotPosition.getDistance(virtualTarget);
       if (dist < 0.001) break;
 
+      // Direction from robot to target (unit vector)
+      Translation2d toTarget = virtualTarget.minus(robotPosition);
+      Translation2d radialUnit = toTarget.div(dist);
+
+      // Decompose velocity into radial and tangential components
+      double radialSpeed =
+          velocity.getX() * radialUnit.getX() + velocity.getY() * radialUnit.getY();
+      Translation2d radialVelocity = radialUnit.times(radialSpeed);
+      Translation2d tangentialVelocity = velocity.minus(radialVelocity);
+
       double tof = ShooterLookup.getToFMap().get(dist);
       double dragFactor = (1.0 - Math.exp(-kDrag.get() * tof)) / kDrag.get();
 
-      virtualTarget = realTarget.minus(velocity.times(dragFactor));
+      // Tangential: apply drag compensation for aim angle
+      Translation2d tangentialOffset = tangentialVelocity.times(dragFactor);
+
+      // Radial: adjust effective distance based on robot motion during flight
+      double radialOffset = radialSpeed * tof;
+
+      virtualTarget = realTarget.plus(tangentialOffset).minus(radialUnit.times(radialOffset));
     }
     return virtualTarget;
   }
