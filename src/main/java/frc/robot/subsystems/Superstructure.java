@@ -249,7 +249,7 @@ public class Superstructure {
       // Radial: adjust effective distance based on robot motion during flight
       double radialOffset = radialSpeed * tof;
 
-      virtualTarget = realTarget.plus(tangentialOffset).minus(radialUnit.times(radialOffset));
+      virtualTarget = realTarget.minus(tangentialOffset).minus(radialUnit.times(radialOffset));
     }
     return virtualTarget;
   }
