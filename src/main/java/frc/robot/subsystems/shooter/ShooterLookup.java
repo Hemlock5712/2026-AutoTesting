@@ -5,10 +5,12 @@ import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 public class ShooterLookup {
   private static final InterpolatingDoubleTreeMap flywheelMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap hoodMap = new InterpolatingDoubleTreeMap();
+  private static final InterpolatingDoubleTreeMap tofMap = new InterpolatingDoubleTreeMap();
 
   static {
     buildFlywheel();
     buildHood();
+    buildToF();
   }
 
   private static void buildFlywheel() {
@@ -37,11 +39,20 @@ public class ShooterLookup {
     hoodMap.put(5.0, 15.00);
   }
 
+  private static void buildToF() {
+    tofMap.put(0.0, 1.0);
+    tofMap.put(5.0, 2.0);
+  }
+
   public static InterpolatingDoubleTreeMap getFlywheelMap() {
     return flywheelMap;
   }
 
   public static InterpolatingDoubleTreeMap getHoodMap() {
     return hoodMap;
+  }
+
+  public static InterpolatingDoubleTreeMap getToFMap() {
+    return tofMap;
   }
 }

@@ -11,10 +11,13 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.Robot;
 import frc.robot.subsystems.shooter.Shooter;
+import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerSIM;
@@ -63,19 +66,31 @@ public class Superstructure {
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
 
+  private final TunableDouble kDrag = Tunables.value("Tuning/Drag", 1.0); // units: 1/s
+
+  // SWM tunables
+  private final TunableDouble kSwmRadialGain = Tunables.value("SWM/RadialGain", 0.0);
+  private final TunableDouble kSwmTangentialGain = Tunables.value("SWM/TangentialGain", 1.0);
+
   // ==================== Targeting Data (calculated once per loop) ====================
 
   private Translation2d targetPosition = FieldInfo.HUB_POSITION;
   private double distanceToHub = 0;
   private double angleToHub = 0;
 
+  // SWM state
+  private boolean swmEnabled = false;
+  private Translation2d virtualTargetPosition = FieldInfo.HUB_POSITION;
+  private double distanceToVirtualTarget = 0;
+  private double angleToVirtualTarget = 0;
+
   // ==================== Constructor ====================
 
   public Superstructure(Supplier<SwerveDriveState> driveState) {
     this.driveState = driveState;
-    // Set turret tracking as default command (can be overridden by other commands)
-    turret.setDefaultCommand(turret.trackHubCommand(() -> angleToHub));
-    shooter.setDefaultCommand(shooter.runHoodDynamic(() -> distanceToHub));
+    // Set turret tracking as default command - uses SWM-aware getters for seamless mode switching
+    turret.setDefaultCommand(turret.trackHubCommand(this::getActiveAngle));
+    shooter.setDefaultCommand(shooter.runHoodDynamic(this::getActiveDistance));
   }
 
   // ==================== Periodic ====================
@@ -107,6 +122,24 @@ public class Superstructure {
     angleToHub =
         MathUtil.inputModulus(
             angleToTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
+
+    // Calculate SWM targeting values
+    virtualTargetPosition = virtualTarget(state);
+    Translation2d toVirtualTarget = virtualTargetPosition.minus(turretPose.getTranslation());
+    distanceToVirtualTarget = toVirtualTarget.getNorm();
+    Rotation2d angleToVirtualTargetField = toVirtualTarget.getAngle();
+    angleToVirtualTarget =
+        MathUtil.inputModulus(
+            angleToVirtualTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
+
+    // Telemetry
+    Robot.telemetry()
+        .log(
+            "SWM/VirtualTarget",
+            new Pose2d(virtualTargetPosition, Rotation2d.kZero),
+            Pose2d.struct);
+    Robot.telemetry().log("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
+    Robot.telemetry().log("SWM/AngleDelta", angleToVirtualTarget - angleToHub);
   }
 
   // ==================== Targeting Getters ====================
@@ -121,6 +154,22 @@ public class Superstructure {
 
   public Pose2d getTargetPosition() {
     return new Pose2d(targetPosition, new Rotation2d());
+  }
+
+  // ==================== SWM-Aware Getters ====================
+
+  /** Returns distance based on SWM mode - virtual target when enabled, real target otherwise. */
+  public double getActiveDistance() {
+    return swmEnabled ? distanceToVirtualTarget : distanceToHub;
+  }
+
+  /** Returns angle based on SWM mode - virtual target when enabled, real target otherwise. */
+  public double getActiveAngle() {
+    return swmEnabled ? angleToVirtualTarget : angleToHub;
+  }
+
+  public boolean isSwmEnabled() {
+    return swmEnabled;
   }
 
   // ==================== Coordinated Commands ====================
@@ -153,11 +202,68 @@ public class Superstructure {
         spindexer.stopCommand(), spindexer.stopKickerCommand(), shooter.stopCommand());
   }
 
+  // ==================== SWM Commands ====================
+
+  /** Toggle SWM mode - hold this while shooting for velocity compensation. */
+  public Command swmModeCommand() {
+    return Commands.startEnd(() -> swmEnabled = true, () -> swmEnabled = false);
+  }
+
+  /** Full SWM shooting sequence with velocity compensation. */
+  public Command swmShoot() {
+    return Commands.parallel(
+        swmModeCommand(),
+        shooter.runDynamic(this::getActiveDistance),
+        Commands.sequence(
+            Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
+            spindexer.startCommand(),
+            spindexer.startKickerVoltageCommand()));
+  }
+
   public Command spinSpinDexerBack() {
     return spindexer.backCommand();
   }
 
   public Command spinSpinDexerStop() {
     return spindexer.stopCommand();
+  }
+
+  private Translation2d virtualTarget(SwerveDriveState state) {
+    Translation2d realTarget = getTargetPosition().getTranslation();
+    Pose2d turretPose = state.Pose.transformBy(TURRET_TRANSFORM);
+    Translation2d robotPosition = turretPose.getTranslation();
+
+    ChassisSpeeds fieldSpeeds =
+        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.RawHeading);
+    Translation2d velocity =
+        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+
+    Translation2d virtualTarget = realTarget;
+
+    for (int i = 0; i < 5; i++) {
+      Translation2d toTarget = virtualTarget.minus(robotPosition);
+      double dist = toTarget.getNorm();
+      if (dist < 0.001) break; // Avoid division by zero
+
+      Translation2d unitToTarget = toTarget.div(dist);
+
+      // Decompose velocity into radial (toward target) and tangential (perpendicular)
+      double radialSpeed =
+          velocity.getX() * unitToTarget.getX() + velocity.getY() * unitToTarget.getY();
+      Translation2d tangentialVelocity = velocity.minus(unitToTarget.times(radialSpeed));
+
+      double tof = ShooterLookup.getToFMap().get(dist);
+      double dragFactor = (1.0 - Math.exp(-kDrag.get() * tof)) / kDrag.get();
+
+      // Radial: adjust effective distance (negative radialSpeed = approaching = less compensation)
+      double radialOffset = radialSpeed * tof * kSwmRadialGain.get();
+
+      // Tangential: lateral compensation with drag
+      Translation2d tangentialOffset =
+          tangentialVelocity.times(dragFactor * kSwmTangentialGain.get());
+
+      virtualTarget = realTarget.minus(unitToTarget.times(radialOffset)).minus(tangentialOffset);
+    }
+    return virtualTarget;
   }
 }
