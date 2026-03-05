@@ -79,7 +79,6 @@ public class Superstructure {
   private double angleToHub = 0;
 
   // SWM state
-  private boolean swmEnabled = false;
   private Translation2d virtualTargetPosition = FieldInfo.HUB_POSITION;
   private double distanceToVirtualTarget = 0;
   private double angleToVirtualTarget = 0;
@@ -160,33 +159,27 @@ public class Superstructure {
 
   /** Returns distance based on SWM mode - virtual target when enabled, real target otherwise. */
   public double getActiveDistance() {
-    return swmEnabled ? distanceToVirtualTarget : distanceToHub;
+    return distanceToVirtualTarget;
   }
 
   /** Returns angle based on SWM mode - virtual target when enabled, real target otherwise. */
   public double getActiveAngle() {
-    return swmEnabled ? angleToVirtualTarget : angleToHub;
-  }
-
-  public boolean isSwmEnabled() {
-    return swmEnabled;
+    return angleToVirtualTarget;
   }
 
   // ==================== Coordinated Commands ====================
 
-  public Command beginShoot() {
-
+  public Command shoot() {
     return shooter
-        .runDynamic(() -> getDistanceToHub())
+        .runDynamic(this::getDistanceToHub)
         .alongWith(
             Commands.sequence(
-                Commands.waitUntil(() -> shooter.flywheelIsAtTarget()),
+                Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
                 spindexer.startCommand(),
                 spindexer.startKickerVoltageCommand()));
   }
 
   public Command tuningShoot() {
-
     return shooter
         .runShooterTestMode(
             () -> targetFlywheelVelocity.get(), () -> Degrees.of(targetHoodAngle.get()))
@@ -204,15 +197,9 @@ public class Superstructure {
 
   // ==================== SWM Commands ====================
 
-  /** Toggle SWM mode - hold this while shooting for velocity compensation. */
-  public Command swmModeCommand() {
-    return Commands.startEnd(() -> swmEnabled = true, () -> swmEnabled = false);
-  }
-
   /** Full SWM shooting sequence with velocity compensation. */
   public Command swmShoot() {
     return Commands.parallel(
-        swmModeCommand(),
         shooter.runDynamic(this::getActiveDistance),
         Commands.sequence(
             Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),

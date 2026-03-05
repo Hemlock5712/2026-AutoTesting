@@ -147,8 +147,10 @@ public class RobotContainer {
 
     joystick
         .rightTrigger(0.5)
-        .onTrue(superstructure.beginShoot())
+        .whileTrue(superstructure.shoot())
         .onFalse(superstructure.stopShoot());
+
+    joystick.povDown().whileTrue(superstructure.swmShoot()).onFalse(superstructure.stopShoot());
 
     joystick
         .leftTrigger(0.5)

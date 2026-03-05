@@ -75,7 +75,7 @@ public class AutoRoutines {
             .driveTo(() -> FieldInfo.flip(new Pose2d(6, 0.639445, Rotation2d.k180deg)))
             .withWaypoint(0.1, 0, 4),
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(2, 0.639445, Rotation2d.k180deg))),
-        superstructure.beginShoot(),
+        superstructure.shoot(),
         Commands.waitSeconds(5));
   }
 }

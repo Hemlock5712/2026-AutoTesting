@@ -40,8 +40,16 @@ public class ShooterLookup {
   }
 
   private static void buildToF() {
-    tofMap.put(0.0, 1.0);
-    tofMap.put(5.0, 2.0);
+    tofMap.put(0.0, 2.0);
+    tofMap.put(1.0, 2.0);
+    tofMap.put(1.5, 2.0);
+    tofMap.put(2.0, 2.02);
+    tofMap.put(2.5, 2.02);
+    tofMap.put(3.0, 2.05);
+    tofMap.put(3.5, 2.13);
+    tofMap.put(4.0, 2.13);
+    tofMap.put(4.5, 2.55);
+    tofMap.put(5.0, 2.2);
   }
 
   public static InterpolatingDoubleTreeMap getFlywheelMap() {
