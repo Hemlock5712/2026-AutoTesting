@@ -68,10 +68,6 @@ public class Superstructure {
 
   private final TunableDouble kDrag = Tunables.value("Tuning/Drag", 1.0); // units: 1/s
 
-  // SWM tunables
-  private final TunableDouble kSwmRadialGain = Tunables.value("SWM/RadialGain", 0.0);
-  private final TunableDouble kSwmTangentialGain = Tunables.value("SWM/TangentialGain", 1.0);
-
   // ==================== Targeting Data (calculated once per loop) ====================
 
   private Translation2d targetPosition = FieldInfo.HUB_POSITION;
@@ -215,7 +211,7 @@ public class Superstructure {
     return spindexer.stopCommand();
   }
 
-  private Translation2d virtualTarget(SwerveDriveState state) {
+ private Translation2d virtualTarget(SwerveDriveState state) {
     Translation2d realTarget = getTargetPosition().getTranslation();
     Pose2d turretPose = state.Pose.transformBy(TURRET_TRANSFORM);
     Translation2d robotPosition = turretPose.getTranslation();
@@ -228,28 +224,13 @@ public class Superstructure {
     Translation2d virtualTarget = realTarget;
 
     for (int i = 0; i < 5; i++) {
-      Translation2d toTarget = virtualTarget.minus(robotPosition);
-      double dist = toTarget.getNorm();
-      if (dist < 0.001) break; // Avoid division by zero
-
-      Translation2d unitToTarget = toTarget.div(dist);
-
-      // Decompose velocity into radial (toward target) and tangential (perpendicular)
-      double radialSpeed =
-          velocity.getX() * unitToTarget.getX() + velocity.getY() * unitToTarget.getY();
-      Translation2d tangentialVelocity = velocity.minus(unitToTarget.times(radialSpeed));
+      double dist = robotPosition.getDistance(virtualTarget);
+      if (dist < 0.001) break;
 
       double tof = ShooterLookup.getToFMap().get(dist);
       double dragFactor = (1.0 - Math.exp(-kDrag.get() * tof)) / kDrag.get();
 
-      // Radial: adjust effective distance (negative radialSpeed = approaching = less compensation)
-      double radialOffset = radialSpeed * tof * kSwmRadialGain.get();
-
-      // Tangential: lateral compensation with drag
-      Translation2d tangentialOffset =
-          tangentialVelocity.times(dragFactor * kSwmTangentialGain.get());
-
-      virtualTarget = realTarget.minus(unitToTarget.times(radialOffset)).minus(tangentialOffset);
+      virtualTarget = realTarget.minus(velocity.times(dragFactor));
     }
     return virtualTarget;
   }
