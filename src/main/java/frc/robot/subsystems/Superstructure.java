@@ -11,18 +11,21 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Robot;
 import frc.robot.subsystems.shooter.Shooter;
-import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
+import frc.robot.swm.GeneratedCorrectionTable;
+import frc.robot.swm.MovingCorrectionTable;
+import frc.robot.swm.ShootWhileMovingSolver;
+import frc.robot.swm.ShootWhileMovingSolver.ShotSolution;
+import frc.robot.swm.StationaryShotTable;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
@@ -55,6 +58,9 @@ public class Superstructure {
   public static final Transform2d TURRET_TRANSFORM =
       new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
+  /** Flywheel wheel radius in meters (4-inch wheel). */
+  private static final double WHEEL_RADIUS = 0.0508;
+
   // ==================== Subsystems ====================
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
   private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
@@ -62,9 +68,14 @@ public class Superstructure {
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
   private final Supplier<SwerveDriveState> driveState;
+  private final ShootWhileMovingSolver swmSolver;
+  private final StationaryShotTable stationaryTable;
 
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
+
+  /** Cached SWM solution from update(). */
+  private ShotSolution currentSolution;
 
   // ==================== Targeting Data (calculated once per loop) ====================
 
@@ -73,10 +84,6 @@ public class Superstructure {
   private double angleToHub = 0;
 
   // SWM state
-  private Translation2d virtualTargetPosition = FieldInfo.HUB_POSITION;
-  private Transform2d virtualTargetPositionPose =
-      new Transform2d(
-          FieldInfo.HUB_POSITION.getX(), FieldInfo.HUB_POSITION.getY(), Rotation2d.kZero);
   private double distanceToVirtualTarget = 0;
   private double angleToVirtualTarget = 0;
 
@@ -84,9 +91,23 @@ public class Superstructure {
 
   public Superstructure(Supplier<SwerveDriveState> driveState) {
     this.driveState = driveState;
+
+    // Initialize SWM solver with calibration data
+    // Note: elevation angles converted using (80 - original) formula
+    stationaryTable = new StationaryShotTable();
+    stationaryTable.addPointRPS(2.0, 30.0, WHEEL_RADIUS, 0.0); // 80 - 80
+    stationaryTable.addPointRPS(2.5, 29.0, WHEEL_RADIUS, 4.0); // 80 - 76
+    stationaryTable.addPointRPS(3.0, 30.0, WHEEL_RADIUS, 7.0); // 80 - 73
+    stationaryTable.addPointRPS(3.5, 32.0, WHEEL_RADIUS, 8.0); // 80 - 72
+    stationaryTable.addPointRPS(4.0, 35.0, WHEEL_RADIUS, 9.0); // 80 - 71
+    stationaryTable.addPointRPS(4.5, 36.0, WHEEL_RADIUS, 10.5); // 80 - 69.5
+
+    MovingCorrectionTable correctionTable = GeneratedCorrectionTable.create();
+    swmSolver = new ShootWhileMovingSolver(stationaryTable, correctionTable);
+
     // Set turret tracking as default command - uses SWM-aware getters for seamless mode switching
     turret.setDefaultCommand(turret.trackHubCommand(this::getActiveAngle));
-    shooter.setDefaultCommand(shooter.runHoodDynamic(this::getActiveDistance));
+    shooter.setDefaultCommand(shooter.runHoodDynamic(this::getActiveElevationDeg));
   }
 
   // ==================== Periodic ====================
@@ -96,7 +117,7 @@ public class Superstructure {
     SwerveDriveState state = driveState.get();
     Pose2d robotPose = state.Pose;
 
-    if (FieldInfo.getAllianceZone().contains(robotPose.getTranslation())) {
+    if (FieldInfo.isInAllianceZone(robotPose.getTranslation())) {
       targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
     } else {
       // Compute both feed positions in current-alliance coordinates, then pick the one
@@ -119,63 +140,66 @@ public class Superstructure {
         MathUtil.inputModulus(
             angleToTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
 
-    // Calculate SWM targeting values
-    virtualTargetPosition = virtualTarget(state);
-    virtualTargetPositionPose = new Transform2d(virtualTargetPosition, Rotation2d.kZero);
-    Translation2d toVirtualTarget = virtualTargetPosition.minus(turretPose.getTranslation());
-    distanceToVirtualTarget = toVirtualTarget.getNorm();
-    Rotation2d angleToVirtualTargetField = toVirtualTarget.getAngle();
+    // Compute SWM solution using solver
+    currentSolution = swmSolver.solve(turretPose, state.Speeds, targetPosition);
+
+    // Extract values from solution
+    distanceToVirtualTarget = currentSolution.distanceM;
+
+    // Convert field-relative azimuth to robot-relative rotations
+    Rotation2d solutionAzimuth = new Rotation2d(currentSolution.turretAzimuthRad);
     angleToVirtualTarget =
         MathUtil.inputModulus(
-            angleToVirtualTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
+            solutionAzimuth.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
+
+    // Calculate virtual target (where SWM is compensating to)
+    Translation2d virtualTarget =
+        turretPose
+            .getTranslation()
+            .plus(new Translation2d(currentSolution.distanceM, solutionAzimuth));
 
     // Telemetry
-    Robot.telemetry()
-        .log(
-            "SWM/VirtualTarget",
-            new Pose2d(virtualTargetPosition, Rotation2d.kZero),
-            Pose2d.struct);
+    Robot.telemetry().log("SWM/FlywheelRPS", currentSolution.getFlywheelRPS(WHEEL_RADIUS));
+    Robot.telemetry().log("SWM/ElevationDeg", currentSolution.getElevationDeg());
+    Robot.telemetry().log("SWM/TurretAzimuthDeg", currentSolution.getTurretAzimuthDeg());
+    Robot.telemetry().log("SWM/VRadial", currentSolution.vRadialMps);
+    Robot.telemetry().log("SWM/VTangential", currentSolution.vTangentialMps);
     Robot.telemetry().log("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
     Robot.telemetry().log("SWM/AngleDelta", angleToVirtualTarget - angleToHub);
+    Robot.telemetry().log("SWM/IsValid", currentSolution.isValid());
+    Robot.telemetry().log("SWM/IsReadyToShoot", currentSolution.isReadyToShoot());
+    Robot.telemetry().log("SWM/AzimuthOffsetDeg", Math.toDegrees(currentSolution.azimuthOffsetRad));
+    Robot.telemetry()
+        .log("SWM/TargetPose", new Pose2d(targetPosition, Rotation2d.kZero), Pose2d.struct);
+    Robot.telemetry()
+        .log("SWM/VirtualTargetPose", new Pose2d(virtualTarget, Rotation2d.kZero), Pose2d.struct);
   }
 
-  // ==================== Targeting Getters ====================
+  // ==================== Internal Getters ====================
 
-  public double getDistanceToHub() {
-    return distanceToHub;
-  }
-
-  public double getAngleToHub() {
-    return angleToHub;
-  }
-
-  public Pose2d getTargetPosition() {
-    return new Pose2d(targetPosition, new Rotation2d());
-  }
-
-  // ==================== SWM-Aware Getters ====================
-
-  /** Returns distance based on SWM mode - virtual target when enabled, real target otherwise. */
-  public double getActiveDistance() {
-    return distanceToVirtualTarget;
-  }
-
-  /** Returns angle based on SWM mode - virtual target when enabled, real target otherwise. */
-  public double getActiveAngle() {
+  private double getActiveAngle() {
+    if (currentSolution == null || !currentSolution.isValid()) {
+      return angleToHub; // Fall back to direct aim at hub
+    }
     return angleToVirtualTarget;
   }
 
-  // ==================== Coordinated Commands ====================
-
-  public Command shoot() {
-    return shooter
-        .runDynamic(this::getDistanceToHub)
-        .alongWith(
-            Commands.sequence(
-                Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
-                spindexer.startCommand(),
-                spindexer.startKickerVoltageCommand()));
+  private double getActiveFlywheelRPS() {
+    if (currentSolution == null || !currentSolution.isValid()) {
+      // Fall back to stationary shot at current distance
+      return stationaryTable.getSpeed(distanceToHub) / (2.0 * Math.PI * WHEEL_RADIUS);
+    }
+    return currentSolution.getFlywheelRPS(WHEEL_RADIUS);
   }
+
+  private double getActiveElevationDeg() {
+    if (currentSolution == null || !currentSolution.isValid()) {
+      return stationaryTable.getElevationDeg(distanceToHub);
+    }
+    return currentSolution.getElevationDeg();
+  }
+
+  // ==================== Coordinated Commands ====================
 
   public Command tuningShoot() {
     return shooter
@@ -198,39 +222,18 @@ public class Superstructure {
   /** Full SWM shooting sequence with velocity compensation. */
   public Command swmShoot() {
     return Commands.parallel(
-        shooter.runDynamic(this::getActiveDistance),
+        shooter.runFromSolution(this::getActiveFlywheelRPS, this::getActiveElevationDeg),
         Commands.sequence(
             Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
             spindexer.startCommand(),
             spindexer.startKickerVoltageCommand()));
   }
 
-  public Command spinSpinDexerBack() {
+  public Command spindexerBack() {
     return spindexer.backCommand();
   }
 
-  public Command spinSpinDexerStop() {
+  public Command spindexerStop() {
     return spindexer.stopCommand();
-  }
-
-  private Translation2d virtualTarget(SwerveDriveState state) {
-    Translation2d realTarget = getTargetPosition().getTranslation();
-    Pose2d turretPose = state.Pose.transformBy(TURRET_TRANSFORM);
-    Translation2d robotPosition = turretPose.getTranslation();
-
-    ChassisSpeeds fieldSpeeds =
-        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation());
-    Translation2d velocity =
-        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-
-    Translation2d virtualTarget = realTarget;
-
-    for (int i = 0; i < 5; i++) {
-      double dist = robotPosition.getDistance(virtualTarget);
-      if (dist < 0.001) break;
-      double tof = ShooterLookup.getToFMap().get(dist);
-      virtualTarget = realTarget.minus(velocity.times(tof));
-    }
-    return virtualTarget;
   }
 }

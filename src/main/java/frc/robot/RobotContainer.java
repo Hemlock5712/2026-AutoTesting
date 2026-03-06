@@ -150,25 +150,19 @@ public class RobotContainer {
     //     .whileTrue(superstructure.shoot())
     //     .onFalse(superstructure.stopShoot());
 
-    joystick
-        .rightTrigger()
-        .whileTrue(superstructure.swmShoot())
-        .onFalse(superstructure.stopShoot());
+    joystick.rightTrigger().onTrue(superstructure.swmShoot()).onFalse(superstructure.stopShoot());
 
     joystick
         .leftTrigger(0.5)
         .onTrue(intake.intakeDown().andThen(intake.runIntake()))
         .onFalse(intake.stopWheel());
 
-    joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.a().onTrue(intake.runIntake());
     joystick.b().onFalse(intake.stopWheel());
 
-    joystick
-        .x()
-        .onTrue(superstructure.spinSpinDexerBack())
-        .onFalse(superstructure.spinSpinDexerStop());
+    joystick.x().onTrue(superstructure.spindexerBack()).onFalse(superstructure.spindexerStop());
   }
 
   public Command getAutonomousCommand() {

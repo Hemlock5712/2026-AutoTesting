@@ -68,6 +68,11 @@ public class Limelight extends SubsystemBase {
       if (!LimelightHelpers.validPoseEstimate(megaTag2)) {
         return null;
       }
+      if (poseEstimate.rawFiducials[0].ambiguity < 0.7) {
+        // MegaTag1 is confident - use its rotation with MegaTag2's translation
+        megaTag2.pose = new Pose2d(megaTag2.pose.getTranslation(), poseEstimate.pose.getRotation());
+        megaTag2.isMegaTag2 = false;
+      }
       poseEstimate = megaTag2;
     }
 

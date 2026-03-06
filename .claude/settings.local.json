@@ -15,7 +15,13 @@
       "Bash(cmd.exe /c \"cd /d c:\\\\Users\\\\joeoj\\\\Downloads\\\\2026-AutoTesting && gradlew.bat build\")",
       "Bash(git stash:*)",
       "Bash(git pull:*)",
-      "Bash(git stash pop:*)"
+      "Bash(git stash pop:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:sleipnirgroup.github.io)",
+      "WebFetch(domain:choreo.autos)",
+      "WebFetch(domain:maven.wpilib.org)",
+      "WebFetch(domain:docs.wpilib.org)"
     ]
   }
 }

@@ -101,6 +101,9 @@ public final class FieldInfo {
 
   public static final Translation2d RIGHT_FEED_POSITION = new Translation2d(1.5, 6.500);
 
+  /** X-axis threshold for alliance zone (meters from alliance wall). */
+  public static final double ALLIANCE_ZONE_X_THRESHOLD = 4.625594;
+
   public static final Rectangle2d RED_ALLIANCE_ZONE =
       new Rectangle2d(
           new Translation2d(FieldInfo.length().baseUnitMagnitude(), 0),
@@ -162,6 +165,16 @@ public final class FieldInfo {
 
   public static Rectangle2d getAllianceZone() {
     return shouldFlip() ? RED_ALLIANCE_ZONE : BLUE_ALLIANCE_ZONE;
+  }
+
+  /** Returns true if the position is within the alliance zone based on X-axis threshold. */
+  public static boolean isInAllianceZone(Translation2d position) {
+    if (shouldFlip()) {
+      // Red alliance: zone is on the far end of the field
+      return position.getX() > length().baseUnitMagnitude() - ALLIANCE_ZONE_X_THRESHOLD;
+    }
+    // Blue alliance: zone is near X = 0
+    return position.getX() < ALLIANCE_ZONE_X_THRESHOLD;
   }
 
   /** Flips a Pose2d based on alliance and symmetry type. */

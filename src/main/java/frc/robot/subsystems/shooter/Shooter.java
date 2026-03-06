@@ -269,35 +269,34 @@ public class Shooter extends SubsystemBase {
   }
 
   /**
-   * Set flywheel velocity and hood position based on distance to target.
+   * Set flywheel velocity and hood position from direct values (for SWM solver).
    *
-   * @param distanceMeters Distance to target in meters
+   * @param flywheelRPS Flywheel speed in rotations per second
+   * @param elevationDeg Hood elevation angle in degrees
    */
-  public void setForDistance(double distanceMeters) {
-    setVelocity(ShooterLookup.getFlywheelMap().get(distanceMeters));
-    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
+  public void setFromSolution(double flywheelRPS, double elevationDeg) {
+    setVelocity(flywheelRPS);
+    setPosition(Degrees.of(elevationDeg));
   }
 
   /**
-   * Set flywheel velocity and hood position based on distance to target.
+   * Command that sets shooter from SWM solution values.
    *
-   * @param distanceMeters Distance to target in meters
+   * @param rpsSupplier Supplier for flywheel RPS
+   * @param elevationSupplier Supplier for elevation in degrees
+   * @return Command that continuously sets flywheel and hood from solution
    */
-  public void setHoodForDistance(double distanceMeters) {
-    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
+  public Command runFromSolution(DoubleSupplier rpsSupplier, DoubleSupplier elevationSupplier) {
+    return run(() -> setFromSolution(rpsSupplier.getAsDouble(), elevationSupplier.getAsDouble()));
   }
 
   /**
-   * Command that sets shooter for the given distance.
+   * Command that continuously tracks hood position from a dynamic elevation supplier.
    *
-   * @param distanceSupplier Supplier for distance to target in meters
-   * @return Command that sets flywheel and hood based on distance
+   * @param elevationDegSupplier Supplier for elevation in degrees
+   * @return Command that continuously sets hood position
    */
-  public Command runDynamic(DoubleSupplier distanceSupplier) {
-    return run(() -> setForDistance(distanceSupplier.getAsDouble()));
-  }
-
-  public Command runHoodDynamic(DoubleSupplier distanceSupplier) {
-    return run(() -> setHoodForDistance(distanceSupplier.getAsDouble()));
+  public Command runHoodDynamic(DoubleSupplier elevationDegSupplier) {
+    return run(() -> setPosition(Degrees.of(elevationDegSupplier.getAsDouble())));
   }
 }
