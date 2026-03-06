@@ -206,7 +206,7 @@ public class AxisLockDrive extends Command {
     lastCommandedVelocity =
         AccelerationLimiter.integrateVelocity(lastCommandedVelocity, targetVelocity, dt);
 
-    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
+    swerve.setControl(request.withSpeeds(AccelerationLimiter.applyDeadband(lastCommandedVelocity)));
   }
 
   /**

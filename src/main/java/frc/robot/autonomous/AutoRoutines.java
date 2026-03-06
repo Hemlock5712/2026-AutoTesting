@@ -1,5 +1,7 @@
 package frc.robot.autonomous;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -77,5 +79,35 @@ public class AutoRoutines {
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(2, 0.639445, Rotation2d.k180deg))),
         superstructure.swmShoot(),
         Commands.waitSeconds(5));
+  }
+
+  /** PathPlanner path version of AutoHumanPlayerSIMONLY. */
+  public Command AutoHumanPlayerPP() {
+    PathPlannerPath rightToCenter = loadPath("right to center");
+    PathPlannerPath centerToRight = loadPath("center to right");
+
+    return Commands.sequence(
+        Commands.print("=== AutoHumanPlayerPP ==="),
+        autoCommands.resetPose(
+            () ->
+                FieldInfo.flip(
+                    new Pose2d(new Translation2d(4.400169, 0.639445), Rotation2d.kZero))),
+        autoCommands
+            .driveTo(() -> FieldInfo.flip(new Pose2d(6, 0.639445, Rotation2d.kZero)))
+            .withWaypoint(3),
+        AutoBuilder.followPath(rightToCenter),
+        AutoBuilder.followPath(centerToRight),
+        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(2, 0.639445, Rotation2d.kZero))),
+        superstructure.swmShoot(),
+        Commands.waitSeconds(5));
+  }
+
+  /** Loads a PathPlanner path file, converting checked exceptions to unchecked. */
+  private static PathPlannerPath loadPath(String name) {
+    try {
+      return PathPlannerPath.fromPathFile(name);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to load path: " + name, e);
+    }
   }
 }

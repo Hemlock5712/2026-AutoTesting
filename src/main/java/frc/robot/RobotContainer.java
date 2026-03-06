@@ -87,6 +87,8 @@ public class RobotContainer {
     // AutoHumanPlayerSIMONLY
     autoChooser.addOption("AutoHumanPlayerSIMONLY", autoRoutines.AutoHumanPlayerSIMONLY());
 
+    autoChooser.addOption("PP Test", autoRoutines.AutoHumanPlayerPP());
+
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();
