@@ -19,6 +19,7 @@ import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.generated.TunerConstants;
+import frc.robot.subsystems.BallPhysicsSimulation;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
@@ -70,6 +71,10 @@ public class RobotContainer {
   public final Limelight limelight = new Limelight("limelight-br", drivetrain);
   public final Limelight limelight1 = new Limelight("limelight-bl", drivetrain);
   public final Limelight limelight2 = new Limelight("limelight-fl", drivetrain);
+
+  // Create ball physics simulation if in simulation mode
+  public final BallPhysicsSimulation ballPhysicsSimulation =
+      RobotBase.isSimulation() ? new BallPhysicsSimulation(drivetrain, superstructure) : null;
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;
@@ -146,9 +151,9 @@ public class RobotContainer {
                         drivetrain.getRotation()))); // Lock to closest 180
 
     // joystick
-    //     .rightTrigger(0.5)
-    //     .whileTrue(superstructure.shoot())
-    //     .onFalse(superstructure.stopShoot());
+    // .rightTrigger(0.5)
+    // .whileTrue(superstructure.shoot())
+    // .onFalse(superstructure.stopShoot());
 
     joystick
         .rightTrigger()

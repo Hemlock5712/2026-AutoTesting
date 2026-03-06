@@ -88,7 +88,8 @@ public class TurretSIM extends Turret {
   public TurretSIM() {
     super();
 
-    // Override motor direction for simulation (real hardware uses Clockwise_Positive)
+    // Override motor direction for simulation (real hardware uses
+    // Clockwise_Positive)
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // Sim-only PID + Motion Magic tuning
@@ -162,7 +163,8 @@ public class TurretSIM extends Turret {
     // Turret base - rotates around Z-axis
     turretPose[0] =
         Superstructure.TURRET_HOLE_CENTER.transformBy(
-            new Transform3d(Translation3d.kZero, new Rotation3d(0, 0, turretSim.getAngleRads())));
+            new Transform3d(
+                Translation3d.kZero, new Rotation3d(0, 0, getTargetAngle().in(Radians))));
 
     // Shooter position - offset from base with fixed pitch
     turretPose[1] =

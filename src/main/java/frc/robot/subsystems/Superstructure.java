@@ -1,6 +1,7 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
@@ -12,6 +13,8 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -66,7 +69,8 @@ public class Superstructure {
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
 
-  // ==================== Targeting Data (calculated once per loop) ====================
+  // ==================== Targeting Data (calculated once per loop)
+  // ====================
 
   private Translation2d targetPosition = FieldInfo.HUB_POSITION;
   private double distanceToHub = 0;
@@ -80,11 +84,14 @@ public class Superstructure {
   private double distanceToVirtualTarget = 0;
   private double angleToVirtualTarget = 0;
 
+  private boolean isShooting = false;
+
   // ==================== Constructor ====================
 
   public Superstructure(Supplier<SwerveDriveState> driveState) {
     this.driveState = driveState;
-    // Set turret tracking as default command - uses SWM-aware getters for seamless mode switching
+    // Set turret tracking as default command - uses SWM-aware getters for seamless
+    // mode switching
     turret.setDefaultCommand(turret.trackHubCommand(this::getActiveAngle));
     shooter.setDefaultCommand(shooter.runHoodDynamic(this::getActiveDistance));
   }
@@ -99,7 +106,8 @@ public class Superstructure {
     if (FieldInfo.getAllianceZone().contains(robotPose.getTranslation())) {
       targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
     } else {
-      // Compute both feed positions in current-alliance coordinates, then pick the one
+      // Compute both feed positions in current-alliance coordinates, then pick the
+      // one
       // on the same side of the field (upper vs. lower Y half) as the robot.
       Translation2d feedA = FieldInfo.flip(FieldInfo.LEFT_FEED_POSITION);
       Translation2d feedB = FieldInfo.flip(FieldInfo.RIGHT_FEED_POSITION);
@@ -170,6 +178,7 @@ public class Superstructure {
   public Command shoot() {
     return shooter
         .runDynamic(this::getDistanceToHub)
+        .alongWith(Commands.runOnce(() -> isShooting = true))
         .alongWith(
             Commands.sequence(
                 Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
@@ -181,6 +190,7 @@ public class Superstructure {
     return shooter
         .runShooterTestMode(
             () -> targetFlywheelVelocity.get(), () -> Degrees.of(targetHoodAngle.get()))
+        .alongWith(Commands.runOnce(() -> isShooting = true))
         .alongWith(
             Commands.sequence(
                 Commands.waitUntil(() -> shooter.flywheelIsAtTarget()),
@@ -190,7 +200,10 @@ public class Superstructure {
 
   public Command stopShoot() {
     return Commands.sequence(
-        spindexer.stopCommand(), spindexer.stopKickerCommand(), shooter.stopCommand());
+        Commands.runOnce(() -> isShooting = false),
+        spindexer.stopCommand(),
+        spindexer.stopKickerCommand(),
+        shooter.stopCommand());
   }
 
   // ==================== SWM Commands ====================
@@ -199,6 +212,7 @@ public class Superstructure {
   public Command swmShoot() {
     return Commands.parallel(
         shooter.runDynamic(this::getActiveDistance),
+        Commands.runOnce(() -> isShooting = true),
         Commands.sequence(
             Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
             spindexer.startCommand(),
@@ -232,5 +246,21 @@ public class Superstructure {
       virtualTarget = realTarget.minus(velocity.times(tof));
     }
     return virtualTarget;
+  }
+
+  public Angle getTargetTurretAngle() {
+    return turret.getTargetAngle();
+  }
+
+  public Angle getTargetHoodAngle() {
+    return shooter.getTargetPosition();
+  }
+
+  public AngularVelocity getFlywheelVelocity() {
+    return RotationsPerSecond.of(targetFlywheelVelocity.get());
+  }
+
+  public boolean isShooting() {
+    return isShooting;
   }
 }
