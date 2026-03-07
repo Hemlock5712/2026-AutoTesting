@@ -3,6 +3,7 @@ package frc.robot;
 import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
@@ -76,6 +77,7 @@ public class RobotContainer {
   public final Limelight limelight2 = new Limelight("limelight-fl", drivetrain);
 
   // Create ball physics simulation if in simulation mode
+  @NotLogged
   public final BallPhysicsSimulation ballPhysicsSimulation =
       RobotBase.isSimulation() ? new BallPhysicsSimulation(drivetrain, superstructure) : null;
 
