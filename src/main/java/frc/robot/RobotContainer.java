@@ -89,6 +89,8 @@ public class RobotContainer {
 
     autoChooser.addOption("PP Test", autoRoutines.AutoHumanPlayerPP());
 
+    autoChooser.addOption("Simple path", autoRoutines.SimplePath());
+
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();

@@ -102,6 +102,21 @@ public class AutoRoutines {
         Commands.waitSeconds(5));
   }
 
+  public Command SimplePath() {
+    PathPlannerPath toCenter = loadPath("to center");
+    PathPlannerPath toOutpost = loadPath("to outpost");
+
+    return Commands.sequence(
+        Commands.print("=== Simple Path ==="),
+        autoCommands.resetPose(
+            () -> FieldInfo.flip(new Pose2d(new Translation2d(3.545, 7.4), Rotation2d.kZero))),
+        AutoBuilder.followPath(toCenter),
+        superstructure.swmShoot(),
+        AutoBuilder.followPath(toOutpost),
+        superstructure.swmShoot(),
+        Commands.waitSeconds(5));
+  }
+
   /** Loads a PathPlanner path file, converting checked exceptions to unchecked. */
   private static PathPlannerPath loadPath(String name) {
     try {
