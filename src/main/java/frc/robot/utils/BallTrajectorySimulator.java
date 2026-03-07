@@ -100,7 +100,7 @@ public class BallTrajectorySimulator {
   /**
    * Calculates the drag force vector based on velocity.
    *
-   * <p>Drag force: F_drag = 0.5 * ρ * C_d * A * v²
+   * <p>Drag force: F_drag = 0.5 * p * C_d * A * v²
    *
    * <p>The force opposes the direction of motion.
    *
@@ -119,7 +119,7 @@ public class BallTrajectorySimulator {
       return new Translation3d(0.0, 0.0, 0.0);
     }
 
-    // Drag force magnitude: F = 0.5 * ρ * C_d * A * v²
+    // Drag force magnitude: F = 0.5 * p * C_d * A * v²
     double dragMagnitude = 0.5 * AIR_DENSITY * dragCoefficient * crossSectionalArea * speed * speed;
 
     // Drag force opposes velocity direction

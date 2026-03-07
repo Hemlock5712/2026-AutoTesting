@@ -23,6 +23,7 @@ import frc.robot.subsystems.BallPhysicsSimulation;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
+import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeSIM;
 import frc.robot.utils.FieldInfo;
@@ -66,6 +67,8 @@ public class RobotContainer {
   private final Superstructure superstructure = new Superstructure(drivetrain::getState);
 
   private final Intake intake = RobotBase.isSimulation() ? new IntakeSIM() : new Intake();
+
+  private final Climber climber = new Climber();
 
   // Vision camera for tracking robot position
   public final Limelight limelight = new Limelight("limelight-br", drivetrain);
@@ -174,6 +177,10 @@ public class RobotContainer {
         .x()
         .onTrue(superstructure.spinSpinDexerBack())
         .onFalse(superstructure.spinSpinDexerStop());
+
+    joystick.pov(0).onTrue(intake.bump()).onFalse(intake.stopArm());
+
+    joystick.pov(180).onTrue(intake.downVoltsArm()).onFalse(intake.stopArm());
   }
 
   public Command getAutonomousCommand() {
