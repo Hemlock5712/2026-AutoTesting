@@ -8,16 +8,19 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.Superstructure;
+import frc.robot.subsystems.intake.Intake;
 import frc.robot.utils.FieldInfo;
 
 public class AutoRoutines {
 
   private final AutoCommands autoCommands;
   private final Superstructure superstructure;
+  private final Intake intake;
 
-  public AutoRoutines(AutoCommands autoCommands, Superstructure superstructure) {
+  public AutoRoutines(AutoCommands autoCommands, Superstructure superstructure, Intake intake) {
     this.autoCommands = autoCommands;
     this.superstructure = superstructure;
+    this.intake = intake;
   }
 
   /**
@@ -110,10 +113,15 @@ public class AutoRoutines {
         Commands.print("=== Simple Path ==="),
         autoCommands.resetPose(
             () -> FieldInfo.flip(new Pose2d(new Translation2d(3.545, 7.4), Rotation2d.kZero))),
+        intake.intakeDown(),
+        intake.runIntake(),
         AutoBuilder.followPath(toCenter),
-        superstructure.swmShoot(),
+        superstructure.autoShoot(),
+        superstructure.stopShoot(),
         AutoBuilder.followPath(toOutpost),
-        superstructure.swmShoot(),
+        intake.stopWheel(),
+        superstructure.autoShoot(),
+        superstructure.stopShoot(),
         Commands.waitSeconds(5));
   }
 

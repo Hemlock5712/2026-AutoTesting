@@ -203,6 +203,6 @@ public class Intake extends SubsystemBase {
   }
 
   public Command runIntake() {
-    return run(() -> wheel.setVoltage(4));
+    return runOnce(() -> wheel.setVoltage(4));
   }
 }
