@@ -18,8 +18,6 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
-import frc.robot.commands.DriveToPoint;
-import frc.robot.commands.LimelightDriveToPoint;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.BallPhysicsSimulation;
@@ -30,8 +28,6 @@ import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeSIM;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.LimelightHelpers;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -189,28 +185,31 @@ public class RobotContainer {
     // then vision-drive
     Pose2d leftClimb = new Pose2d(5.0, 4.0, Rotation2d.kZero);
     List<Integer> leftClimbTags = List.of(1, 2); // TODO: replace with actual cage tag IDs
-    joystick
-        .povUp()
-        .onTrue(
-            new DriveToPoint(drivetrain, () -> leftClimb)
-                .until(
-                    () ->
-                        Arrays.stream(LimelightHelpers.getRawFiducials("limelight-fl"))
-                            .anyMatch(f -> leftClimbTags.contains(f.id)))
-                .andThen(
-                    new LimelightDriveToPoint(
-                        drivetrain,
-                        "limelight-fl",
-                        0.0, // targetXOffset: align laterally with target
-                        0.5, // targetZOffset: stop 0.5m from target
-                        () -> Rotation2d.fromDegrees(-90)))
-                .andThen(
-                    new LimelightDriveToPoint(
-                        drivetrain,
-                        "limelight-fl",
-                        0.0, // targetXOffset: align laterally with target
-                        0.0, // targetZOffset: drive to target
-                        () -> Rotation2d.fromDegrees(-90))));
+
+    joystick.povUp().onTrue(intake.bump()).onFalse(intake.killArm());
+    joystick.povDown().onTrue(intake.downVoltsArm()).onFalse(intake.killArm());
+    // joystick
+    //     .povUp()
+    //     .onTrue(
+    //         new DriveToPoint(drivetrain, () -> leftClimb)
+    //             .until(
+    //                 () ->
+    //                     Arrays.stream(LimelightHelpers.getRawFiducials("limelight-fl"))
+    //                         .anyMatch(f -> leftClimbTags.contains(f.id)))
+    //             .andThen(
+    //                 new LimelightDriveToPoint(
+    //                     drivetrain,
+    //                     "limelight-fl",
+    //                     0.0, // targetXOffset: align laterally with target
+    //                     0.5, // targetZOffset: stop 0.5m from target
+    //                     () -> Rotation2d.fromDegrees(-90)))
+    //             .andThen(
+    //                 new LimelightDriveToPoint(
+    //                     drivetrain,
+    //                     "limelight-fl",
+    //                     0.0, // targetXOffset: align laterally with target
+    //                     0.0, // targetZOffset: drive to target
+    //                     () -> Rotation2d.fromDegrees(-90))));
   }
 
   public Command getAutonomousCommand() {

@@ -4,7 +4,6 @@ import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.DynamicMotionMagicVoltage;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
@@ -27,8 +26,10 @@ public class Turret extends SubsystemBase {
   protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
 
   // Dual absolute encoders for CRT positioning
-  protected final CANcoder encoder1 = new CANcoder(DualEncoderCRT.ENCODER_1_ID, TunerConstants.kCANBus);
-  protected final CANcoder encoder2 = new CANcoder(DualEncoderCRT.ENCODER_2_ID, TunerConstants.kCANBus);
+  protected final CANcoder encoder1 =
+      new CANcoder(DualEncoderCRT.ENCODER_1_ID, TunerConstants.kCANBus);
+  protected final CANcoder encoder2 =
+      new CANcoder(DualEncoderCRT.ENCODER_2_ID, TunerConstants.kCANBus);
 
   // CRT calculator for absolute position determination
   private final DualEncoderCRT crt;
@@ -38,12 +39,12 @@ public class Turret extends SubsystemBase {
   private final double FAST_MOTION_MAGIC_ACCELERATION = 8;
 
   // Motion magic parameters for smooth mode
-  private final double SMOOTH_MOTION_MAGIC_CRUISE_VELOCITY = 1;
-  private final double SMOOTH_MOTION_MAGIC_ACCELERATION = 3;
+  private final double SMOOTH_MOTION_MAGIC_CRUISE_VELOCITY = 2;
+  private final double SMOOTH_MOTION_MAGIC_ACCELERATION = 2;
 
-  private final DynamicMotionMagicVoltage angleOut = new DynamicMotionMagicVoltage(0,
-      SMOOTH_MOTION_MAGIC_CRUISE_VELOCITY,
-      SMOOTH_MOTION_MAGIC_ACCELERATION);
+  private final DynamicMotionMagicVoltage angleOut =
+      new DynamicMotionMagicVoltage(
+          0, SMOOTH_MOTION_MAGIC_CRUISE_VELOCITY, SMOOTH_MOTION_MAGIC_ACCELERATION);
 
   private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
 
@@ -65,10 +66,7 @@ public class Turret extends SubsystemBase {
     configureMotor();
   }
 
-  /**
-   * Configure motor with FusedCANcoder feedback (encoder 1 fused with internal
-   * rotor).
-   */
+  /** Configure motor with FusedCANcoder feedback (encoder 1 fused with internal rotor). */
   private void configureMotor() {
     // Fuse encoder 1 (22-tooth gear) with the motor's internal rotor for
     // high-bandwidth
@@ -104,10 +102,8 @@ public class Turret extends SubsystemBase {
   }
 
   /**
-   * Initialize the encoder position using CRT calculation from dual encoders.
-   * This seeds encoder
-   * 1's continuous position so FusedCANcoder reports the correct mechanism
-   * position. Should be
+   * Initialize the encoder position using CRT calculation from dual encoders. This seeds encoder
+   * 1's continuous position so FusedCANcoder reports the correct mechanism position. Should be
    * called once at startup when the turret is stationary.
    */
   private void initializePosition() {

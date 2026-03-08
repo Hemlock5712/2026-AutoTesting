@@ -37,19 +37,15 @@ import java.util.function.Supplier;
 /**
  * Superstructure - Controls the Arm and Flywheel together.
  *
- * <p>
- * This coordinates:
+ * <p>This coordinates:
  *
  * <ul>
- * <li>Arm - Moves horizontal and vertical to position game pieces
- * <li>Flywheel - Spins the shooter wheels at the right speed
+ *   <li>Arm - Moves horizontal and vertical to position game pieces
+ *   <li>Flywheel - Spins the shooter wheels at the right speed
  * </ul>
  *
- * <p>
- * Instead of controlling the arm and flywheel separately, this gives you simple
- * commands like
- * "score low" or "prepare for shooting" that move both parts together. This
- * makes driving easier
+ * <p>Instead of controlling the arm and flywheel separately, this gives you simple commands like
+ * "score low" or "prepare for shooting" that move both parts together. This makes driving easier
  * and ensures everything moves in sync.
  */
 @Logged
@@ -58,11 +54,12 @@ public class Superstructure {
   // ==================== Constants ====================
 
   /** Center position of the turret hole relative to robot center (meters). */
-  public static final Pose3d TURRET_HOLE_CENTER = new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
+  public static final Pose3d TURRET_HOLE_CENTER =
+      new Pose3d(-0.127, 0.13018, 0.3556, Rotation3d.kZero);
 
   /** 2D transform from robot center to turret position for field calculations. */
-  public static final Transform2d TURRET_TRANSFORM = new Transform2d(TURRET_HOLE_CENTER.getX(),
-      TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
+  public static final Transform2d TURRET_TRANSFORM =
+      new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
   /** Flywheel wheel radius in meters (4-inch wheel). */
   private static final double WHEEL_RADIUS = 0.0508;
@@ -70,7 +67,8 @@ public class Superstructure {
   // ==================== Subsystems ====================
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
   private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
-  private final Spindexer spindexer = RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
+  private final Spindexer spindexer =
+      RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
   private final Supplier<SwerveDriveState> driveState;
   private final ShootWhileMovingSolver swmSolver;
@@ -136,7 +134,8 @@ public class Superstructure {
       Translation2d feedB = FieldInfo.flip(FieldInfo.RIGHT_FEED_POSITION);
       Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
       Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
-      targetPosition = robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
+      targetPosition =
+          robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
     }
 
     Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
@@ -145,8 +144,9 @@ public class Superstructure {
     distanceToHub = toTarget.getNorm();
 
     Rotation2d angleToTargetField = toTarget.getAngle();
-    angleToHub = MathUtil.inputModulus(
-        angleToTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
+    angleToHub =
+        MathUtil.inputModulus(
+            angleToTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
 
     // Compute SWM solution using solver
     currentSolution = swmSolver.solve(turretPose, state.Speeds, targetPosition);
@@ -156,13 +156,15 @@ public class Superstructure {
 
     // Convert field-relative azimuth to robot-relative rotations
     Rotation2d solutionAzimuth = new Rotation2d(currentSolution.turretAzimuthRad);
-    angleToVirtualTarget = MathUtil.inputModulus(
-        solutionAzimuth.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
+    angleToVirtualTarget =
+        MathUtil.inputModulus(
+            solutionAzimuth.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
 
     // Calculate virtual target (where SWM is compensating to)
-    Translation2d virtualTarget = turretPose
-        .getTranslation()
-        .plus(new Translation2d(currentSolution.distanceM, solutionAzimuth));
+    Translation2d virtualTarget =
+        turretPose
+            .getTranslation()
+            .plus(new Translation2d(currentSolution.distanceM, solutionAzimuth));
 
     // Telemetry
     Robot.telemetry().log("SWM/FlywheelRPS", currentSolution.getFlywheelRPS(WHEEL_RADIUS));
@@ -247,7 +249,8 @@ public class Superstructure {
   /** Full SWM shooting sequence with velocity compensation. */
   public Command swmShoot() {
     return Commands.parallel(
-        shooter.runFromSolution(this::getActiveFlywheelRPS, this::getActiveElevationDeg)
+        shooter
+            .runFromSolution(this::getActiveFlywheelRPS, this::getActiveElevationDeg)
             .alongWith(Commands.runOnce(this::startShooting)),
         Commands.sequence(
             Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
