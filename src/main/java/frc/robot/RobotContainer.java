@@ -92,12 +92,12 @@ public class RobotContainer {
 
     // Set up autonomous routines
     autoChooser = new SendableChooser<>();
-    autoRoutines = new AutoRoutines(autoCommands, superstructure);
+    autoRoutines = new AutoRoutines(autoCommands, superstructure, intake);
 
     // Add autonomous mode options to dashboard
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     // AutoHumanPlayerSIMONLY
-    autoChooser.addOption("AutoHumanPlayerSIMONLY", autoRoutines.AutoHumanPlayerSIMONLY());
+    autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

@@ -66,8 +66,8 @@ public class Intake extends SubsystemBase {
     config.Slot0.kD = 1; // Derivative gain (smoothness)
 
     // Motion limits (TODO: CRITICAL - Set non-zero values!)
-    config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // Max speed
-    config.MotionMagic.MotionMagicAcceleration = 0.0; // How fast to speed up
+    config.MotionMagic.MotionMagicCruiseVelocity = .5; // Max speed
+    config.MotionMagic.MotionMagicAcceleration = .5; // How fast to speed up
     // Tell the motor to use the CANcoder sensor for position measurements
     config.Feedback.withRemoteCANcoder(arm_encoder);
     config.Feedback.RotorToSensorRatio = 25;
@@ -224,6 +224,6 @@ public class Intake extends SubsystemBase {
   }
 
   public Command runIntake() {
-    return run(() -> wheel.setVoltage(4));
+    return runOnce(() -> wheel.setVoltage(6.7));
   }
 }
