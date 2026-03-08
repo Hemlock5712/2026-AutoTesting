@@ -75,6 +75,8 @@ public class RobotContainer {
   public final Limelight limelight = new Limelight("limelight-br", drivetrain);
   public final Limelight limelight1 = new Limelight("limelight-bl", drivetrain);
   public final Limelight limelight2 = new Limelight("limelight-fl", drivetrain);
+  public final Limelight limelight3 = new Limelight("limelight-fr", drivetrain);
+  public final Limelight limelight4 = new Limelight("limelight-mm", drivetrain);
 
   // Create ball physics simulation if in simulation mode
   @NotLogged

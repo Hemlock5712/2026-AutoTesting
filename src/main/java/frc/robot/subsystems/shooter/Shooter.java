@@ -82,7 +82,7 @@ public class Shooter extends SubsystemBase {
     motorConfigAlert.set(!success);
 
     // Coast mode: Flywheel can spin freely by hand when disabled
-    confighood.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    confighood.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     // Set motor direction: positive power = counterclockwise spin
     confighood.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
