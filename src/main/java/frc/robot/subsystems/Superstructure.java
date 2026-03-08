@@ -183,7 +183,7 @@ public class Superstructure {
             Commands.sequence(
                 Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
                 spindexer.startCommand(),
-                spindexer.startKickerVoltageCommand()));
+                spindexer.startKickerCommand()));
   }
 
   public Command tuningShoot() {
@@ -216,7 +216,7 @@ public class Superstructure {
         Commands.sequence(
             Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
             spindexer.startCommand(),
-            spindexer.startKickerVoltageCommand()));
+            spindexer.CommandRunKickerCommand(10)));
   }
 
   public Command spinSpinDexerBack() {

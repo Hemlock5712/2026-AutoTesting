@@ -1,7 +1,7 @@
 package frc.robot.subsystems.spindexer;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import edu.wpi.first.epilogue.Logged;
@@ -20,7 +20,7 @@ public class Spindexer extends SubsystemBase {
 
   protected final TalonFX kicker = new TalonFX(21, TunerConstants.kCANBus);
 
-  private final VelocityVoltage velocityOut = new VelocityVoltage(0);
+  private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
   protected TalonFXConfiguration spindexerConfig = new TalonFXConfiguration();
 
@@ -50,6 +50,10 @@ public class Spindexer extends SubsystemBase {
     return spindexer.getVelocity().isNear(velocityOut.Velocity, VELOCITY_TOLERANCE);
   }
 
+  public Command CommandRunKickerCommand(double speed) {
+    return runOnce(() -> setKickerVelocity(speed));
+  }
+
   public Command startCommand() {
     return runOnce(() -> setVelocity(12));
   }
@@ -63,7 +67,7 @@ public class Spindexer extends SubsystemBase {
   }
 
   public Command startKickerCommand() {
-    return runOnce(() -> setKickerVelocity(17.2));
+    return runOnce(() -> setKickerVelocity(15));
   }
 
   public Command startKickerVoltageCommand() {
@@ -75,10 +79,10 @@ public class Spindexer extends SubsystemBase {
   }
 
   public void applyConfigs() {
-    spindexerConfig.Slot0.kS = 0.42; // Static friction compensation
-    spindexerConfig.Slot0.kP = 2.0; // Proportional gain
+    spindexerConfig.Slot0.kS = 5; // Static friction compensation
+    spindexerConfig.Slot0.kP = 20; // Proportional gain
     spindexerConfig.Slot0.kD = 0.0; // Derivative gain (damping to reduce overshoot)
-    spindexerConfig.Slot0.kV = 0.91;
+    spindexerConfig.Slot0.kV = 0.55;
     // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
     // rotations
     // Cruise velocity: max SPINDEXER speed during motion profile (RPS)
@@ -89,11 +93,11 @@ public class Spindexer extends SubsystemBase {
     spindexerConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     spindexerConfig.Feedback.SensorToMechanismRatio = 9.0;
 
-    kickerConfig.Slot0.kS = 0.25; // Static friction compensation
-    kickerConfig.Slot0.kP = 0.1; // Proportional gain
+    kickerConfig.Slot0.kS = 1.5; // Static friction compensation
+    kickerConfig.Slot0.kP = 20; // Proportional gain
     kickerConfig.Slot0.kD = 0; // Derivative gain (damping to reduce overshoot)
     // MotionMagic settings - with SensorToMechanismRatio set, units are mechanism
-    kickerConfig.Slot0.kV = 0.685;
+    kickerConfig.Slot0.kV = 0.4;
     // rotations
     // Cruise velocity: max SPINDEXER speed during motion profile (RPS)
     // Acceleration: how quickly the SPINDEXER speeds up/slows down (RPS²)
