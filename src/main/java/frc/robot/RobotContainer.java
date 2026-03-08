@@ -37,197 +37,198 @@ import java.util.List;
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
  *
- * <p>
- * This class handles:
+ * <p>This class handles:
  *
  * <ul>
- * <li>Creating all subsystems (drive, arm, flywheel, vision, etc.)
- * <li>Setting up controller buttons
- * <li>Building autonomous routines
- * <li>Setting default actions for each subsystem
+ *   <li>Creating all subsystems (drive, arm, flywheel, vision, etc.)
+ *   <li>Setting up controller buttons
+ *   <li>Building autonomous routines
+ *   <li>Setting default actions for each subsystem
  * </ul>
  *
- * <p>
- * The robot can run in two modes:
+ * <p>The robot can run in two modes:
  *
  * <ul>
- * <li><b>Real hardware:</b> Uses actual motors and sensors
- * <li><b>Simulation:</b> Uses simulated physics for testing without a real
- * robot
+ *   <li><b>Real hardware:</b> Uses actual motors and sensors
+ *   <li><b>Simulation:</b> Uses simulated physics for testing without a real robot
  * </ul>
  *
  * The code automatically picks the right version.
  */
 @Logged
 public class RobotContainer {
-    private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
-    private double MaxAngularRate = RotationsPerSecond.of(1)
-            .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
+  private double MaxSpeed =
+      TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
+  private double MaxAngularRate =
+      RotationsPerSecond.of(1)
+          .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
 
-    private final CommandXboxController joystick = new CommandXboxController(0);
+  private final CommandXboxController joystick = new CommandXboxController(0);
 
-    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+  public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
-    public final AutoCommands autoCommands = new AutoCommands(drivetrain);
+  public final AutoCommands autoCommands = new AutoCommands(drivetrain);
 
-    /* Create subsystems (uses simulated versions when running in simulation) */
-    private final Superstructure superstructure = new Superstructure(drivetrain::getState);
+  /* Create subsystems (uses simulated versions when running in simulation) */
+  private final Superstructure superstructure = new Superstructure(drivetrain::getState);
 
-    private final Intake intake = RobotBase.isSimulation() ? new IntakeSIM() : new Intake();
+  private final Intake intake = RobotBase.isSimulation() ? new IntakeSIM() : new Intake();
 
-    private final Climber climber = new Climber();
+  private final Climber climber = new Climber();
 
-    // Vision camera for tracking robot position
-    public final Limelight limelight = new Limelight("limelight-br", drivetrain);
-    public final Limelight limelight1 = new Limelight("limelight-bl", drivetrain);
-    public final Limelight limelight2 = new Limelight("limelight-fl", drivetrain);
-    public final Limelight limelight3 = new Limelight("limelight-fr", drivetrain);
-    public final Limelight limelight4 = new Limelight("limelight-mm", drivetrain);
+  // Vision camera for tracking robot position
+  public final Limelight limelight = new Limelight("limelight-br", drivetrain);
+  public final Limelight limelight1 = new Limelight("limelight-bl", drivetrain);
+  public final Limelight limelight2 = new Limelight("limelight-fl", drivetrain);
+  public final Limelight limelight3 = new Limelight("limelight-fr", drivetrain);
+  public final Limelight limelight4 = new Limelight("limelight-mm", drivetrain);
 
-    // Create ball physics simulation if in simulation mode
-    @NotLogged
-    public final BallPhysicsSimulation ballPhysicsSimulation = RobotBase.isSimulation()
-            ? new BallPhysicsSimulation(drivetrain, superstructure)
-            : null;
+  // Create ball physics simulation if in simulation mode
+  @NotLogged
+  public final BallPhysicsSimulation ballPhysicsSimulation =
+      RobotBase.isSimulation() ? new BallPhysicsSimulation(drivetrain, superstructure) : null;
 
-    /* Autonomous mode selector */
-    private final SendableChooser<Command> autoChooser;
+  /* Autonomous mode selector */
+  private final SendableChooser<Command> autoChooser;
 
-    private final AutoRoutines autoRoutines;
+  private final AutoRoutines autoRoutines;
 
-    public RobotContainer() {
+  public RobotContainer() {
 
-        // Set up autonomous routines
-        autoChooser = new SendableChooser<>();
-        autoRoutines = new AutoRoutines(autoCommands, superstructure, intake);
+    // Set up autonomous routines
+    autoChooser = new SendableChooser<>();
+    autoRoutines = new AutoRoutines(autoCommands, superstructure, intake);
 
-        // Add autonomous mode options to dashboard
-        autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
-        // AutoHumanPlayerSIMONLY
-        autoChooser.addOption("AutoHumanPlayerSIMONLY", autoRoutines.AutoHumanPlayerSIMONLY());
+    // Add autonomous mode options to dashboard
+    autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
+    // AutoHumanPlayerSIMONLY
+    autoChooser.addOption("AutoHumanPlayerSIMONLY", autoRoutines.AutoHumanPlayerSIMONLY());
 
-        autoChooser.addOption("PP Test", autoRoutines.AutoHumanPlayerPP());
+    autoChooser.addOption("PP Test", autoRoutines.AutoHumanPlayerPP());
 
-        autoChooser.addOption("Simple path", autoRoutines.SimplePath());
+    autoChooser.addOption("Simple path", autoRoutines.SimplePath());
 
-        SmartDashboard.putData("Auto Mode", autoChooser);
+    SmartDashboard.putData("Auto Mode", autoChooser);
 
-        configureBindings();
-    }
+    configureBindings();
+  }
 
-    private void configureBindings() {
-        // Cached translation velocities - computed once per cycle in velocityX supplier
-        double[] translationVel = { 0, 0 };
+  private void configureBindings() {
+    // Cached translation velocities - computed once per cycle in velocityX supplier
+    double[] translationVel = {0, 0};
 
-        drivetrain.setDefaultCommand(
-                new OrbitDrive(
+    drivetrain.setDefaultCommand(
+        new OrbitDrive(
+            drivetrain,
+            () -> {
+              // Not the cleanest but claculate scaled joystick values
+              Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+              translationVel[0] = -scaled.get(0) * MaxSpeed;
+              translationVel[1] = -scaled.get(1) * MaxSpeed;
+              return translationVel[0];
+            },
+            () -> translationVel[1],
+            () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate));
+
+    joystick
+        .start()
+        .onTrue(drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(0, 0, Rotation2d.kZero))));
+
+    joystick
+        .back()
+        .onTrue(
+            drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(1.5, 1, Rotation2d.kZero))));
+
+    // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
+    joystick
+        .leftBumper()
+        .whileTrue(
+            AxisLockDrive.lockY(
+                drivetrain,
+                () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
+                () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
+                () ->
+                    AutoRoutines.snapToNearest180Degrees(
+                        drivetrain.getRotation()))); // Lock to closest 180
+    // rotation)
+
+    // // AxisLockDrive - Lock Y axis and rotation, driver controls X only
+    joystick
+        .rightBumper()
+        .whileTrue(
+            AxisLockDrive.lockY(
+                drivetrain,
+                () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
+                () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
+                () ->
+                    AutoRoutines.snapToNearest180Degrees(
+                        drivetrain.getRotation()))); // Lock to closest 180
+
+    // joystick
+    // .rightTrigger(0.5)
+    // .whileTrue(superstructure.shoot())
+    // .onFalse(superstructure.stopShoot());
+
+    joystick.rightTrigger().onTrue(superstructure.swmShoot()).onFalse(superstructure.stopShoot());
+
+    joystick
+        .leftTrigger(0.5)
+        .onTrue(intake.intakeDown().andThen(intake.runIntake()))
+        .onFalse(intake.stopWheel());
+
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+
+    joystick.a().onTrue(intake.runIntake());
+    joystick.b().onFalse(intake.stopWheel());
+
+    joystick.x().onTrue(superstructure.spindexerBack()).onFalse(superstructure.spindexerStop());
+
+    // Limelight cage approach: drive to fallback pose until specific tags seen,
+    // then vision-drive
+    Pose2d leftClimb = new Pose2d(5.0, 4.0, Rotation2d.kZero);
+    List<Integer> leftClimbTags = List.of(1, 2); // TODO: replace with actual cage tag IDs
+    joystick
+        .povUp()
+        .onTrue(
+            new DriveToPoint(drivetrain, () -> leftClimb)
+                .until(
+                    () ->
+                        Arrays.stream(LimelightHelpers.getRawFiducials("limelight-fl"))
+                            .anyMatch(f -> leftClimbTags.contains(f.id)))
+                .andThen(
+                    new LimelightDriveToPoint(
                         drivetrain,
-                        () -> {
-                            // Not the cleanest but claculate scaled joystick values
-                            Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
-                            translationVel[0] = -scaled.get(0) * MaxSpeed;
-                            translationVel[1] = -scaled.get(1) * MaxSpeed;
-                            return translationVel[0];
-                        },
-                        () -> translationVel[1],
-                        () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate));
+                        "limelight-fl",
+                        0.0, // targetXOffset: align laterally with target
+                        0.5, // targetZOffset: stop 0.5m from target
+                        () -> Rotation2d.fromDegrees(-90)))
+                .andThen(
+                    new LimelightDriveToPoint(
+                        drivetrain,
+                        "limelight-fl",
+                        0.0, // targetXOffset: align laterally with target
+                        0.0, // targetZOffset: drive to target
+                        () -> Rotation2d.fromDegrees(-90))));
+  }
 
-        joystick
-                .start()
-                .onTrue(drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(0, 0, Rotation2d.kZero))));
+  public Command getAutonomousCommand() {
+    /* Run the path selected from the auto chooser */
+    return autoChooser.getSelected();
+  }
 
-        joystick
-                .back()
-                .onTrue(
-                        drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(1.5, 1, Rotation2d.kZero))));
+  public double rescaleInputs(double input) {
+    return MathUtil.applyDeadband(input, 0.05);
+  }
 
-        // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
-        joystick
-                .leftBumper()
-                .whileTrue(
-                        AxisLockDrive.lockY(
-                                drivetrain,
-                                () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
-                                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-                                () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
-                                () -> AutoRoutines.snapToNearest180Degrees(
-                                        drivetrain.getRotation()))); // Lock to closest 180
-        // rotation)
+  public Vector<N2> rescaleTranslation(double x, double y) {
+    Vector<N2> scaledJoyStick = VecBuilder.fill(x, y);
+    scaledJoyStick = MathUtil.applyDeadband(scaledJoyStick, 0.05);
+    return MathUtil.copyDirectionPow(scaledJoyStick, 2);
+  }
 
-        // // AxisLockDrive - Lock Y axis and rotation, driver controls X only
-        joystick
-                .rightBumper()
-                .whileTrue(
-                        AxisLockDrive.lockY(
-                                drivetrain,
-                                () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
-                                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
-                                () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
-                                () -> AutoRoutines.snapToNearest180Degrees(
-                                        drivetrain.getRotation()))); // Lock to closest 180
-
-        // joystick
-        // .rightTrigger(0.5)
-        // .whileTrue(superstructure.shoot())
-        // .onFalse(superstructure.stopShoot());
-
-        joystick.rightTrigger().onTrue(superstructure.swmShoot()).onFalse(superstructure.stopShoot());
-
-        joystick
-                .leftTrigger(0.5)
-                .onTrue(intake.intakeDown().andThen(intake.runIntake()))
-                .onFalse(intake.stopWheel());
-
-        joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
-
-        joystick.a().onTrue(intake.runIntake());
-        joystick.b().onFalse(intake.stopWheel());
-
-        joystick.x().onTrue(superstructure.spindexerBack()).onFalse(superstructure.spindexerStop());
-
-        // Limelight cage approach: drive to fallback pose until specific tags seen,
-        // then vision-drive
-        Pose2d leftClimb = new Pose2d(5.0, 4.0, Rotation2d.kZero);
-        List<Integer> leftClimbTags = List.of(1, 2); // TODO: replace with actual cage tag IDs
-        joystick
-                .povUp()
-                .onTrue(
-                        new DriveToPoint(drivetrain, () -> leftClimb)
-                                .until(
-                                        () -> Arrays.stream(LimelightHelpers.getRawFiducials("limelight-fl"))
-                                                .anyMatch(f -> leftClimbTags.contains(f.id)))
-                                .andThen(
-                                        new LimelightDriveToPoint(
-                                                drivetrain,
-                                                "limelight-fl",
-                                                0.0, // targetXOffset: align laterally with target
-                                                0.5, // targetZOffset: stop 0.5m from target
-                                                () -> Rotation2d.fromDegrees(-90)))
-                                .andThen(
-                                        new LimelightDriveToPoint(
-                                                drivetrain,
-                                                "limelight-fl",
-                                                0.0, // targetXOffset: align laterally with target
-                                                0.0, // targetZOffset: drive to target
-                                                () -> Rotation2d.fromDegrees(-90))));
-    }
-
-    public Command getAutonomousCommand() {
-        /* Run the path selected from the auto chooser */
-        return autoChooser.getSelected();
-    }
-
-    public double rescaleInputs(double input) {
-        return MathUtil.applyDeadband(input, 0.05);
-    }
-
-    public Vector<N2> rescaleTranslation(double x, double y) {
-        Vector<N2> scaledJoyStick = VecBuilder.fill(x, y);
-        scaledJoyStick = MathUtil.applyDeadband(scaledJoyStick, 0.05);
-        return MathUtil.copyDirectionPow(scaledJoyStick, 2);
-    }
-
-    public Superstructure getSuperstructure() {
-        return superstructure;
-    }
+  public Superstructure getSuperstructure() {
+    return superstructure;
+  }
 }
