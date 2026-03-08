@@ -19,7 +19,6 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
@@ -27,8 +26,6 @@ import frc.robot.utils.TalonFXUtil;
 @Logged
 public class Intake extends SubsystemBase {
   // Position setpoints using Angle objects for type safety
-  private static final Angle UP = Rotations.of(.27);
-  private static final Angle DOWN = Degrees.of(0.01);
 
   // Main motor that moves the arm (device ID 31)
   protected final TalonFX arm = new TalonFX(22, TunerConstants.kCANBus);
@@ -53,21 +50,20 @@ public class Intake extends SubsystemBase {
 
   public Intake() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
-    config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     // Set motor direction: positive power = counterclockwise rotation
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     config.Slot0.GravityType =
         GravityTypeValue.Arm_Cosine; // Automatically fights gravity using math
 
-    // Control values (TODO: CRITICAL - Tune these on the real robot!)
     config.Slot0.kG = 0.44; // Gravity compensation
     config.Slot0.kS = 0.0; // Static friction
     config.Slot0.kP = 16; // Proportional gain (speed of correction)
     config.Slot0.kD = 1; // Derivative gain (smoothness)
 
     // Motion limits (TODO: CRITICAL - Set non-zero values!)
-    config.MotionMagic.MotionMagicCruiseVelocity = .5; // Max speed
-    config.MotionMagic.MotionMagicAcceleration = .5; // How fast to speed up
+    config.MotionMagic.MotionMagicCruiseVelocity = 4; // Max speed
+    config.MotionMagic.MotionMagicAcceleration = 8; // How fast to speed up
     // Tell the motor to use the CANcoder sensor for position measurements
     config.Feedback.withRemoteCANcoder(arm_encoder);
     config.Feedback.RotorToSensorRatio = 25;
@@ -79,16 +75,6 @@ public class Intake extends SubsystemBase {
     configWheel.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     configWheel.Slot0.GravityType =
         GravityTypeValue.Arm_Cosine; // Automatically fights gravity using math
-
-    // Control values (TODO: CRITICAL - Tune these on the real robot!)
-    configWheel.Slot0.kG = 0.0; // Gravity compensation
-    configWheel.Slot0.kS = 0.0; // Static friction
-    configWheel.Slot0.kP = 0.0; // Proportional gain (speed of correction)
-    configWheel.Slot0.kD = 0.0; // Derivative gain (smoothness)
-
-    // Motion limits (TODO: CRITICAL - Set non-zero values!)
-    configWheel.MotionMagic.MotionMagicCruiseVelocity = 0.0; // Max speed
-    configWheel.MotionMagic.MotionMagicAcceleration = 0.0; // How fast to speed up
 
     // 2.33
 
@@ -118,34 +104,19 @@ public class Intake extends SubsystemBase {
   }
 
   /**
-   * Command to move the arm to scoring position.
-   *
-   * @return Command that moves arm to scoring angle
-   */
-  public Command intakeStowed() {
-    return runOnce(() -> setPosition(UP));
-  }
-
-  /**
    * Command to move the arm to high scoring position (far shots).
    *
    * @return Command that moves arm to high scoring angle
    */
   public Command intakeDown() {
     return runOnce(() -> setPosition(Degrees.of(0)));
-  }
+    // .andThen(Commands.waitUntil(() -> isAtTarget()))
+    // .andThen(stopArm());
+  } // UP
 
-  public Command upVoltsArm() {
-    return runOnce(() -> arm.setVoltage(2));
-  }
-
-  public Command downVoltsArm() {
-    return runOnce(() -> arm.setVoltage(-2));
-  }
-
-  public Command bump() {
-    return Commands.sequence(upVoltsArm(), Commands.waitUntil(() -> isAtBumpHight()), intakeDown());
-  }
+  public Command intakeUp() {
+    return runOnce(() -> setPosition(Rotations.of(.27)));
+  } // UP
 
   public boolean isAtBumpHight() {
     return getPosition().in(Rotations) >= .1;
@@ -224,6 +195,6 @@ public class Intake extends SubsystemBase {
   }
 
   public Command runIntake() {
-    return runOnce(() -> wheel.setVoltage(6.7));
+    return runOnce(() -> wheel.setVoltage(6));
   }
 }

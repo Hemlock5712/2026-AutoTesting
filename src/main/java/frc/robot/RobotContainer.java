@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
@@ -169,8 +170,14 @@ public class RobotContainer {
 
     joystick
         .leftTrigger(0.5)
-        .onTrue(intake.intakeDown().andThen(intake.runIntake()))
-        .onFalse(intake.stopWheel());
+        .onTrue(
+            Commands.either(
+                intake.intakeDown().andThen(intake.runIntake()),
+                intake.stopWheel().andThen(intake.intakeUp()),
+                () -> intake.getTargetPosition().in(Rotations) != 0));
+    // .onFalse(intake.stopWheel().andThen(intake.stopArm()));
+
+    joystick.povUp().onTrue(intake.intakeUp());
 
     joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
@@ -181,10 +188,6 @@ public class RobotContainer {
         .x()
         .onTrue(superstructure.spinSpinDexerBack())
         .onFalse(superstructure.spinSpinDexerStop());
-
-    joystick.pov(0).onTrue(intake.bump()).onFalse(intake.stopArm());
-
-    joystick.pov(180).onTrue(intake.downVoltsArm()).onFalse(intake.stopArm());
   }
 
   public Command getAutonomousCommand() {

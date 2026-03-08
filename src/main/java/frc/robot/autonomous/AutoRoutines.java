@@ -70,11 +70,11 @@ public class AutoRoutines {
         Commands.print("=== Right Auto ==="),
         // autoCommands.resetPose(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445,
         // Rotation2d.kZero))),
-        intake.intakeDown(),
         intake.runIntake(),
+        intake.intakeDown(),
         autoCommands
             .driveTo(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445, Rotation2d.kZero)))
-            .withWaypoint(3),
+            .withWaypoint(2),
         AutoBuilder.followPath(rightToCenter),
         AutoBuilder.followPath(centerToRight),
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445, Rotation2d.kZero))),
