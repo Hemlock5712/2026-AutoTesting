@@ -7,6 +7,7 @@ package frc.robot.subsystems;
 import static edu.wpi.first.units.Units.Meter;
 
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -14,7 +15,7 @@ import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
 
-@Logged
+@Logged(strategy = Strategy.OPT_IN)
 public class Limelight extends SubsystemBase {
 
   private static final double XY_STD_DEV_COEFFICIENT = 0.5;
@@ -114,18 +115,22 @@ public class Limelight extends SubsystemBase {
         VecBuilder.fill(xyStdDev, xyStdDev, rotationStdDev));
   }
 
+  @Logged
   public Pose2d getPose() {
     return lastPoseEstimate.pose;
   }
 
+  @Logged
   public double getTimestampSeconds() {
     return lastPoseEstimate.timestampSeconds;
   }
 
+  @Logged
   public double getAvgTagDist() {
     return lastPoseEstimate.avgTagDist;
   }
 
+  @Logged
   public int getTagCount() {
     return lastPoseEstimate.tagCount;
   }

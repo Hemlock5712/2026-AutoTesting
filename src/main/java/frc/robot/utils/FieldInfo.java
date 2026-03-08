@@ -90,12 +90,16 @@ public final class FieldInfo {
     return layout;
   }
 
-  // ==================== Field Positions (Blue Alliance Coordinates) ====================
-  // These are stored in blue alliance coordinates. Use flip() at call sites to get
+  // ==================== Field Positions (Blue Alliance Coordinates)
+  // ====================
+  // These are stored in blue alliance coordinates. Use flip() at call sites to
+  // get
   // alliance-correct values.
 
   /** Hub/target position for turret tracking (blue alliance coordinates). */
   public static final Translation2d HUB_POSITION = new Translation2d(4.621, 4.030);
+
+  public static final Distance HUB_HEIGHT = Meters.of(1.828);
 
   public static final Translation2d LEFT_FEED_POSITION = new Translation2d(1.5, 1.500);
 

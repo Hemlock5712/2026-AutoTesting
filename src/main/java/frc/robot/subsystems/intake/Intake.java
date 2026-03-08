@@ -19,6 +19,7 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
@@ -27,7 +28,7 @@ import frc.robot.utils.TalonFXUtil;
 public class Intake extends SubsystemBase {
   // Position setpoints using Angle objects for type safety
   private static final Angle UP = Rotations.of(.27);
-  private static final Angle DOWN = Degrees.of(0);
+  private static final Angle DOWN = Degrees.of(0.01);
 
   // Main motor that moves the arm (device ID 31)
   protected final TalonFX arm = new TalonFX(22, TunerConstants.kCANBus);
@@ -52,14 +53,14 @@ public class Intake extends SubsystemBase {
 
   public Intake() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
-    config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+    config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
     // Set motor direction: positive power = counterclockwise rotation
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     config.Slot0.GravityType =
         GravityTypeValue.Arm_Cosine; // Automatically fights gravity using math
 
     // Control values (TODO: CRITICAL - Tune these on the real robot!)
-    config.Slot0.kG = 0.7998046875; // Gravity compensation
+    config.Slot0.kG = 0.44; // Gravity compensation
     config.Slot0.kS = 0.0; // Static friction
     config.Slot0.kP = 16; // Proportional gain (speed of correction)
     config.Slot0.kD = 1; // Derivative gain (smoothness)
@@ -72,7 +73,7 @@ public class Intake extends SubsystemBase {
     config.Feedback.RotorToSensorRatio = 25;
 
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
-    configWheel.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+    configWheel.MotorOutput.NeutralMode = NeutralModeValue.Coast;
 
     // Set motor direction: positive power = counterclockwise rotation
     configWheel.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
@@ -131,7 +132,27 @@ public class Intake extends SubsystemBase {
    * @return Command that moves arm to high scoring angle
    */
   public Command intakeDown() {
-    return runOnce(() -> setPosition(DOWN)).until(() -> isAtTarget()).andThen(stopArm());
+    return runOnce(() -> setPosition(Degrees.of(0)));
+  }
+
+  public Command upVoltsArm() {
+    return runOnce(() -> arm.setVoltage(2));
+  }
+
+  public Command downVoltsArm() {
+    return runOnce(() -> arm.setVoltage(-2));
+  }
+
+  public Command bump() {
+    return Commands.sequence(upVoltsArm(), Commands.waitUntil(() -> isAtBumpHight()), intakeDown());
+  }
+
+  public boolean isAtBumpHight() {
+    return getPosition().in(Rotations) >= .1;
+  }
+
+  public Command killArm() {
+    return runOnce(() -> arm.stopMotor());
   }
 
   /**
