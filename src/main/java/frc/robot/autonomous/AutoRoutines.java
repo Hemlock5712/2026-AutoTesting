@@ -1,21 +1,26 @@
 package frc.robot.autonomous;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.Superstructure;
+import frc.robot.subsystems.intake.Intake;
 import frc.robot.utils.FieldInfo;
 
 public class AutoRoutines {
 
   private final AutoCommands autoCommands;
   private final Superstructure superstructure;
+  private final Intake intake;
 
-  public AutoRoutines(AutoCommands autoCommands, Superstructure superstructure) {
+  public AutoRoutines(AutoCommands autoCommands, Superstructure superstructure, Intake intake) {
     this.autoCommands = autoCommands;
     this.superstructure = superstructure;
+    this.intake = intake;
   }
 
   /**
@@ -77,5 +82,55 @@ public class AutoRoutines {
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(2, 0.639445, Rotation2d.k180deg))),
         superstructure.swmShoot(),
         Commands.waitSeconds(5));
+  }
+
+  /** PathPlanner path version of AutoHumanPlayerSIMONLY. */
+  public Command AutoHumanPlayerPP() {
+    PathPlannerPath rightToCenter = loadPath("right to center");
+    PathPlannerPath centerToRight = loadPath("center to right");
+
+    return Commands.sequence(
+        Commands.print("=== AutoHumanPlayerPP ==="),
+        autoCommands.resetPose(
+            () ->
+                FieldInfo.flip(
+                    new Pose2d(new Translation2d(4.400169, 0.639445), Rotation2d.kZero))),
+        autoCommands
+            .driveTo(() -> FieldInfo.flip(new Pose2d(6, 0.639445, Rotation2d.kZero)))
+            .withWaypoint(3),
+        AutoBuilder.followPath(rightToCenter),
+        AutoBuilder.followPath(centerToRight),
+        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(2, 0.639445, Rotation2d.kZero))),
+        superstructure.swmShoot(),
+        Commands.waitSeconds(5));
+  }
+
+  public Command SimplePath() {
+    PathPlannerPath toCenter = loadPath("to center");
+    PathPlannerPath toOutpost = loadPath("to outpost");
+
+    return Commands.sequence(
+        Commands.print("=== Simple Path ==="),
+        autoCommands.resetPose(
+            () -> FieldInfo.flip(new Pose2d(new Translation2d(3.545, 7.4), Rotation2d.kZero))),
+        intake.intakeDown(),
+        intake.runIntake(),
+        AutoBuilder.followPath(toCenter),
+        superstructure.autoShoot(),
+        superstructure.stopShoot(),
+        AutoBuilder.followPath(toOutpost),
+        intake.stopWheel(),
+        superstructure.autoShoot(),
+        superstructure.stopShoot(),
+        Commands.waitSeconds(5));
+  }
+
+  /** Loads a PathPlanner path file, converting checked exceptions to unchecked. */
+  private static PathPlannerPath loadPath(String name) {
+    try {
+      return PathPlannerPath.fromPathFile(name);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to load path: " + name, e);
+    }
   }
 }

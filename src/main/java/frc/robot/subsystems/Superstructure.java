@@ -217,6 +217,18 @@ public class Superstructure {
         spindexer.stopCommand(), spindexer.stopKickerCommand(), shooter.stopCommand());
   }
 
+  public Command autoShoot() {
+    return shooter
+        .runShooterTestMode(
+            () -> targetFlywheelVelocity.get(), () -> Degrees.of(targetHoodAngle.get()))
+        .alongWith(
+            Commands.sequence(
+                Commands.waitUntil(() -> shooter.flywheelIsAtTarget()),
+                spindexer.startCommand(),
+                spindexer.startKickerVoltageCommand()))
+        .withTimeout(5);
+  }
+
   // ==================== SWM Commands ====================
 
   /** Full SWM shooting sequence with velocity compensation. */

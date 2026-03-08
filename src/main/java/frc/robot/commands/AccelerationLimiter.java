@@ -51,7 +51,33 @@ public final class AccelerationLimiter {
   // [0] = vx, [1] = vy, [2] = omega
   private static final double[] ACCEL_RESULT = new double[3];
 
+  // Deadband thresholds to prevent steer motor chatter from unstable atan2 at tiny velocities
+  public static final double TRANSLATION_DEADBAND = 0.1; // m/s
+  public static final double ROTATION_DEADBAND = 0.1; // rad/s
+
   private AccelerationLimiter() {}
+
+  /**
+   * Applies deadband to chassis speeds to prevent steer motor chatter at low velocities.
+   *
+   * <p>When the translation magnitude is below the threshold, vx and vy are zeroed so the swerve
+   * modules hold their current steer angle instead of tracking an unstable atan2 direction.
+   */
+  public static ChassisSpeeds applyDeadband(ChassisSpeeds speeds) {
+    double vx = speeds.vxMetersPerSecond;
+    double vy = speeds.vyMetersPerSecond;
+    double omega = speeds.omegaRadiansPerSecond;
+
+    if (Math.hypot(vx, vy) < TRANSLATION_DEADBAND) {
+      vx = 0.0;
+      vy = 0.0;
+    }
+    if (Math.abs(omega) < ROTATION_DEADBAND) {
+      omega = 0.0;
+    }
+
+    return new ChassisSpeeds(vx, vy, omega);
+  }
 
   /**
    * Applies motor torque and friction limits to acceleration using primitives.
