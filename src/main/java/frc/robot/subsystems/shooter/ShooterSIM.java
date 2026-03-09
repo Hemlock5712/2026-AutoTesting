@@ -25,7 +25,7 @@ public class ShooterSIM extends Shooter {
   // ==================== Physical Constants ====================
 
   /** Gear ratio between motor and flywheel (motor rotations : flywheel rotations) */
-  private static final double GEAR_RATIO = 1.0;
+  private static final double GEAR_RATIO = 2.0;
 
   /** Conversion factor from radians to rotations (1 / 2π) */
   private static final double RAD_TO_ROTATIONS = 1.0 / (2.0 * Math.PI);

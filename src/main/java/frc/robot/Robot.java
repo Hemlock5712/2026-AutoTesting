@@ -52,7 +52,9 @@ public class Robot extends TimedRobot {
   }
 
   @Override
-  public void disabledInit() {}
+  public void disabledInit() {
+    m_robotContainer.setRumble(0.0);
+  }
 
   @Override
   public void disabledPeriodic() {}
@@ -87,10 +89,16 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
     HubShiftUtil.update();
+
+    // Rumble controller when a shift change is 5 seconds away
+    double secondsUntilShift = HubShiftUtil.getSecondsUntilNextShift();
+    m_robotContainer.setRumble((secondsUntilShift <= 5.0 && secondsUntilShift > 4.9) ? 1.0 : 0.0);
   }
 
   @Override
-  public void teleopExit() {}
+  public void teleopExit() {
+    m_robotContainer.setRumble(0.0);
+  }
 
   @Override
   public void testInit() {

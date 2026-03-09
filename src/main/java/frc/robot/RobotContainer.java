@@ -3,13 +3,13 @@ package frc.robot;
 import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
+import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -24,7 +24,6 @@ import frc.robot.subsystems.BallPhysicsSimulation;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
-import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 
@@ -68,7 +67,7 @@ public class RobotContainer {
 
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 
-  private final Climber climber = new Climber();
+  // private final Climber climber = new Climber();
 
   // Vision camera for tracking robot position
   public final Limelight limelight = new Limelight("limelight-br", drivetrain);
@@ -78,7 +77,6 @@ public class RobotContainer {
   public final Limelight limelight4 = new Limelight("limelight-mm", drivetrain);
 
   // Create ball physics simulation if in simulation mode
-  @NotLogged
   public final BallPhysicsSimulation ballPhysicsSimulation =
       new BallPhysicsSimulation(drivetrain, superstructure);
 
@@ -201,5 +199,10 @@ public class RobotContainer {
 
   public Superstructure getSuperstructure() {
     return superstructure;
+  }
+
+  /** Sets the rumble intensity on the driver controller (0.0 = off, 1.0 = full). */
+  public void setRumble(double value) {
+    joystick.getHID().setRumble(RumbleType.kBothRumble, value);
   }
 }

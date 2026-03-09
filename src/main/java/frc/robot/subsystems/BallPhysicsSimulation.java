@@ -262,7 +262,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
    */
   private Translation3d getLaunchVelocity() {
     // Get flywheel speed in rotations per second
-    double flywheelRPS = superstructure.getFlywheelVelocity().in(RotationsPerSecond);
+    double flywheelRPS = superstructure.getTargetFlyhweel().in(RotationsPerSecond);
 
     // Convert to linear velocity at flywheel radius
     // v = ω * r = (RPS * 2π) * r

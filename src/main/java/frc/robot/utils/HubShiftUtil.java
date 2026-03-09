@@ -44,6 +44,19 @@ public class HubShiftUtil {
     return hubActive;
   }
 
+  /**
+   * Returns the number of seconds until the next shift boundary, or {@code Double.MAX_VALUE} if
+   * past the last boundary.
+   */
+  public static double getSecondsUntilNextShift() {
+    double time = timer.get();
+    int nextBoundaryIndex = getShiftIndex(time) + 1;
+    if (nextBoundaryIndex >= shiftBoundaries.length) {
+      return Double.MAX_VALUE;
+    }
+    return shiftBoundaries[nextBoundaryIndex] - time;
+  }
+
   // --- Internal helpers ---
 
   private static int getShiftIndex(double time) {
