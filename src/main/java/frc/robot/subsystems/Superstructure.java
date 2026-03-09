@@ -238,8 +238,6 @@ public class Superstructure {
     // Our sensor data is slightly old by the time we use it. Predict where the
     // robot will actually be when the ball leaves the shooter by advancing the
     // pose forward in time by "delay" seconds using the current velocity.
-    ChassisSpeeds fieldSpeeds =
-        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation());
     double delay = compDelay.get();
     Pose2d advancedPose =
         state.Pose.exp(
@@ -247,6 +245,10 @@ public class Superstructure {
                 state.Speeds.vxMetersPerSecond * delay,
                 state.Speeds.vyMetersPerSecond * delay,
                 state.Speeds.omegaRadiansPerSecond * delay));
+    // Use advanced pose rotation so field speeds are consistent with the
+    // turret-offset rotation computed in Step 2.
+    ChassisSpeeds fieldSpeeds =
+        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, advancedPose.getRotation());
 
     Translation2d realTarget = getTargetPosition().getTranslation();
     // The turret isn't at robot center -- apply the offset to get its real position
@@ -294,7 +296,9 @@ public class Superstructure {
         break;
       }
 
-      double tof = ShooterLookup.getToFMap().get(dist);
+      // Clamp distance to lookup table range to prevent extrapolation
+      double lookupDist = Math.min(dist, 5.0);
+      double tof = ShooterLookup.getToFMap().get(lookupDist);
 
       // Decompose velocity into radial (along aim) and tangential (perpendicular)
       Translation2d aim = virtualTarget.minus(robotPosition).div(dist);
@@ -304,7 +308,7 @@ public class Superstructure {
 
       // Effective TOF: accounts for drag reducing lateral drift during flight
       double flywheelSpeed =
-          ShooterLookup.getFlywheelMap().get(dist) * 2 * Math.PI * FLYWHEEL_RADIUS;
+          ShooterLookup.getFlywheelMap().get(lookupDist) * 2 * Math.PI * FLYWHEEL_RADIUS;
       double vRef = Math.sqrt(flywheelSpeed * flywheelSpeed + robotSpeed * robotSpeed);
       double beta = K_DRAG * vRef / BALL_MASS;
       double tofEff = (beta > 1e-8) ? (1.0 - Math.exp(-beta * tof)) / beta : tof;
@@ -320,10 +324,10 @@ public class Superstructure {
     }
 
     // --- Step 4: Safety check ---
-    // If we're driving toward the target too fast, the virtual target ends up
-    // unreasonably close and the shooter can't meaningfully contribute. Reject it.
+    // Reject if the virtual target is unreasonably close (shooter can't contribute)
+    // or beyond our lookup table range (extrapolated values are unreliable).
     double virtDist = robotPosition.getDistance(virtualTarget);
-    swmSolutionFeasible = swmConverged && virtDist > 1;
+    swmSolutionFeasible = swmConverged && virtDist > 1 && virtDist <= 5;
 
     return virtualTarget;
   }
