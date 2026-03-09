@@ -12,6 +12,7 @@ import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -32,7 +33,7 @@ import java.util.function.Supplier;
  * Class that extends the Phoenix 6 SwerveDrivetrain class and implements Subsystem so it can easily
  * be used in command-based projects.
  */
-@Logged
+@Logged(strategy = Strategy.OPT_IN)
 public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Subsystem {
   private static final double kSimLoopPeriod = 0.005; // 5 ms
   private Notifier m_simNotifier = null;
@@ -233,56 +234,68 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds), visionMeasurementStdDevs);
   }
 
+  @Logged
   public Pose2d getPose() {
     return getState().Pose;
   }
 
+  @Logged
   public Rotation2d getRotation() {
     return getPose().getRotation();
   }
 
+  @Logged
   public SwerveModuleState[] getModuleStates() {
     return getState().ModuleStates;
   }
 
+  @Logged
   public SwerveModuleState[] getModuleTargets() {
     return getState().ModuleTargets;
   }
 
+  @Logged
   public ChassisSpeeds getRobotSpeeds() {
     return getState().Speeds;
   }
 
+  @Logged
   public double translationSpeed() {
     ChassisSpeeds robotSpeeds = getRobotSpeeds();
     return Math.hypot(robotSpeeds.vxMetersPerSecond, robotSpeeds.vyMetersPerSecond);
   }
 
+  @Logged
   public double rotationSpeed() {
 
     return getRobotSpeeds().omegaRadiansPerSecond;
   }
 
+  @Logged
   public ChassisSpeeds getFieldSpeeds() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(getRobotSpeeds(), getRotation());
   }
 
+  @Logged
   public ChassisSpeeds getTargetFieldSpeeds() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(
         getKinematics().toChassisSpeeds(getModuleTargets()), getRotation());
   }
 
   /** Returns pigeon acceleration magnitude in m/s² */
+  @Logged
   public double getPigeonAcceleration() {
     return Math.hypot(getPigeonAccelerationX(), getPigeonAccelerationY());
   }
 
   /** Returns pigeon X acceleration in m/s² (robot-relative, forward positive) */
+  @Logged
   public double getPigeonAccelerationX() {
     return getPigeon2().getAccelerationX().getValue().in(MetersPerSecondPerSecond);
   }
 
   /** Returns pigeon Y acceleration in m/s² (robot-relative, left positive) */
+  @Logged
   public double getPigeonAccelerationY() {
     return getPigeon2().getAccelerationY().getValue().in(MetersPerSecondPerSecond);
   }

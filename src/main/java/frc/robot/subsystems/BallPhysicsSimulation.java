@@ -7,6 +7,7 @@ import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
@@ -35,6 +36,7 @@ import java.util.List;
  *   <li>Removes balls when they hit the ground
  * </ul>
  */
+@Logged(strategy = Strategy.OPT_IN)
 public class BallPhysicsSimulation extends SubsystemBase {
   // Ball properties (game-specific, passed to simulator)
   private static final double BALL_MASS_KG = 0.2268; // 0.5 lbs

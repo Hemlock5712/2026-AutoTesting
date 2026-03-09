@@ -21,6 +21,7 @@ import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
@@ -31,7 +32,7 @@ import frc.robot.utils.TalonFXUtil;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
-@Logged
+@Logged(strategy = Strategy.OPT_IN)
 public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(1);
@@ -141,38 +142,7 @@ public class Shooter extends SubsystemBase {
     hood.setControl(rotationOut.withPosition(angle));
   }
 
-  /**
-   * @param velocity
-   * @return
-   */
-  public Command runVelocity(double velocity) {
-    return runOnce(() -> setVelocity(velocity));
-  }
-
-  /**
-   * @param velocity
-   * @return
-   */
-  public Command runVelocity(DoubleSupplier velocity) {
-    return runOnce(() -> setVelocity(velocity.getAsDouble()));
-  }
-
-  /**
-   * @param angle
-   * @return
-   */
-  public Command runPosition(Angle angle) {
-    return runOnce(() -> setPosition(angle));
-  }
-
-  /**
-   * @param angle
-   * @return
-   */
-  public Command runPosition(Supplier<Angle> angle) {
-    return runOnce(() -> setPosition(angle.get()));
-  }
-
+  /** Tuning mode: continuously set flywheel velocity and hood angle from dashboard values. */
   public Command runShooterTestMode(DoubleSupplier velocity, Supplier<Angle> angle) {
     return run(
         () -> {
@@ -195,6 +165,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return true if close enough to target speed, false otherwise
    */
+  @Logged
   public boolean flywheelIsAtTarget() {
     return getVelocity().isNear(getTargetVelocity(), TOLERANCE);
   }
@@ -204,6 +175,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return true if close enough to target position, false otherwise
    */
+  @Logged
   public boolean hoodIsAtTarget() {
     return getPosition().isNear(getTargetPosition(), HOOD_TOLERANCE);
   }
@@ -213,6 +185,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Current flywheel speed
    */
+  @Logged
   public AngularVelocity getVelocity() {
     return flywheel.getVelocity().getValue();
   }
@@ -222,6 +195,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Current hood position
    */
+  @Logged
   public Angle getPosition() {
     return hood.getPosition().getValue();
   }
@@ -231,6 +205,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Target flywheel speed
    */
+  @Logged
   public AngularVelocity getTargetVelocity() {
     return velocityOut.getVelocityMeasure();
   }
@@ -240,6 +215,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Target hood position
    */
+  @Logged
   public Angle getTargetPosition() {
     return rotationOut.getPositionMeasure();
   }
@@ -249,6 +225,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Speed tolerance
    */
+  @Logged
   public AngularVelocity getTolerance() {
     return TOLERANCE;
   }
@@ -258,6 +235,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Position tolerance
    */
+  @Logged
   public Angle getHoodTolerance() {
     return HOOD_TOLERANCE;
   }
@@ -269,35 +247,22 @@ public class Shooter extends SubsystemBase {
   }
 
   /**
-   * Set flywheel velocity and hood position based on distance to target.
-   *
-   * @param distanceMeters Distance to target in meters
+   * Set flywheel and hood using separate distances — flywheel uses effective (radial-compensated)
+   * distance while hood uses geometric distance.
    */
-  public void setForDistance(double distanceMeters) {
-    setVelocity(ShooterLookup.getFlywheelMap().get(distanceMeters));
-    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
+  private void setForDistanceSWM(double flywheelDist, double hoodDist) {
+    setVelocity(ShooterLookup.getFlywheelMap().get(flywheelDist));
+    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(hoodDist)));
   }
 
-  /**
-   * Set flywheel velocity and hood position based on distance to target.
-   *
-   * @param distanceMeters Distance to target in meters
-   */
-  public void setHoodForDistance(double distanceMeters) {
-    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
+  /** Command that continuously sets the hood position based on distance lookup. */
+  public Command runHoodDynamic(DoubleSupplier distance) {
+    return run(
+        () -> setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distance.getAsDouble()))));
   }
 
-  /**
-   * Command that sets shooter for the given distance.
-   *
-   * @param distanceSupplier Supplier for distance to target in meters
-   * @return Command that sets flywheel and hood based on distance
-   */
-  public Command runDynamic(DoubleSupplier distanceSupplier) {
-    return run(() -> setForDistance(distanceSupplier.getAsDouble()));
-  }
-
-  public Command runHoodDynamic(DoubleSupplier distanceSupplier) {
-    return run(() -> setHoodForDistance(distanceSupplier.getAsDouble()));
+  /** Command that sets shooter for SWM with separate flywheel and hood distances. */
+  public Command runDynamicSWM(DoubleSupplier flywheelDist, DoubleSupplier hoodDist) {
+    return run(() -> setForDistanceSWM(flywheelDist.getAsDouble(), hoodDist.getAsDouble()));
   }
 }

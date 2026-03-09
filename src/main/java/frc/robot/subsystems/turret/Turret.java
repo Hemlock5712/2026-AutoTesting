@@ -9,6 +9,7 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
@@ -18,7 +19,7 @@ import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
 
-@Logged
+@Logged(strategy = Strategy.OPT_IN)
 public class Turret extends SubsystemBase {
   // Motor
   // protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
@@ -100,18 +101,22 @@ public class Turret extends SubsystemBase {
     leader.setControl(angleOut.withPosition(angle));
   }
 
+  @Logged
   public Angle getAngle() {
     return Rotations.of(leader.getPosition().getValueAsDouble());
   }
 
+  @Logged
   public Angle getTargetAngle() {
     return angleOut.getPositionMeasure();
   }
 
+  @Logged
   public Angle getTolerance() {
     return TOLERANCE;
   }
 
+  @Logged
   public boolean isAtTarget() {
     return getAngle().isNear(getTargetAngle(), TOLERANCE);
   }

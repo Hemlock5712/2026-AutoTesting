@@ -5,6 +5,7 @@ import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -12,7 +13,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 
-@Logged
+@Logged(strategy = Strategy.OPT_IN)
 public class Spindexer extends SubsystemBase {
   protected final double VELOCITY_TOLERANCE = 0.2;
 
@@ -42,10 +43,12 @@ public class Spindexer extends SubsystemBase {
     kicker.setControl(velocityOut.withVelocity(velocity));
   }
 
+  @Logged
   public double getVelocity() {
     return spindexer.getVelocity().getValueAsDouble();
   }
 
+  @Logged
   public boolean isAtTarget() {
     return spindexer.getVelocity().isNear(velocityOut.Velocity, VELOCITY_TOLERANCE);
   }

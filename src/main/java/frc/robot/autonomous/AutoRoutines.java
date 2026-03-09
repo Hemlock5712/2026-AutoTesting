@@ -7,19 +7,22 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.Superstructure;
-import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 
 public class AutoRoutines {
 
   private final AutoCommands autoCommands;
   private final Superstructure superstructure;
-  private final Intake intake;
+  private final IntakeCoordinator intakeCoordinator;
 
-  public AutoRoutines(AutoCommands autoCommands, Superstructure superstructure, Intake intake) {
+  public AutoRoutines(
+      AutoCommands autoCommands,
+      Superstructure superstructure,
+      IntakeCoordinator intakeCoordinator) {
     this.autoCommands = autoCommands;
     this.superstructure = superstructure;
-    this.intake = intake;
+    this.intakeCoordinator = intakeCoordinator;
   }
 
   /**
@@ -70,15 +73,15 @@ public class AutoRoutines {
         Commands.print("=== Right Auto ==="),
         // autoCommands.resetPose(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445,
         // Rotation2d.kZero))),
-        intake.runIntake(),
-        intake.intakeDown(),
-        autoCommands
-            .driveTo(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445, Rotation2d.kZero)))
-            .withWaypoint(2),
+        Commands.parallel(
+            intakeCoordinator.deployAndRun(),
+            autoCommands
+                .driveTo(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445, Rotation2d.kZero)))
+                .withWaypoint(2)),
         AutoBuilder.followPath(rightToCenter),
         AutoBuilder.followPath(centerToRight),
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445, Rotation2d.kZero))),
-        superstructure.swmShoot(),
+        superstructure.shoot(),
         Commands.waitSeconds(5));
   }
 

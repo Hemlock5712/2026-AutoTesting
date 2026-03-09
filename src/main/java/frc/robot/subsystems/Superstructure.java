@@ -1,10 +1,10 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -12,6 +12,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
@@ -45,7 +46,7 @@ import java.util.function.Supplier;
  * "score low" or "prepare for shooting" that move both parts together. This makes driving easier
  * and ensures everything moves in sync.
  */
-@Logged
+@Logged(strategy = Strategy.OPT_IN)
 public class Superstructure {
 
   // ==================== Constants ====================
@@ -74,15 +75,18 @@ public class Superstructure {
 
   private Translation2d targetPosition = FieldInfo.HUB_POSITION;
   private double distanceToHub = 0;
-  private double angleToHub = 0;
 
   // SWM state
   private Translation2d virtualTargetPosition = FieldInfo.HUB_POSITION;
-  private Transform2d virtualTargetPositionPose =
-      new Transform2d(
-          FieldInfo.HUB_POSITION.getX(), FieldInfo.HUB_POSITION.getY(), Rotation2d.kZero);
   private double distanceToVirtualTarget = 0;
   private double angleToVirtualTarget = 0;
+
+  // SWM feasibility
+  private boolean swmSolutionFeasible = true;
+  private boolean swmConverged = true;
+
+  // SWM tunable: advance pose to compensate for processing/communication latency
+  private final TunableDouble compDelay = Tunables.value("SWM/CompDelay", 0.03);
 
   private boolean isShooting = false;
 
@@ -92,8 +96,8 @@ public class Superstructure {
     this.driveState = driveState;
     // Set turret tracking as default command - uses SWM-aware getters for seamless
     // mode switching
-    turret.setDefaultCommand(turret.trackHubCommand(this::getActiveAngle));
-    shooter.setDefaultCommand(shooter.runHoodDynamic(this::getActiveDistance));
+    turret.setDefaultCommand(turret.trackHubCommand(this::getTurretAngle));
+    shooter.setDefaultCommand(shooter.runHoodDynamic(this::getHoodDistance));
   }
 
   // ==================== Periodic ====================
@@ -122,14 +126,8 @@ public class Superstructure {
 
     distanceToHub = toTarget.getNorm();
 
-    Rotation2d angleToTargetField = toTarget.getAngle();
-    angleToHub =
-        MathUtil.inputModulus(
-            angleToTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
-
     // Calculate SWM targeting values
     virtualTargetPosition = virtualTarget(state);
-    virtualTargetPositionPose = new Transform2d(virtualTargetPosition, Rotation2d.kZero);
     Translation2d toVirtualTarget = virtualTargetPosition.minus(turretPose.getTranslation());
     distanceToVirtualTarget = toVirtualTarget.getNorm();
     Rotation2d angleToVirtualTargetField = toVirtualTarget.getAngle();
@@ -144,48 +142,43 @@ public class Superstructure {
             new Pose2d(virtualTargetPosition, Rotation2d.kZero),
             Pose2d.struct);
     Robot.telemetry().log("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
-    Robot.telemetry().log("SWM/AngleDelta", angleToVirtualTarget - angleToHub);
+    Robot.telemetry().log("SWM/VirtualTargetDist", distanceToVirtualTarget);
+    Robot.telemetry().log("SWM/Feasible", swmSolutionFeasible);
+    Robot.telemetry().log("SWM/Converged", swmConverged);
   }
 
   // ==================== Targeting Getters ====================
 
+  @Logged
   public double getDistanceToHub() {
     return distanceToHub;
   }
 
-  public double getAngleToHub() {
-    return angleToHub;
-  }
-
+  @Logged
   public Pose2d getTargetPosition() {
     return new Pose2d(targetPosition, new Rotation2d());
   }
 
   // ==================== SWM-Aware Getters ====================
 
-  /** Returns distance based on SWM mode - virtual target when enabled, real target otherwise. */
-  public double getActiveDistance() {
+  @Logged
+  public double getHoodDistance() {
     return distanceToVirtualTarget;
   }
 
-  /** Returns angle based on SWM mode - virtual target when enabled, real target otherwise. */
-  public double getActiveAngle() {
+  @Logged
+  public double getTurretAngle() {
     return angleToVirtualTarget;
+  }
+
+  @Logged
+  public double getFlywheelDistance() {
+    return distanceToVirtualTarget;
   }
 
   // ==================== Coordinated Commands ====================
 
-  public Command shoot() {
-    return shooter
-        .runDynamic(this::getDistanceToHub)
-        .alongWith(Commands.runOnce(() -> isShooting = true))
-        .alongWith(
-            Commands.sequence(
-                Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
-                spindexer.startCommand(),
-                spindexer.startKickerCommand()));
-  }
-
+  /** Tuning mode: override flywheel/hood with dashboard tunables. */
   public Command tuningShoot() {
     return shooter
         .runShooterTestMode(
@@ -198,25 +191,28 @@ public class Superstructure {
                 spindexer.startKickerVoltageCommand()));
   }
 
+  /** Shooting sequence with SWM compensation (degrades to static when stationary). */
+  public Command shoot() {
+    return Commands.parallel(
+        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance),
+        Commands.runOnce(() -> isShooting = true),
+        Commands.sequence(
+            Commands.waitUntil(
+                () ->
+                    shooter.flywheelIsAtTarget()
+                        && shooter.hoodIsAtTarget()
+                        && turret.isAtTarget()
+                        && swmSolutionFeasible),
+            spindexer.startCommand(),
+            spindexer.CommandRunKickerCommand(10)));
+  }
+
   public Command stopShoot() {
     return Commands.sequence(
         Commands.runOnce(() -> isShooting = false),
         spindexer.stopCommand(),
         spindexer.stopKickerCommand(),
         shooter.stopCommand());
-  }
-
-  // ==================== SWM Commands ====================
-
-  /** Full SWM shooting sequence with velocity compensation. */
-  public Command swmShoot() {
-    return Commands.parallel(
-        shooter.runDynamic(this::getActiveDistance),
-        Commands.runOnce(() -> isShooting = true),
-        Commands.sequence(
-            Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
-            spindexer.startCommand(),
-            spindexer.CommandRunKickerCommand(10)));
   }
 
   public Command spinSpinDexerBack() {
@@ -228,38 +224,97 @@ public class Superstructure {
   }
 
   private Translation2d virtualTarget(SwerveDriveState state) {
-    Translation2d realTarget = getTargetPosition().getTranslation();
-    Pose2d turretPose = state.Pose.transformBy(TURRET_TRANSFORM);
-    Translation2d robotPosition = turretPose.getTranslation();
-
+    // --- Step 1: Latency compensation ---
+    // Our sensor data is slightly old by the time we use it. Predict where the
+    // robot will actually be when the ball leaves the shooter by advancing the
+    // pose forward in time by "delay" seconds using the current velocity.
     ChassisSpeeds fieldSpeeds =
         ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation());
+    double delay = compDelay.get();
+    Pose2d advancedPose =
+        state.Pose.exp(
+            new Twist2d(
+                state.Speeds.vxMetersPerSecond * delay,
+                state.Speeds.vyMetersPerSecond * delay,
+                state.Speeds.omegaRadiansPerSecond * delay));
+
+    Translation2d realTarget = getTargetPosition().getTranslation();
+    // The turret isn't at robot center -- apply the offset to get its real position
+    Pose2d turretPose = advancedPose.transformBy(TURRET_TRANSFORM);
+    Translation2d robotPosition = turretPose.getTranslation();
+
+    // --- Step 2: Calculate the turret's total velocity on the field ---
+    // The turret moves because (a) the whole robot is translating and (b) the
+    // turret is off-center, so robot rotation swings it in a circle (like
+    // sitting on a merry-go-round). We need both parts.
+    double omega = fieldSpeeds.omegaRadiansPerSecond;
+
+    // Rotate the turret offset from robot frame into field frame
+    double cos = advancedPose.getRotation().getCos();
+    double sin = advancedPose.getRotation().getSin();
+    double fieldOffX = TURRET_HOLE_CENTER.getX() * cos - TURRET_HOLE_CENTER.getY() * sin;
+    double fieldOffY = TURRET_HOLE_CENTER.getX() * sin + TURRET_HOLE_CENTER.getY() * cos;
+
+    // Total velocity = robot translation + omega x r (cross product gives the
+    // tangential speed from spinning around the offset point)
     Translation2d velocity =
-        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+        new Translation2d(
+            fieldSpeeds.vxMetersPerSecond + (-omega * fieldOffY),
+            fieldSpeeds.vyMetersPerSecond + (omega * fieldOffX));
 
+    // --- Step 3: Find the virtual target (where to actually aim) ---
+    // Think of it like throwing a ball on a moving train: you aim behind your
+    // target so the train's motion carries the ball to the right spot.
+    // virtualTarget = where turret aims
+    // realTarget    = where ball actually lands (the goal)
+    // The difference is how far the ball drifts during flight due to our velocity.
+    //
+    // We iterate because time-of-flight depends on distance to virtualTarget,
+    // but virtualTarget depends on time-of-flight. The loop finds the answer
+    // where both agree (usually converges in 2-3 iterations).
     Translation2d virtualTarget = realTarget;
-
-    for (int i = 0; i < 5; i++) {
+    Translation2d prev = virtualTarget;
+    swmConverged = false;
+    for (int i = 0; i < 20; i++) {
       double dist = robotPosition.getDistance(virtualTarget);
-      if (dist < 0.001) break;
+      if (dist < 0.001) {
+        swmConverged = true;
+        break;
+      }
       double tof = ShooterLookup.getToFMap().get(dist);
       virtualTarget = realTarget.minus(velocity.times(tof));
+      if (virtualTarget.getDistance(prev) < 0.001) {
+        swmConverged = true;
+        break;
+      }
+      prev = virtualTarget;
     }
+
+    // --- Step 4: Safety check ---
+    // If we're driving toward the target too fast, the virtual target ends up
+    // unreasonably close and the shooter can't meaningfully contribute. Reject it.
+    double virtDist = robotPosition.getDistance(virtualTarget);
+    swmSolutionFeasible = swmConverged && virtDist > 1;
+
     return virtualTarget;
   }
 
+  @Logged
   public Angle getTargetTurretAngle() {
     return turret.getTargetAngle();
   }
 
+  @Logged
   public Angle getTargetHoodAngle() {
     return shooter.getTargetPosition();
   }
 
+  @Logged
   public AngularVelocity getFlywheelVelocity() {
-    return RotationsPerSecond.of(targetFlywheelVelocity.get());
+    return shooter.getTargetVelocity();
   }
 
+  @Logged
   public boolean isShooting() {
     return isShooting;
   }

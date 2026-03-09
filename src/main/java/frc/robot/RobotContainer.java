@@ -10,7 +10,6 @@ import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
-import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -26,8 +25,7 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.climber.Climber;
-import frc.robot.subsystems.intake.Intake;
-import frc.robot.subsystems.intake.IntakeSIM;
+import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 
 /**
@@ -68,7 +66,7 @@ public class RobotContainer {
   /* Create subsystems (uses simulated versions when running in simulation) */
   private final Superstructure superstructure = new Superstructure(drivetrain::getState);
 
-  private final Intake intake = RobotBase.isSimulation() ? new IntakeSIM() : new Intake();
+  private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 
   private final Climber climber = new Climber();
 
@@ -82,7 +80,7 @@ public class RobotContainer {
   // Create ball physics simulation if in simulation mode
   @NotLogged
   public final BallPhysicsSimulation ballPhysicsSimulation =
-      RobotBase.isSimulation() ? new BallPhysicsSimulation(drivetrain, superstructure) : null;
+      new BallPhysicsSimulation(drivetrain, superstructure);
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;
@@ -93,7 +91,7 @@ public class RobotContainer {
 
     // Set up autonomous routines
     autoChooser = new SendableChooser<>();
-    autoRoutines = new AutoRoutines(autoCommands, superstructure, intake);
+    autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
 
     // Add autonomous mode options to dashboard
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
@@ -163,26 +161,22 @@ public class RobotContainer {
     // .whileTrue(superstructure.shoot())
     // .onFalse(superstructure.stopShoot());
 
-    joystick
-        .rightTrigger()
-        .whileTrue(superstructure.swmShoot())
-        .onFalse(superstructure.stopShoot());
+    joystick.rightTrigger().whileTrue(superstructure.shoot()).onFalse(superstructure.stopShoot());
 
     joystick
         .leftTrigger(0.5)
         .onTrue(
             Commands.either(
-                intake.intakeDown().andThen(intake.runIntake()),
-                intake.stopWheel().andThen(intake.intakeUp()),
-                () -> intake.getTargetPosition().in(Rotations) != 0));
-    // .onFalse(intake.stopWheel().andThen(intake.stopArm()));
+                intakeCoordinator.deployAndRun(),
+                intakeCoordinator.stopAndRetract(),
+                () -> intakeCoordinator.getTargetPositionRotations() != 0));
 
-    joystick.povUp().onTrue(intake.intakeUp());
+    joystick.povUp().onTrue(intakeCoordinator.intakeUp());
 
-    joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    joystick.y().whileTrue(superstructure.shoot()).onFalse(superstructure.stopShoot());
 
-    joystick.a().onTrue(intake.runIntake());
-    joystick.b().onFalse(intake.stopWheel());
+    joystick.a().onTrue(intakeCoordinator.runIntake());
+    joystick.b().onFalse(intakeCoordinator.stopWheel());
 
     joystick
         .x()

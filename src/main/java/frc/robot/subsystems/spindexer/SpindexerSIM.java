@@ -1,6 +1,7 @@
 package frc.robot.subsystems.spindexer;
 
 import edu.wpi.first.epilogue.Logged;
+import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.system.LinearSystem;
@@ -21,7 +22,7 @@ import frc.robot.utils.TalonFXUtil;
  * provides visual feedback through SmartDashboard. It uses WPILib's SpindexerSim for physics
  * simulation and Mechanism2d for visualization.
  */
-@Logged
+@Logged(strategy = Strategy.OPT_IN)
 public class SpindexerSIM extends Spindexer {
 
   // ==================== Physical Constants ====================
