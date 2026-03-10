@@ -18,9 +18,9 @@ public class Climber extends SubsystemBase {
 
   protected final TalonFX follower = new TalonFX(50, TunerConstants.kCANBus);
 
-  protected TalonFXConfiguration spindexerConfig = new TalonFXConfiguration();
+  protected TalonFXConfiguration climberConfig = new TalonFXConfiguration();
 
-  Alert motorConfigAlert = new Alert("Spindexer Motor Configuration Failed", AlertType.kError);
+  Alert motorConfigAlert = new Alert("Climber Motor Configuration Failed", AlertType.kError);
 
   public Climber() {
     applyConfigs();
@@ -29,7 +29,7 @@ public class Climber extends SubsystemBase {
   public void applyConfigs() {
     follower.setControl(new Follower(leader.getDeviceID(), MotorAlignmentValue.Aligned));
 
-    boolean success = TalonFXUtil.applyConfigWithRetries(leader, spindexerConfig);
+    boolean success = TalonFXUtil.applyConfigWithRetries(leader, climberConfig);
     motorConfigAlert.set(!success);
   }
 }

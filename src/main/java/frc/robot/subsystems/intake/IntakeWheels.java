@@ -17,19 +17,21 @@ import frc.robot.utils.TalonFXUtil;
 @Logged(strategy = Strategy.OPT_IN)
 public class IntakeWheels extends SubsystemBase {
 
+  private static final double INTAKE_VOLTAGE = 6.0;
+
   private final TalonFX wheel = new TalonFX(23, TunerConstants.kCANBus);
 
-  private TalonFXConfiguration configWheel = new TalonFXConfiguration();
+  private TalonFXConfiguration wheelConfig = new TalonFXConfiguration();
 
   Alert motorConfigAlert = new Alert("Intake Wheel Motor Configuration Failed", AlertType.kError);
 
   public IntakeWheels() {
-    configWheel.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-    configWheel.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
-    configWheel.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
-    configWheel.Feedback.SensorToMechanismRatio = 2.33;
+    wheelConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    wheelConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+    wheelConfig.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
+    wheelConfig.Feedback.SensorToMechanismRatio = 2.33;
 
-    boolean success = TalonFXUtil.applyConfigWithRetries(wheel, configWheel);
+    boolean success = TalonFXUtil.applyConfigWithRetries(wheel, wheelConfig);
     motorConfigAlert.set(!success);
   }
 
@@ -37,7 +39,7 @@ public class IntakeWheels extends SubsystemBase {
   public void periodic() {}
 
   public Command runIntake() {
-    return runOnce(() -> wheel.setVoltage(6));
+    return runOnce(() -> wheel.setVoltage(INTAKE_VOLTAGE));
   }
 
   public Command stopWheel() {

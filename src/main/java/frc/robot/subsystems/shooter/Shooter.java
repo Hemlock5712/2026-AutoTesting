@@ -54,8 +54,8 @@ public class Shooter extends SubsystemBase {
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
-  // Configuration settings for the flywheel motor
-  protected TalonFXConfiguration confighood = new TalonFXConfiguration();
+  // Configuration settings for the hood motor
+  protected TalonFXConfiguration hoodConfig = new TalonFXConfiguration();
 
   // Alert for motor configuration failures
   Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
@@ -83,37 +83,37 @@ public class Shooter extends SubsystemBase {
     motorConfigAlert.set(!success);
 
     // Coast mode: Flywheel can spin freely by hand when disabled
-    confighood.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+    hoodConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     // Set motor direction: positive power = counterclockwise spin
-    confighood.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+    hoodConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // Control values
-    confighood.Slot0.kS = 0.33; // Static friction
-    confighood.Slot0.kV = 0.0; // Velocity feedforward
-    confighood.Slot0.kP = 200; // Proportional gain
-    confighood.Slot0.kD = 3; // Proportional gain
-    confighood.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
+    hoodConfig.Slot0.kS = 0.33; // Static friction
+    hoodConfig.Slot0.kV = 0.0; // Velocity feedforward
+    hoodConfig.Slot0.kP = 200; // Proportional gain
+    hoodConfig.Slot0.kD = 3; // Proportional gain
+    hoodConfig.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
 
-    confighood.Feedback.SensorToMechanismRatio = 2.0;
+    hoodConfig.Feedback.SensorToMechanismRatio = 2.0;
 
     // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
-    confighood.MotionMagic.MotionMagicCruiseVelocity = 0.5; // RPS
-    confighood.MotionMagic.MotionMagicAcceleration = 1.0; // RPS²
+    hoodConfig.MotionMagic.MotionMagicCruiseVelocity = 0.5; // RPS
+    hoodConfig.MotionMagic.MotionMagicAcceleration = 1.0; // RPS²
 
-    confighood.Feedback.FeedbackRemoteSensorID = hoodEncoder.getDeviceID();
-    confighood.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RemoteCANcoder;
-    confighood.Feedback.SensorToMechanismRatio = 3;
-    confighood.Feedback.RotorToSensorRatio = 75.38;
+    hoodConfig.Feedback.FeedbackRemoteSensorID = hoodEncoder.getDeviceID();
+    hoodConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RemoteCANcoder;
+    hoodConfig.Feedback.SensorToMechanismRatio = 3;
+    hoodConfig.Feedback.RotorToSensorRatio = 75.38;
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
-    confighood.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
-    confighood.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.0555;
-    confighood.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
-    confighood.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
+    hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
+    hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.0555;
+    hoodConfig.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
+    hoodConfig.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
 
     // Apply configuration with retries
-    boolean successhood = TalonFXUtil.applyConfigWithRetries(hood, confighood);
-    motorConfigAlert.set(!successhood);
+    boolean hoodConfigSuccess = TalonFXUtil.applyConfigWithRetries(hood, hoodConfig);
+    motorConfigAlert.set(!hoodConfigSuccess);
 
     flywheel.getTorqueCurrent().setUpdateFrequency(500);
     follower.setControl(new Follower(flywheel.getDeviceID(), MotorAlignmentValue.Opposed));
@@ -178,6 +178,11 @@ public class Shooter extends SubsystemBase {
   @Logged
   public boolean hoodIsAtTarget() {
     return getPosition().isNear(getTargetPosition(), HOOD_TOLERANCE);
+  }
+
+  @Logged
+  public boolean isAtTarget() {
+    return flywheelIsAtTarget() && hoodIsAtTarget();
   }
 
   /**

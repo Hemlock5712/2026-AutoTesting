@@ -24,13 +24,13 @@ import frc.robot.utils.TalonFXUtil;
 public class IntakeArm extends SubsystemBase {
 
   protected final TalonFX arm = new TalonFX(22, TunerConstants.kCANBus);
-  protected final CANcoder arm_encoder = new CANcoder(24, TunerConstants.kCANBus);
+  protected final CANcoder armEncoder = new CANcoder(24, TunerConstants.kCANBus);
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
   private final MotionMagicVoltage positionOut = new MotionMagicVoltage(0);
 
-  private Angle TOLERANCE = Degrees.of(3);
+  private static final Angle TOLERANCE = Degrees.of(3);
 
   Alert motorConfigAlert = new Alert("Intake Arm Motor Configuration Failed", AlertType.kError);
 
@@ -46,7 +46,7 @@ public class IntakeArm extends SubsystemBase {
 
     config.MotionMagic.MotionMagicCruiseVelocity = 4;
     config.MotionMagic.MotionMagicAcceleration = 8;
-    config.Feedback.withRemoteCANcoder(arm_encoder);
+    config.Feedback.withRemoteCANcoder(armEncoder);
     config.Feedback.RotorToSensorRatio = 25;
 
     boolean success = TalonFXUtil.applyConfigWithRetries(arm, config);
@@ -69,12 +69,8 @@ public class IntakeArm extends SubsystemBase {
   }
 
   @Logged
-  public boolean isAtBumpHight() {
+  public boolean isAtBumpHeight() {
     return getPosition().in(Rotations) >= .1;
-  }
-
-  public Command killArm() {
-    return runOnce(() -> arm.stopMotor());
   }
 
   public Command stopArm() {
@@ -88,7 +84,7 @@ public class IntakeArm extends SubsystemBase {
 
   @Logged
   public Angle getPosition() {
-    return arm_encoder.getPosition().getValue();
+    return armEncoder.getPosition().getValue();
   }
 
   @Logged

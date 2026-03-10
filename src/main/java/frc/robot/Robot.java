@@ -28,7 +28,9 @@ public class Robot extends TimedRobot {
   // OCV estimation bounds
   private static final double MIN_OCV = 6.0; // Brownout threshold
 
-  // private final HootAutoReplay joystickReplay = HootAutoReplay.createJoystickReplay();
+  // Rumble timing thresholds (seconds before hub shift)
+  private static final double RUMBLE_START_THRESHOLD = 5.0;
+  private static final double RUMBLE_END_THRESHOLD = 4.9;
 
   public Robot() {
     m_robotContainer = new RobotContainer();
@@ -37,15 +39,12 @@ public class Robot extends TimedRobot {
     Epilogue.configure(
         config ->
             config.backend =
-                EpilogueBackend.multi(
-                    // new HootEpilogueBackend(),
-                    new NTEpilogueBackend(NetworkTableInstance.getDefault())));
+                EpilogueBackend.multi(new NTEpilogueBackend(NetworkTableInstance.getDefault())));
     Epilogue.bind(this);
   }
 
   @Override
   public void robotPeriodic() {
-    // joystickReplay.update();
     m_robotContainer.getSuperstructure().update();
     CommandScheduler.getInstance().run();
     Tunables.update();
@@ -92,7 +91,10 @@ public class Robot extends TimedRobot {
 
     // Rumble controller when a shift change is 5 seconds away
     double secondsUntilShift = HubShiftUtil.getSecondsUntilNextShift();
-    m_robotContainer.setRumble((secondsUntilShift <= 5.0 && secondsUntilShift > 4.9) ? 1.0 : 0.0);
+    m_robotContainer.setRumble(
+        (secondsUntilShift <= RUMBLE_START_THRESHOLD && secondsUntilShift > RUMBLE_END_THRESHOLD)
+            ? 1.0
+            : 0.0);
   }
 
   @Override

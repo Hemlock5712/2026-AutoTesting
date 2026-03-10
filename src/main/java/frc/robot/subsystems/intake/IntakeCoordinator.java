@@ -40,10 +40,6 @@ public class IntakeCoordinator {
     return arm.stopArm();
   }
 
-  public Command killArm() {
-    return arm.killArm();
-  }
-
   // ==================== Delegated Wheel Commands ====================
 
   public Command runIntake() {
@@ -74,8 +70,8 @@ public class IntakeCoordinator {
   }
 
   @Logged
-  public boolean isAtBumpHight() {
-    return arm.isAtBumpHight();
+  public boolean isAtBumpHeight() {
+    return arm.isAtBumpHeight();
   }
 
   @Logged

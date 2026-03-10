@@ -39,9 +39,9 @@ import java.util.List;
 @Logged(strategy = Strategy.OPT_IN)
 public class BallPhysicsSimulation extends SubsystemBase {
   // Ball properties (game-specific, passed to simulator)
-  private static final double BALL_MASS_KG = 0.2268; // 0.5 lbs
-  private static final double BALL_DIAMETER_M = 0.15; // 150 mm
-  private static final double DRAG_COEFFICIENT = 0.35; // Smooth foam sphere
+  public static final double BALL_MASS_KG = 0.2268; // 0.5 lbs
+  public static final double BALL_DIAMETER_M = 0.15; // 150 mm
+  public static final double DRAG_COEFFICIENT = 0.35; // Smooth foam sphere
 
   // Launch geometry defaults
   private static final double LAUNCH_HEIGHT_M = 0.4826; // 19 inches
@@ -212,15 +212,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
   }
 
   /** Shoots a new ball if hopper has balls available. */
-  @SuppressWarnings("unused") // hopper will be used when getBallCount() is implemented
   private void shootBall() {
-    // Check hopper for ball availability (only in sim)
-    // TODO: Integrate with hopper.getBallCount() when that method exists
-    // For now, assume hopper always has balls in simulation
-    // if (hopper.getBallCount() <= 0) {
-    // return; // No balls available
-    // }
-
     // Calculate launch conditions
     Translation3d launchPos = getLaunchPosition();
     Translation3d launchVel = getLaunchVelocity();
@@ -262,7 +254,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
    */
   private Translation3d getLaunchVelocity() {
     // Get flywheel speed in rotations per second
-    double flywheelRPS = superstructure.getTargetFlyhweel().in(RotationsPerSecond);
+    double flywheelRPS = superstructure.getTargetFlywheel().in(RotationsPerSecond);
 
     // Convert to linear velocity at flywheel radius
     // v = ω * r = (RPS * 2π) * r

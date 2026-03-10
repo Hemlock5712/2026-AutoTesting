@@ -50,9 +50,11 @@ import frc.robot.utils.FieldInfo;
  */
 @Logged
 public class RobotContainer {
-  private double MaxSpeed =
+  private static final double JOYSTICK_DEADBAND = 0.05;
+
+  private double maxSpeed =
       TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
-  private double MaxAngularRate =
+  private double maxAngularRate =
       RotationsPerSecond.of(1)
           .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
 
@@ -66,8 +68,6 @@ public class RobotContainer {
   private final Superstructure superstructure = new Superstructure(drivetrain::getState);
 
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
-
-  // private final Climber climber = new Climber();
 
   // Vision camera for tracking robot position
   public final Limelight limelight = new Limelight("limelight-br", drivetrain);
@@ -111,12 +111,12 @@ public class RobotContainer {
             () -> {
               // Not the cleanest but claculate scaled joystick values
               Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
-              translationVel[0] = -scaled.get(0) * MaxSpeed;
-              translationVel[1] = -scaled.get(1) * MaxSpeed;
+              translationVel[0] = -scaled.get(0) * maxSpeed;
+              translationVel[1] = -scaled.get(1) * maxSpeed;
               return translationVel[0];
             },
             () -> translationVel[1],
-            () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate));
+            () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
 
     joystick
         .start()
@@ -133,31 +133,25 @@ public class RobotContainer {
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
-                () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
-                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
+                () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
                 () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
                 () ->
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
     // rotation)
 
-    // // AxisLockDrive - Lock Y axis and rotation, driver controls X only
     joystick
         .rightBumper()
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
-                () -> -rescaleInputs(joystick.getLeftY()) * MaxSpeed, // Driver controls X
-                () -> -rescaleInputs(joystick.getRightX()) * MaxAngularRate,
+                () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
                 () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
                 () ->
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
-
-    // joystick
-    // .rightTrigger(0.5)
-    // .whileTrue(superstructure.shoot())
-    // .onFalse(superstructure.stopShoot());
 
     joystick.rightTrigger().whileTrue(superstructure.shoot()).onFalse(superstructure.stopShoot());
 
@@ -188,12 +182,12 @@ public class RobotContainer {
   }
 
   public double rescaleInputs(double input) {
-    return MathUtil.applyDeadband(input, 0.05);
+    return MathUtil.applyDeadband(input, JOYSTICK_DEADBAND);
   }
 
   public Vector<N2> rescaleTranslation(double x, double y) {
     Vector<N2> scaledJoyStick = VecBuilder.fill(x, y);
-    scaledJoyStick = MathUtil.applyDeadband(scaledJoyStick, 0.05);
+    scaledJoyStick = MathUtil.applyDeadband(scaledJoyStick, JOYSTICK_DEADBAND);
     return MathUtil.copyDirectionPow(scaledJoyStick, 2);
   }
 

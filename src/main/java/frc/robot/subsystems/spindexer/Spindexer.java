@@ -15,7 +15,12 @@ import frc.robot.utils.TalonFXUtil;
 
 @Logged(strategy = Strategy.OPT_IN)
 public class Spindexer extends SubsystemBase {
-  protected final double VELOCITY_TOLERANCE = 0.2;
+  private static final double VELOCITY_TOLERANCE = 0.2;
+
+  private static final double BACK_VELOCITY = -12;
+  private static final double FORWARD_SPINDEXER_VEL = 12;
+  private static final double FORWARD_KICKER_VEL = 10;
+  private static final double PREP_FEED_KICKER_VEL = 10;
 
   protected final TalonFX spindexer = new TalonFX(20, TunerConstants.kCANBus);
 
@@ -35,50 +40,35 @@ public class Spindexer extends SubsystemBase {
     applyConfigs();
   }
 
-  public void setVelocity(double velocity) {
-    spindexer.setControl(velocityOut.withVelocity(velocity));
+  private void setVelocity(double spindexerVel, double kickerVel) {
+    spindexer.setControl(velocityOut.withVelocity(spindexerVel));
+    kicker.setControl(velocityOut.withVelocity(kickerVel));
   }
 
-  public void setKickerVelocity(double velocity) {
-    kicker.setControl(velocityOut.withVelocity(velocity));
+  public Command backCommand() {
+    return runOnce(() -> setVelocity(BACK_VELOCITY, BACK_VELOCITY));
   }
 
-  @Logged
-  public double getVelocity() {
-    return spindexer.getVelocity().getValueAsDouble();
+  public Command forwardCommand() {
+    return runOnce(() -> setVelocity(FORWARD_SPINDEXER_VEL, FORWARD_KICKER_VEL));
+  }
+
+  public Command prepFeed() {
+    return runOnce(() -> setVelocity(0, PREP_FEED_KICKER_VEL));
+  }
+
+  private void stop() {
+    spindexer.stopMotor();
+    kicker.stopMotor();
+  }
+
+  public Command stopCommand() {
+    return runOnce(this::stop);
   }
 
   @Logged
   public boolean isAtTarget() {
     return spindexer.getVelocity().isNear(velocityOut.Velocity, VELOCITY_TOLERANCE);
-  }
-
-  public Command CommandRunKickerCommand(double speed) {
-    return runOnce(() -> setKickerVelocity(speed));
-  }
-
-  public Command startCommand() {
-    return runOnce(() -> setVelocity(12));
-  }
-
-  public Command backCommand() {
-    return runOnce(() -> setVelocity(-12));
-  }
-
-  public Command stopCommand() {
-    return runOnce(() -> setVelocity(0));
-  }
-
-  public Command startKickerCommand() {
-    return runOnce(() -> setKickerVelocity(15));
-  }
-
-  public Command startKickerVoltageCommand() {
-    return runOnce(() -> kicker.setVoltage(12));
-  }
-
-  public Command stopKickerCommand() {
-    return runOnce(() -> setKickerVelocity(0));
   }
 
   public void applyConfigs() {

@@ -22,7 +22,6 @@ import java.util.function.Supplier;
 @Logged(strategy = Strategy.OPT_IN)
 public class Turret extends SubsystemBase {
   // Motor
-  // protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
   protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
 
   // Dual absolute encoders for CRT positioning

@@ -70,8 +70,8 @@ public class IntakeArmSIM extends IntakeArm {
     double encoderVelocity =
         RadiansPerSecond.of(armSim.getVelocityRadPerSec()).in(RotationsPerSecond);
 
-    arm_encoder.getSimState().setRawPosition(encoderPosition);
-    arm_encoder.getSimState().setVelocity(encoderVelocity);
+    armEncoder.getSimState().setRawPosition(encoderPosition);
+    armEncoder.getSimState().setVelocity(encoderVelocity);
 
     double motorPosition = encoderPosition * GEAR_RATIO;
     double motorVelocity = encoderVelocity * GEAR_RATIO;

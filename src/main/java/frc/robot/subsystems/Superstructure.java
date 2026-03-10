@@ -59,15 +59,12 @@ public class Superstructure {
   public static final Transform2d TURRET_TRANSFORM =
       new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
-  // Air drag parameters for effective TOF calculation
+  // Air drag parameters for effective TOF calculation (ball properties from BallPhysicsSimulation)
   private static final double AIR_DENSITY = 1.225; // kg/m^3
-  private static final double BALL_MASS = 0.2268; // kg
-  private static final double BALL_DIAMETER = 0.15; // m
-  private static final double BALL_RADIUS = BALL_DIAMETER / 2;
-  private static final double DRAG_COEFFICIENT = 0.35; // smooth foam sphere
+  private static final double BALL_RADIUS = BallPhysicsSimulation.BALL_DIAMETER_M / 2;
   private static final double CROSS_SECTION = Math.PI * BALL_RADIUS * BALL_RADIUS;
-  private static final double K_DRAG = 0.5 * AIR_DENSITY * DRAG_COEFFICIENT * CROSS_SECTION;
-  private static final double FLYWHEEL_RADIUS = 0.0508; // meters (2 inches)
+  private static final double K_DRAG =
+      0.5 * AIR_DENSITY * BallPhysicsSimulation.DRAG_COEFFICIENT * CROSS_SECTION;
 
   // ==================== Subsystems ====================
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
@@ -196,9 +193,7 @@ public class Superstructure {
         .alongWith(Commands.runOnce(() -> isShooting = true))
         .alongWith(
             Commands.sequence(
-                Commands.waitUntil(() -> shooter.flywheelIsAtTarget()),
-                spindexer.startCommand(),
-                spindexer.startKickerVoltageCommand()));
+                Commands.waitUntil(() -> shooter.isAtTarget()), spindexer.forwardCommand()));
   }
 
   /** Shooting sequence with SWM compensation (degrades to static when stationary). */
@@ -207,22 +202,17 @@ public class Superstructure {
         shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance),
         Commands.runOnce(() -> isShooting = true),
         Commands.sequence(
-            Commands.waitUntil(
-                () ->
-                    shooter.flywheelIsAtTarget()
-                        && shooter.hoodIsAtTarget()
-                        && turret.isAtTarget()
-                        && swmSolutionFeasible),
-            spindexer.startCommand(),
-            spindexer.CommandRunKickerCommand(10)));
+            Commands.waitUntil(() -> shooter.isAtTarget()),
+            Commands.either(
+                    spindexer.forwardCommand(),
+                    spindexer.prepFeed(),
+                    () -> turret.isAtTarget() && swmSolutionFeasible)
+                .repeatedly()));
   }
 
   public Command stopShoot() {
     return Commands.sequence(
-        Commands.runOnce(() -> isShooting = false),
-        spindexer.stopCommand(),
-        spindexer.stopKickerCommand(),
-        shooter.stopCommand());
+        Commands.runOnce(() -> isShooting = false), spindexer.stopCommand(), shooter.stopCommand());
   }
 
   public Command spinSpinDexerBack() {
@@ -286,7 +276,6 @@ public class Superstructure {
     // where both agree (usually converges in 2-3 iterations).
     Translation2d virtualTarget = realTarget;
     Translation2d prev = virtualTarget;
-    double robotSpeed = velocity.getNorm();
     swmConverged = false;
 
     for (int i = 0; i < 20; i++) {
@@ -306,14 +295,26 @@ public class Superstructure {
       Translation2d vRadial = aim.times(vRadialMag);
       Translation2d vTangential = velocity.minus(vRadial);
 
-      // Effective TOF: accounts for drag reducing lateral drift during flight
-      double flywheelSpeed =
-          ShooterLookup.getFlywheelMap().get(lookupDist) * 2 * Math.PI * FLYWHEEL_RADIUS;
-      double vRef = Math.sqrt(flywheelSpeed * flywheelSpeed + robotSpeed * robotSpeed);
-      double beta = K_DRAG * vRef / BALL_MASS;
+      double ballRadialSpeed = dist / tof;
+      double effectiveRadialSpeed = ballRadialSpeed + vRadialMag;
+
+      // Ball can't outrun the robot — fall back to aiming at real target
+      if (effectiveRadialSpeed < 0.5) {
+        swmConverged = false;
+        break;
+      }
+
+      // Radial drift uses raw tof — the inherited radial velocity is a small
+      // perturbation on the ball's own airspeed, so drag on it is second-order.
+      // Tangential drift needs explicit drag correction (tofEff) because the
+      // inherited velocity IS the entire tangential airspeed.
+      double vTangentialMag = vTangential.getNorm();
+      double vRef =
+          Math.sqrt(
+              effectiveRadialSpeed * effectiveRadialSpeed + vTangentialMag * vTangentialMag);
+      double beta = K_DRAG * vRef / BallPhysicsSimulation.BALL_MASS_KG;
       double tofEff = (beta > 1e-8) ? (1.0 - Math.exp(-beta * tof)) / beta : tof;
 
-      // Radial uses raw TOF; tangential uses effective TOF (drag reduces lateral drift)
       virtualTarget = realTarget.minus(vRadial.times(tof)).minus(vTangential.times(tofEff));
 
       if (virtualTarget.getDistance(prev) < 0.001) {
@@ -343,7 +344,7 @@ public class Superstructure {
   }
 
   @Logged
-  public AngularVelocity getTargetFlyhweel() {
+  public AngularVelocity getTargetFlywheel() {
     return shooter.getTargetVelocity();
   }
 
