@@ -252,17 +252,15 @@ public class Superstructure {
     double omega = fieldSpeeds.omegaRadiansPerSecond;
 
     // Rotate the turret offset from robot frame into field frame
-    double cos = advancedPose.getRotation().getCos();
-    double sin = advancedPose.getRotation().getSin();
-    double fieldOffX = TURRET_HOLE_CENTER.getX() * cos - TURRET_HOLE_CENTER.getY() * sin;
-    double fieldOffY = TURRET_HOLE_CENTER.getX() * sin + TURRET_HOLE_CENTER.getY() * cos;
+    Translation2d fieldOffset =
+        TURRET_TRANSFORM.getTranslation().rotateBy(advancedPose.getRotation());
 
-    // Total velocity = robot translation + omega x r (cross product gives the
-    // tangential speed from spinning around the offset point)
+    // Total velocity = robot translation + omega × r
+    // rotateBy(kCCW_90deg) turns (x,y) into (-y,x), which is the 2D cross product with omega
+    Translation2d robotVelocity =
+        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     Translation2d velocity =
-        new Translation2d(
-            fieldSpeeds.vxMetersPerSecond + (-omega * fieldOffY),
-            fieldSpeeds.vyMetersPerSecond + (omega * fieldOffX));
+        robotVelocity.plus(fieldOffset.rotateBy(Rotation2d.kCCW_90deg).times(omega));
 
     // --- Step 3: Find the virtual target (where to actually aim) ---
     // Think of it like throwing a ball on a moving train: you aim behind your
@@ -291,7 +289,7 @@ public class Superstructure {
 
       // Decompose velocity into radial (along aim) and tangential (perpendicular)
       Translation2d aim = virtualTarget.minus(robotPosition).div(dist);
-      double vRadialMag = velocity.getX() * aim.getX() + velocity.getY() * aim.getY();
+      double vRadialMag = velocity.dot(aim);
       Translation2d vRadial = aim.times(vRadialMag);
       Translation2d vTangential = velocity.minus(vRadial);
 
@@ -310,8 +308,7 @@ public class Superstructure {
       // inherited velocity IS the entire tangential airspeed.
       double vTangentialMag = vTangential.getNorm();
       double vRef =
-          Math.sqrt(
-              effectiveRadialSpeed * effectiveRadialSpeed + vTangentialMag * vTangentialMag);
+          Math.sqrt(effectiveRadialSpeed * effectiveRadialSpeed + vTangentialMag * vTangentialMag);
       double beta = K_DRAG * vRef / BallPhysicsSimulation.BALL_MASS_KG;
       double tofEff = (beta > 1e-8) ? (1.0 - Math.exp(-beta * tof)) / beta : tof;
 
