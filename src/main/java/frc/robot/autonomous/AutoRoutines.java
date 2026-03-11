@@ -135,8 +135,10 @@ public class AutoRoutines {
                     FieldInfo.flip(
                         new Pose2d(0.814, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180))))
             .withEndTargetSpeed(0)
-            .withMaxSpeed(2)
-            .alongWith(superstructure.shoot().alongWith(intakeCoordinator.runIntake())));
+            .withMaxSpeed(1.25)
+            .alongWith(superstructure.shoot())
+            .alongWith(intakeCoordinator.runIntake())
+            .alongWith(Commands.waitSeconds(10).andThen(intakeCoordinator.intakeUp())));
   }
 
   /** Loads a PathPlanner path file, converting checked exceptions to unchecked. */

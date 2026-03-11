@@ -36,7 +36,7 @@ public class ShooterLookup {
     flywheelMap.put(3.5, 32.0);
     flywheelMap.put(4.0, 35.0);
     flywheelMap.put(4.5, 38.0);
-    flywheelMap.put(5.0, 40.0);
+    flywheelMap.put(5.0, 39.0);
     flywheelMap.put(5.5, 43.0);
   }
 
