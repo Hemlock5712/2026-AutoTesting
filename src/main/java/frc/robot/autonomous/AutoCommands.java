@@ -1,8 +1,10 @@
 package frc.robot.autonomous;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.Robot;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import java.util.function.BooleanSupplier;
@@ -172,5 +174,17 @@ public class AutoCommands {
   public Command driveToThenBranch(
       Supplier<Pose2d> targetPose, BooleanSupplier condition, Command ifTrue, Command ifFalse) {
     return Commands.sequence(driveTo(targetPose), Commands.either(ifTrue, ifFalse, condition));
+  }
+
+  /**
+   * Only affects sim, resets pose to starting config on right side
+   *
+   * @return
+   */
+  public Command rightAutoSetup() {
+    if (Robot.isSimulation()) {
+      return resetPose(() -> new Pose2d(4.378, 0.639445, Rotation2d.kZero));
+    }
+    return Commands.none();
   }
 }

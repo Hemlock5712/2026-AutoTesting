@@ -16,6 +16,10 @@ public class AutoRoutines {
   private final Superstructure superstructure;
   private final IntakeCoordinator intakeCoordinator;
 
+  private static final double RIGHT_TRENCH_CENTER = 0.639445; // Center of right trench
+  private static final double BUMPERS_ON_LINE =
+      4.378; // Under trench, bumpers just barely on the line, starting X
+
   public AutoRoutines(
       AutoCommands autoCommands,
       Superstructure superstructure,
@@ -83,6 +87,65 @@ public class AutoRoutines {
         autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445, Rotation2d.kZero))),
         superstructure.shoot(),
         Commands.waitSeconds(5));
+  }
+
+  public static final Pose2d WP_1 = new Pose2d(6.104, 1.083, Rotation2d.fromDegrees(-2));
+  public static final Pose2d WP_2 = new Pose2d(9.138, 1.753, Rotation2d.fromDegrees(89));
+  public static final Pose2d WP_3 = new Pose2d(9.195, 3.149, Rotation2d.fromDegrees(109));
+  public static final Pose2d WP_4 = new Pose2d(6.589, 1.254, Rotation2d.fromDegrees(-180));
+  public static final Pose2d WP_5 = new Pose2d(4.566, 1.126, Rotation2d.fromDegrees(180));
+  public static final Pose2d WP_6 = new Pose2d(1.204, 1.140, Rotation2d.fromDegrees(-180));
+
+  public Command pizzaAuto() {
+    return Commands.sequence(
+            autoCommands.rightAutoSetup(),
+            // Drive through trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        FieldInfo.flip(
+                            new Pose2d(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0))))
+                .withWaypoint(5)
+                .withPositionTolerance(0.25),
+            // Drive to midline, right of balls
+            autoCommands
+                .driveTo(() -> FieldInfo.flip(new Pose2d(8.652, 1.036, Rotation2d.fromDegrees(90))))
+                .withPositionTolerance(0.25)
+                .withWaypoint(0.5)
+                .alongWith(intakeCoordinator.deployAndRun()),
+            // Drive left through balls at midline, at a slight backwards angle
+            autoCommands
+                .driveTo(
+                    () -> FieldInfo.flip(new Pose2d(8.481, 2.766, Rotation2d.fromDegrees(110))))
+                .withWaypoint(0.5)
+                .withMaxSpeed(1)
+                .withPositionTolerance(0.25),
+            // Drive back to trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        FieldInfo.flip(
+                            new Pose2d(5.959, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180))))
+                .withWaypoint(0.2)
+                .withMaxSpeed(3),
+            // Drive under trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        FieldInfo.flip(
+                            new Pose2d(4.378, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180))))
+                .withWaypoint(2)
+                .withMaxSpeed(4),
+            // Drive to outpost
+            autoCommands
+                .driveTo(
+                    () ->
+                        FieldInfo.flip(
+                            new Pose2d(0.814, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180))))
+                .withEndTargetSpeed(0)
+                .withMaxSpeed(2)
+                .alongWith(superstructure.shoot().alongWith(intakeCoordinator.runIntake()))
+    );
   }
 
   /** Loads a PathPlanner path file, converting checked exceptions to unchecked. */

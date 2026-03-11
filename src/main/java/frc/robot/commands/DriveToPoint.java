@@ -22,7 +22,7 @@ import java.util.function.Supplier;
 public class DriveToPoint extends Command {
 
   // Time buffer for braking calculations (accounts for system latency)
-  private static final double BRAKING_REACTION_TIME = 0.03; // seconds
+  private static final double BRAKING_REACTION_TIME = 0.1; // seconds
 
   // Tolerance for waypoint-style endings (larger to prevent oscillation)
   private static final double WAYPOINT_TOLERANCE = 0.15; // meters
