@@ -59,7 +59,8 @@ public class Superstructure {
   public static final Transform2d TURRET_TRANSFORM =
       new Transform2d(TURRET_HOLE_CENTER.getX(), TURRET_HOLE_CENTER.getY(), Rotation2d.kZero);
 
-  // Air drag parameters for effective TOF calculation (ball properties from BallPhysicsSimulation)
+  // Air drag parameters for effective TOF calculation (ball properties from
+  // BallPhysicsSimulation)
   private static final double AIR_DENSITY = 1.225; // kg/m^3
   private static final double BALL_RADIUS = BallPhysicsSimulation.BALL_DIAMETER_M / 2;
   private static final double CROSS_SECTION = Math.PI * BALL_RADIUS * BALL_RADIUS;
@@ -124,8 +125,8 @@ public class Superstructure {
       // Compute both feed positions in current-alliance coordinates, then pick the
       // one
       // on the same side of the field (upper vs. lower Y half) as the robot.
-      Translation2d feedA = FieldInfo.flip(FieldInfo.LEFT_FEED_POSITION);
-      Translation2d feedB = FieldInfo.flip(FieldInfo.RIGHT_FEED_POSITION);
+      Translation2d feedA = FieldInfo.LEFT_FEED_POSITION.get();
+      Translation2d feedB = FieldInfo.RIGHT_FEED_POSITION.get();
       Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
       Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
       targetPosition =
@@ -260,7 +261,8 @@ public class Superstructure {
         TURRET_TRANSFORM.getTranslation().rotateBy(advancedPose.getRotation());
 
     // Total velocity = robot translation + omega × r
-    // rotateBy(kCCW_90deg) turns (x,y) into (-y,x), which is the 2D cross product with omega
+    // rotateBy(kCCW_90deg) turns (x,y) into (-y,x), which is the 2D cross product
+    // with omega
     Translation2d robotVelocity =
         new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     Translation2d velocity =
@@ -270,7 +272,7 @@ public class Superstructure {
     // Think of it like throwing a ball on a moving train: you aim behind your
     // target so the train's motion carries the ball to the right spot.
     // virtualTarget = where turret aims
-    // realTarget    = where ball actually lands (the goal)
+    // realTarget = where ball actually lands (the goal)
     // The difference is how far the ball drifts during flight due to our velocity.
     //
     // We iterate because time-of-flight depends on distance to virtualTarget,

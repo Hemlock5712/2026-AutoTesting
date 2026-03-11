@@ -96,6 +96,7 @@ public class RobotContainer {
     // AutoHumanPlayerSIMONLY
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
     autoChooser.addOption("Pizza Auto", autoRoutines.pizzaAuto());
+    autoChooser.addOption("Pizza Auto Feed Back", autoRoutines.pizzaAutoFeedBack());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

@@ -10,6 +10,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import frc.robot.utils.geometry.ExtTranslation;
 import java.util.List;
 
 public final class FieldInfo {
@@ -100,9 +101,9 @@ public final class FieldInfo {
 
   public static final Distance HUB_HEIGHT = Meters.of(1.828);
 
-  public static final Translation2d LEFT_FEED_POSITION = new Translation2d(1.5, 1.500);
+  public static final ExtTranslation LEFT_FEED_POSITION = new ExtTranslation(1.5, 6.500);
 
-  public static final Translation2d RIGHT_FEED_POSITION = new Translation2d(1.5, 6.500);
+  public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1.5, 1.500);
 
   public static final double ALLIANCE_ZONE_X = 4.625594;
 

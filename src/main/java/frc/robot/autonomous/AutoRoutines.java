@@ -8,6 +8,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
+import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
 
 public class AutoRoutines {
@@ -130,6 +131,78 @@ public class AutoRoutines {
             .alongWith(superstructure.shoot())
             .alongWith(intakeCoordinator.runIntake())
             .alongWith(Commands.waitSeconds(10).andThen(intakeCoordinator.intakeUp())));
+  }
+
+  public Command pizzaAutoFeedBack() {
+    return Commands.sequence(
+        autoCommands.rightAutoSetup(),
+        // Drive through trench
+        autoCommands
+            .driveTo(() -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
+            .withWaypoint(5)
+            .withPositionTolerance(0.25),
+        // Drive to midline, right of balls
+        autoCommands
+            .driveTo(() -> new ExtPose(8.652, 1.036, Rotation2d.fromDegrees(90)).get())
+            .withPositionTolerance(0.25)
+            .withWaypoint(0.5)
+            .alongWith(intakeCoordinator.deployAndRun()),
+
+        // Drive left through balls at midline, at a slight backwards angle
+        autoCommands
+            .driveTo(() -> new ExtPose(8.481, 3.6, Rotation2d.fromDegrees(110)).get())
+            .withWaypoint(0.5)
+            .withMaxSpeed(1)
+            .withPositionTolerance(0.25)
+            .deadlineFor(superstructure.shoot()),
+
+        // Drive back to trench
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(5.959, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+            .withWaypoint(0.2)
+            .withMaxSpeed(3)
+            .deadlineFor(superstructure.shoot()),
+        // Drive under trench
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(4.378, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get())
+            .withWaypoint(2)
+            .withMaxSpeed(4)
+            .alongWith(superstructure.stopShoot()),
+        Commands.sequence(
+                // Drive to outpost
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(0.814, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180))
+                                .get())
+                    .withEndTargetSpeed(0)
+                    .withMaxSpeed(1.75),
+                // Give robot some time to get loaded from outpost
+                Commands.waitSeconds(5),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    2.0,
+                                    FieldInfo.RIGHT_FEED_POSITION.get().getY(),
+                                    Rotation2d.fromDegrees(180))
+                                .get())
+                    .withWaypoint(0.5)
+                    .withMaxSpeed(2),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    0.814,
+                                    FieldInfo.RIGHT_FEED_POSITION.get().getY(),
+                                    Rotation2d.fromDegrees(180))
+                                .get())
+                    .withEndTargetSpeed(0)
+                    .withMaxSpeed(1.25))
+            .alongWith(superstructure.shoot())
+            .alongWith(intakeCoordinator.runIntake()));
   }
 
   /** Loads a PathPlanner path file, converting checked exceptions to unchecked. */
