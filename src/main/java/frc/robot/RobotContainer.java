@@ -97,6 +97,7 @@ public class RobotContainer {
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
     autoChooser.addOption("Pizza Auto", autoRoutines.pizzaAuto());
     autoChooser.addOption("Pizza Auto Feed Back", autoRoutines.pizzaAutoFeedBack());
+    autoChooser.addOption("Left Side Auto", autoRoutines.leftSideAuto());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

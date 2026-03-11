@@ -256,6 +256,17 @@ public class BallPhysicsSimulation extends SubsystemBase {
     // Get flywheel speed in rotations per second
     double flywheelRPS = superstructure.getTargetFlywheel().in(RotationsPerSecond);
 
+    // Scale down speed in sim. Scales down more as the flywheel speed is higher.
+    // At 50 RPS, the speed is scaled down to 0.65.
+    // At 20 RPS, the speed is not scaled down at all (factor 1.0).
+    // Solve for scaleDownFactor = m * flywheelRPS + b
+    // 0.65 = m * 50 + b
+    // 1.0 = m * 20 + b
+    // m = (0.65-1.0)/(50-20) = -0.35/30 = -0.011666...
+    // b = 1.0 - m * 20 = 1.0 - (-0.011666...)*20 = 1.233333...
+    double scaleDownFactor = (-0.35 / 30.0) * flywheelRPS + 1.2333333;
+    flywheelRPS *= scaleDownFactor;
+
     // Convert to linear velocity at flywheel radius
     // v = ω * r = (RPS * 2π) * r
     double flywheelLinearVel = flywheelRPS * 2.0 * Math.PI * flywheelRadius;
