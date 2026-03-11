@@ -8,7 +8,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
-import frc.robot.utils.FieldInfo;
+import frc.robot.utils.geometry.ExtPose;
 
 public class AutoRoutines {
 
@@ -63,9 +63,9 @@ public class AutoRoutines {
     return Commands.sequence(
         Commands.print("=== Sequential Scoring Auto ==="),
         autoCommands.resetPose(() -> Pose2d.kZero),
-        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(3.0, 0, Rotation2d.kZero))),
-        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(3.0, 3.0, Rotation2d.kZero))),
-        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(0, 0, Rotation2d.kZero))));
+        autoCommands.driveTo(() -> new ExtPose(3.0, 0, Rotation2d.kZero).get()),
+        autoCommands.driveTo(() -> new ExtPose(3.0, 3.0, Rotation2d.kZero).get()),
+        autoCommands.driveTo(() -> new ExtPose(0, 0, Rotation2d.kZero).get()));
   }
 
   /** PathPlanner path version of AutoHumanPlayerSIMONLY. */
@@ -80,11 +80,11 @@ public class AutoRoutines {
         Commands.parallel(
             intakeCoordinator.deployAndRun(),
             autoCommands
-                .driveTo(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445, Rotation2d.kZero)))
+                .driveTo(() -> new ExtPose(4.378, 0.639445, Rotation2d.kZero).get())
                 .withWaypoint(2)),
         AutoBuilder.followPath(rightToCenter),
         AutoBuilder.followPath(centerToRight),
-        autoCommands.driveTo(() -> FieldInfo.flip(new Pose2d(4.378, 0.639445, Rotation2d.kZero))),
+        autoCommands.driveTo(() -> new ExtPose(4.378, 0.639445, Rotation2d.kZero).get()),
         superstructure.shoot(),
         Commands.waitSeconds(5));
   }
@@ -94,46 +94,37 @@ public class AutoRoutines {
         autoCommands.rightAutoSetup(),
         // Drive through trench
         autoCommands
-            .driveTo(
-                () ->
-                    FieldInfo.flip(
-                        new Pose2d(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0))))
+            .driveTo(() -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
             .withWaypoint(5)
             .withPositionTolerance(0.25),
         // Drive to midline, right of balls
         autoCommands
-            .driveTo(() -> FieldInfo.flip(new Pose2d(8.652, 1.036, Rotation2d.fromDegrees(90))))
+            .driveTo(() -> new ExtPose(8.652, 1.036, Rotation2d.fromDegrees(90)).get())
             .withPositionTolerance(0.25)
             .withWaypoint(0.5)
             .alongWith(intakeCoordinator.deployAndRun()),
         // Drive left through balls at midline, at a slight backwards angle
         autoCommands
-            .driveTo(() -> FieldInfo.flip(new Pose2d(8.481, 2.766, Rotation2d.fromDegrees(110))))
+            .driveTo(() -> new ExtPose(8.481, 2.766, Rotation2d.fromDegrees(110)).get())
             .withWaypoint(0.5)
             .withMaxSpeed(1)
             .withPositionTolerance(0.25),
         // Drive back to trench
         autoCommands
             .driveTo(
-                () ->
-                    FieldInfo.flip(
-                        new Pose2d(5.959, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180))))
+                () -> new ExtPose(5.959, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
             .withWaypoint(0.2)
             .withMaxSpeed(3),
         // Drive under trench
         autoCommands
             .driveTo(
-                () ->
-                    FieldInfo.flip(
-                        new Pose2d(4.378, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180))))
+                () -> new ExtPose(4.378, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get())
             .withWaypoint(2)
             .withMaxSpeed(4),
         // Drive to outpost
         autoCommands
             .driveTo(
-                () ->
-                    FieldInfo.flip(
-                        new Pose2d(0.814, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180))))
+                () -> new ExtPose(0.814, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
             .withEndTargetSpeed(0)
             .withMaxSpeed(1.25)
             .alongWith(superstructure.shoot())

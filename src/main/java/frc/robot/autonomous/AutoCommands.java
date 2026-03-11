@@ -7,6 +7,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Robot;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.utils.geometry.ExtPose;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
@@ -183,7 +184,7 @@ public class AutoCommands {
    */
   public Command rightAutoSetup() {
     if (Robot.isSimulation()) {
-      return resetPose(() -> new Pose2d(4.378, 0.639445, Rotation2d.kZero));
+      return resetPose(() -> new ExtPose(4.378, 0.639445, Rotation2d.kZero).get());
     }
     return Commands.none();
   }
