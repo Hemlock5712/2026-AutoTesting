@@ -4,7 +4,7 @@ import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.MotionMagicTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
@@ -28,24 +28,29 @@ public class IntakeArm extends SubsystemBase {
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
-  private final MotionMagicVoltage positionOut = new MotionMagicVoltage(0);
+  private final MotionMagicTorqueCurrentFOC positionOut = new MotionMagicTorqueCurrentFOC(0);
 
   private static final Angle TOLERANCE = Degrees.of(3);
 
   Alert motorConfigAlert = new Alert("Intake Arm Motor Configuration Failed", AlertType.kError);
 
   public IntakeArm() {
+    // Coast mode: Motor can be moved by hand when disabled (easier for testing)
     config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+    // Set motor direction: positive power = counterclockwise rotation
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
-    config.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
+    config.Slot0.GravityType =
+        GravityTypeValue.Arm_Cosine; // Automatically fights gravity using math
 
-    config.Slot0.kG = 0.44;
-    config.Slot0.kS = 0.0;
-    config.Slot0.kP = 16;
-    config.Slot0.kD = 1;
+    config.Slot0.kG = 15; // Gravity compensation
+    config.Slot0.kS = 0.0; // Static friction
+    config.Slot0.kP = 600; // Proportional gain (speed of correction)
+    config.Slot0.kD = 40; // Derivative gain (smoothness)
 
-    config.MotionMagic.MotionMagicCruiseVelocity = 4;
-    config.MotionMagic.MotionMagicAcceleration = 8;
+    // Motion limits (TODO: CRITICAL - Set non-zero values!)
+    config.MotionMagic.MotionMagicCruiseVelocity = 4; // Max speed
+    config.MotionMagic.MotionMagicAcceleration = 8; // How fast to speed up
+    // Tell the motor to use the CANcoder sensor for position measurements
     config.Feedback.withRemoteCANcoder(armEncoder);
     config.Feedback.RotorToSensorRatio = 25;
 
@@ -65,7 +70,7 @@ public class IntakeArm extends SubsystemBase {
   }
 
   public Command intakeUp() {
-    return runOnce(() -> setPosition(Rotations.of(.27)));
+    return runOnce(() -> setPosition(Rotations.of(.17)));
   }
 
   @Logged

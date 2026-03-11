@@ -34,7 +34,7 @@ import java.util.function.Supplier;
 public class AxisLockDrive extends Command {
 
   // Braking reaction time buffer (matches DriveToPoint)
-  private static final double BRAKING_REACTION_TIME = 0.06;
+  private static final double BRAKING_REACTION_TIME = 0.1;
 
   // Position lock tolerance - stop correcting when within this distance (meters)
   private static final double POSITION_LOCK_TOLERANCE = 0.02; // 2 cm

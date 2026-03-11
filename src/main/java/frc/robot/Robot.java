@@ -29,8 +29,8 @@ public class Robot extends TimedRobot {
   private static final double MIN_OCV = 6.0; // Brownout threshold
 
   // Rumble timing thresholds (seconds before hub shift)
-  private static final double RUMBLE_START_THRESHOLD = 5.0;
-  private static final double RUMBLE_END_THRESHOLD = 4.9;
+  private static final double RUMBLE_START_THRESHOLD = 1.0;
+  private static final double RUMBLE_END_THRESHOLD = 0.5;
 
   public Robot() {
     m_robotContainer = new RobotContainer();

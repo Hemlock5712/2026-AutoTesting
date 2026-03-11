@@ -70,11 +70,11 @@ public class RobotContainer {
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 
   // Vision camera for tracking robot position
-  public final Limelight limelight = new Limelight("limelight-br", drivetrain);
-  public final Limelight limelight1 = new Limelight("limelight-bl", drivetrain);
-  public final Limelight limelight2 = new Limelight("limelight-fl", drivetrain);
-  public final Limelight limelight3 = new Limelight("limelight-fr", drivetrain);
-  public final Limelight limelight4 = new Limelight("limelight-mm", drivetrain);
+  public final Limelight limelightBR = new Limelight("limelight-br", drivetrain);
+  public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain);
+  public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
+  public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
+  public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -166,7 +166,7 @@ public class RobotContainer {
 
     joystick.povUp().onTrue(intakeCoordinator.intakeUp());
 
-    joystick.y().whileTrue(superstructure.shoot()).onFalse(superstructure.stopShoot());
+    joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.a().onTrue(intakeCoordinator.runIntake());
     joystick.b().onFalse(intakeCoordinator.stopWheel());

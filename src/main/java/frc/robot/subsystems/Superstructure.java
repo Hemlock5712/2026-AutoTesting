@@ -67,8 +67,12 @@ public class Superstructure {
       0.5 * AIR_DENSITY * BallPhysicsSimulation.DRAG_COEFFICIENT * CROSS_SECTION;
 
   // ==================== Subsystems ====================
+  @Logged
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
-  private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
+
+  @Logged private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
+
+  @Logged
   private final Spindexer spindexer =
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
