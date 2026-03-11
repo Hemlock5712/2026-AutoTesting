@@ -288,7 +288,7 @@ public class Superstructure {
       }
 
       // Clamp distance to lookup table range to prevent extrapolation
-      double lookupDist = Math.min(dist, 5.0);
+      double lookupDist = Math.min(dist, 5.5);
       double tof = ShooterLookup.getToFMap().get(lookupDist);
 
       // Decompose velocity into radial (along aim) and tangential (perpendicular)
@@ -329,7 +329,7 @@ public class Superstructure {
     // Reject if the virtual target is unreasonably close (shooter can't contribute)
     // or beyond our lookup table range (extrapolated values are unreliable).
     double virtDist = robotPosition.getDistance(virtualTarget);
-    swmSolutionFeasible = swmConverged && virtDist > 1 && virtDist <= 5;
+    swmSolutionFeasible = swmConverged && virtDist > 1 && virtDist <= 5.5;
 
     return virtualTarget;
   }
