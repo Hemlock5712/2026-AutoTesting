@@ -95,6 +95,8 @@ public class Robot extends TimedRobot {
 
     if (DriverStation.isFMSAttached()) {
       CommandScheduler.getInstance().schedule(m_robotContainer.fmsInitCommand());
+    } else {
+      CommandScheduler.getInstance().schedule(m_robotContainer.stopCommand());
     }
   }
 

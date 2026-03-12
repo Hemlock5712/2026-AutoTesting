@@ -203,6 +203,10 @@ public class RobotContainer {
     return Commands.parallel(intakeCoordinator.deployAndRun(), superstructure.stopShoot());
   }
 
+  public Command stopCommand() {
+    return Commands.parallel(intakeCoordinator.stopBoth(), superstructure.stopShoot());
+  }
+
   public enum StartingPosition {
     LEFT(new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.kZero)),
     MIDDLE(new ExtPose(4.378, FieldInfo.width().in(Meters) / 2.0, Rotation2d.kZero)),
