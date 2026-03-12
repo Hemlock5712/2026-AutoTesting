@@ -17,6 +17,7 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
@@ -39,7 +40,7 @@ public class IntakeArm extends SubsystemBase {
 
   public IntakeArm() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
-    config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+    config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     // Set motor direction: positive power = counterclockwise rotation
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     config.Slot0.GravityType =
@@ -50,7 +51,7 @@ public class IntakeArm extends SubsystemBase {
     config.Slot0.kP = 600; // Proportional gain (speed of correction)
     config.Slot0.kD = 40; // Derivative gain (smoothness)
 
-    // Motion limits (TODO: CRITICAL - Set non-zero values!)
+    // Motion limits
     config.MotionMagic.MotionMagicCruiseVelocity = 4; // Max speed
     config.MotionMagic.MotionMagicAcceleration = 8; // How fast to speed up
     // Tell the motor to use the CANcoder sensor for position measurements
@@ -69,10 +70,10 @@ public class IntakeArm extends SubsystemBase {
   }
 
   public Command intakeDown() {
-    return runOnce(() -> arm.setControl(positionOut.withPosition(0)));
-    // .andThen(Commands.waitUntil(() -> isAtTarget()))
-    // .andThen(stopArm())
-    // .andThen(runOnce(() -> arm.setControl(ff)));
+    return runOnce(() -> setPosition(Rotations.of(0)))
+        .andThen(Commands.waitUntil(() -> isAtTarget()))
+        .andThen(stopArm())
+        .andThen(runOnce(() -> arm.setControl(ff)));
   }
 
   public Command intakeUp() {

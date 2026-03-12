@@ -50,19 +50,6 @@ import frc.robot.utils.geometry.ExtPose;
  */
 @Logged
 public class RobotContainer {
-
-  public enum StartingPosition {
-    LEFT(new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.kZero)),
-    MIDDLE(new ExtPose(4.378, FieldInfo.width().in(Meters) / 2.0, Rotation2d.kZero)),
-    RIGHT(new ExtPose(4.378, 0.639445, Rotation2d.kZero));
-
-    public final ExtPose pose;
-
-    StartingPosition(ExtPose pose) {
-      this.pose = pose;
-    }
-  }
-
   private static final double JOYSTICK_DEADBAND = 0.05;
 
   private double maxSpeed =
@@ -210,6 +197,22 @@ public class RobotContainer {
 
   public Superstructure getSuperstructure() {
     return superstructure;
+  }
+
+  public Command fmsInitCommand() {
+    return Commands.parallel(intakeCoordinator.deployAndRun(), superstructure.stopShoot());
+  }
+
+  public enum StartingPosition {
+    LEFT(new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.kZero)),
+    MIDDLE(new ExtPose(4.378, FieldInfo.width().in(Meters) / 2.0, Rotation2d.kZero)),
+    RIGHT(new ExtPose(4.378, 0.639445, Rotation2d.kZero));
+
+    public final ExtPose pose;
+
+    StartingPosition(ExtPose pose) {
+      this.pose = pose;
+    }
   }
 
   /** Checks if starting position changed and resets drivetrain pose. Call from disabledPeriodic. */

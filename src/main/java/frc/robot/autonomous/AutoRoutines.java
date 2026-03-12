@@ -2,7 +2,6 @@ package frc.robot.autonomous;
 
 import static edu.wpi.first.units.Units.Meters;
 
-import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -77,41 +76,34 @@ public class AutoRoutines {
         // Drive through trench
         autoCommands
             .driveTo(() -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
-            .withWaypoint(5)
-            .withWaypointTolerance(),
+            .withWaypoint(5),
         // Drive to midline, right of balls
         autoCommands
             .driveTo(() -> new ExtPose(8.652, 1.036, Rotation2d.fromDegrees(90)).get())
-            .withWaypointTolerance()
             .withWaypoint(0.5)
             .alongWith(intakeCoordinator.deployAndRun()),
         // Drive left through balls at midline, at a slight backwards angle
         autoCommands
             .driveTo(() -> new ExtPose(8.481, 2.766, Rotation2d.fromDegrees(110)).get())
             .withWaypoint(0.5)
-            .withMaxSpeed(1)
-            .withWaypointTolerance(),
+            .withMaxSpeed(1),
         // Drive back to trench
         autoCommands
             .driveTo(
                 () -> new ExtPose(5.959, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
-            .withWaypoint(0.2)
-            .withMaxSpeed(3),
+            .withWaypointTolerance(),
         // Drive under trench
         autoCommands
             .driveTo(
                 () -> new ExtPose(4.378, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get())
-            .withWaypoint(2)
-            .withMaxSpeed(4),
+            .withWaypoint(1.5),
         // Drive to outpost
         autoCommands
             .driveTo(
                 () -> new ExtPose(0.814, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
-            .withEndTargetSpeed(0)
-            .withMaxSpeed(1.25)
+            .withMaxSpeed(1.5)
             .alongWith(superstructure.shoot())
-            .alongWith(intakeCoordinator.runIntake())
-            .alongWith(Commands.waitSeconds(10).andThen(intakeCoordinator.intakeUp())));
+            .alongWith(Commands.waitSeconds(10).andThen(intakeCoordinator.upAndRun())));
   }
 
   public Command pizzaAutoFeedBack() {
@@ -223,14 +215,5 @@ public class AutoRoutines {
             Commands.sequence(
                 Commands.waitSeconds(3), intakeCoordinator.upAndRun(), Commands.waitSeconds(2)),
             superstructure.shoot()));
-  }
-
-  /** Loads a PathPlanner path file, converting checked exceptions to unchecked. */
-  private static PathPlannerPath loadPath(String name) {
-    try {
-      return PathPlannerPath.fromPathFile(name);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to load path: " + name, e);
-    }
   }
 }
