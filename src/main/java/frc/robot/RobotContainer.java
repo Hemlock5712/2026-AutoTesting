@@ -6,8 +6,6 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -121,15 +119,6 @@ public class RobotContainer {
             () -> translationVel[1],
             () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
 
-    joystick
-        .start()
-        .onTrue(drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(0, 0, Rotation2d.kZero))));
-
-    joystick
-        .back()
-        .onTrue(
-            drivetrain.runOnce(() -> drivetrain.resetPose(new Pose2d(1.5, 1, Rotation2d.kZero))));
-
     // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
     joystick
         .leftBumper()
@@ -156,7 +145,7 @@ public class RobotContainer {
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
 
-    joystick.rightTrigger().whileTrue(superstructure.shoot()).onFalse(superstructure.stopShoot());
+    joystick.rightTrigger(0.5).onTrue(superstructure.shoot()).onFalse(superstructure.stopShoot());
 
     joystick
         .leftTrigger(0.5)
@@ -166,12 +155,7 @@ public class RobotContainer {
                 intakeCoordinator.stopAndRetract(),
                 () -> intakeCoordinator.getTargetPositionRotations() != 0));
 
-    joystick.povUp().onTrue(intakeCoordinator.intakeUp());
-
-    joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
-
-    joystick.a().onTrue(intakeCoordinator.runIntake());
-    joystick.b().onFalse(intakeCoordinator.stopWheel());
+    // joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick
         .x()
