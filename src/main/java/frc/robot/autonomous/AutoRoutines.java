@@ -100,7 +100,7 @@ public class AutoRoutines {
         // Drive to outpost
         autoCommands
             .driveTo(
-                () -> new ExtPose(0.814, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+                () -> new ExtPose(0.744, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
             .withMaxSpeed(1.5)
             .alongWith(superstructure.shoot())
             .alongWith(Commands.waitSeconds(10).andThen(intakeCoordinator.upAndRun())));
