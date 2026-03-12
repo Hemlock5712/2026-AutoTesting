@@ -32,6 +32,8 @@ public class Robot extends TimedRobot {
   private static final double RUMBLE_START_THRESHOLD = 1.0;
   private static final double RUMBLE_END_THRESHOLD = 0.5;
 
+  private boolean hasMatchStarted = false;
+
   public Robot() {
     m_robotContainer = new RobotContainer();
     RobotController.setBrownoutVoltage(MIN_OCV);
@@ -56,13 +58,18 @@ public class Robot extends TimedRobot {
   }
 
   @Override
-  public void disabledPeriodic() {}
+  public void disabledPeriodic() {
+    if (!hasMatchStarted) {
+      m_robotContainer.checkStartingPosition();
+    }
+  }
 
   @Override
   public void disabledExit() {}
 
   @Override
   public void autonomousInit() {
+    hasMatchStarted = true;
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
     if (m_autonomousCommand != null) {
@@ -78,6 +85,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopInit() {
+    hasMatchStarted = true;
     if (m_autonomousCommand != null) {
       m_autonomousCommand.cancel();
     }

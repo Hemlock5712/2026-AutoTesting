@@ -146,7 +146,13 @@ public class DualEncoderCRT {
 
     // Continuous encoder position is simply n + absolute reading.
     // TalonFX divides by SensorToMechanismRatio (5.0) to get mechanism rotations.
-    encoder1.setPosition(n + e1);
+    // For negative mechanism positions (>= FORWARD_LIMIT before wrapping),
+    // shift down by one full encoder cycle so the motor reports the correct signed position.
+    double continuousPosition = n + e1;
+    if (continuousPosition / ENCODER_1_MECHANISM_RATIO >= FORWARD_LIMIT) {
+      continuousPosition -= ENCODER_1_MECHANISM_RATIO;
+    }
+    encoder1.setPosition(continuousPosition);
 
     return true;
   }
@@ -197,6 +203,9 @@ public class DualEncoderCRT {
 
     for (int n = 0; n < searchLimit; n++) {
       double mech = (n + e1) / ENCODER_1_MECHANISM_RATIO;
+      if (mech >= FORWARD_LIMIT) {
+        mech -= 1.0;
+      }
       double expectedE2 = ((mech * ENCODER_2_MECHANISM_RATIO) % 1.0 + 1.0) % 1.0;
       double error = Math.abs(wrapDiffStatic(e2, expectedE2));
 

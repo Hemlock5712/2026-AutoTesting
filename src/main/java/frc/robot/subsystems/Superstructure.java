@@ -20,6 +20,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Robot;
+import frc.robot.commands.AccelerationLimiter;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
@@ -269,7 +270,12 @@ public class Superstructure {
     // The turret moves because (a) the whole robot is translating and (b) the
     // turret is off-center, so robot rotation swings it in a circle (like
     // sitting on a merry-go-round). We need both parts.
-    double omega = fieldSpeeds.omegaRadiansPerSecond;
+    //
+    // Predict velocity at ball-release time: v_predicted = v_now + a * delay.
+    // The pose is already advanced by "delay", so advancing velocity by the
+    // same amount keeps the two predictions consistent.
+    ChassisSpeeds accel = AccelerationLimiter.getLastAcceleration();
+    double omega = fieldSpeeds.omegaRadiansPerSecond + accel.omegaRadiansPerSecond * delay;
 
     // Rotate the turret offset from robot frame into field frame
     Translation2d fieldOffset =
@@ -279,7 +285,9 @@ public class Superstructure {
     // rotateBy(kCCW_90deg) turns (x,y) into (-y,x), which is the 2D cross product
     // with omega
     Translation2d robotVelocity =
-        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+        new Translation2d(
+            fieldSpeeds.vxMetersPerSecond + accel.vxMetersPerSecond * delay,
+            fieldSpeeds.vyMetersPerSecond + accel.vyMetersPerSecond * delay);
     Translation2d velocity =
         robotVelocity.plus(fieldOffset.rotateBy(Rotation2d.kCCW_90deg).times(omega));
 
