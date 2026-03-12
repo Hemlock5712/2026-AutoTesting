@@ -25,7 +25,7 @@ public class DriveToPoint extends Command {
   private static final double BRAKING_REACTION_TIME = 0.1; // seconds
 
   // Tolerance for waypoint-style endings (larger to prevent oscillation)
-  private static final double WAYPOINT_TOLERANCE = 0.15; // meters
+  private static final double WAYPOINT_TOLERANCE = 0.25; // meters
 
   private final CommandSwerveDrivetrain swerve;
   private Supplier<Pose2d> goalPose;

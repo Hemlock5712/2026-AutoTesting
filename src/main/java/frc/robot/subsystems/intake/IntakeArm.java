@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicTorqueCurrentFOC;
+import com.ctre.phoenix6.controls.TorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
@@ -30,13 +31,15 @@ public class IntakeArm extends SubsystemBase {
 
   private final MotionMagicTorqueCurrentFOC positionOut = new MotionMagicTorqueCurrentFOC(0);
 
+  private final TorqueCurrentFOC ff = new TorqueCurrentFOC(-40);
+
   private static final Angle TOLERANCE = Degrees.of(3);
 
   Alert motorConfigAlert = new Alert("Intake Arm Motor Configuration Failed", AlertType.kError);
 
   public IntakeArm() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
-    config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+    config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
     // Set motor direction: positive power = counterclockwise rotation
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     config.Slot0.GravityType =
@@ -66,7 +69,10 @@ public class IntakeArm extends SubsystemBase {
   }
 
   public Command intakeDown() {
-    return runOnce(() -> setPosition(Degrees.of(0)));
+    return runOnce(() -> arm.setControl(positionOut.withPosition(0)));
+    // .andThen(Commands.waitUntil(() -> isAtTarget()))
+    // .andThen(stopArm())
+    // .andThen(runOnce(() -> arm.setControl(ff)));
   }
 
   public Command intakeUp() {
