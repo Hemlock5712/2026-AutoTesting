@@ -161,6 +161,8 @@ public class RobotContainer {
         .x()
         .onTrue(superstructure.spinSpinDexerBack())
         .onFalse(superstructure.spinSpinDexerStop());
+
+    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
   }
 
   public Command getAutonomousCommand() {

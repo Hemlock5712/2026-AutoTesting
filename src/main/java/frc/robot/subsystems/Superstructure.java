@@ -215,6 +215,20 @@ public class Superstructure {
                 .repeatedly()));
   }
 
+  /** Shooting sequence with SWM compensation (degrades to static when stationary). */
+  public Command shootManual() {
+    return Commands.parallel(
+        Commands.run(() ->shooter.setForDistance(3.19)),
+        Commands.runOnce(() -> isShooting = true),
+        Commands.sequence(
+            Commands.waitUntil(() -> shooter.isAtTarget()),
+            Commands.either(
+                    spindexer.forwardCommand(),
+                    spindexer.prepFeed(),
+                    () -> turret.isAtTarget() && swmSolutionFeasible)
+                .repeatedly()));
+  }
+
   public Command stopShoot() {
     return Commands.sequence(
         Commands.runOnce(() -> isShooting = false), spindexer.stopCommand(), shooter.stopCommand());
