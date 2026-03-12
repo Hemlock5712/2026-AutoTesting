@@ -91,9 +91,9 @@ public class RobotContainer {
 
     // Add autonomous mode options to dashboard
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
+    autoChooser.addOption("None", Commands.none());
     // AutoHumanPlayerSIMONLY
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
-    autoChooser.addOption("Pizza Auto", autoRoutines.pizzaAuto());
     autoChooser.addOption("Pizza Auto Feed Back", autoRoutines.pizzaAutoFeedBack());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftSideAuto());
 
@@ -161,6 +161,10 @@ public class RobotContainer {
         .x()
         .onTrue(superstructure.spinSpinDexerBack())
         .onFalse(superstructure.spinSpinDexerStop());
+
+    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+
+    joystick.b().onTrue(intakeCoordinator.stopWheel());
   }
 
   public Command getAutonomousCommand() {

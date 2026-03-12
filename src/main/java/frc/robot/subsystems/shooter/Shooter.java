@@ -260,6 +260,11 @@ public class Shooter extends SubsystemBase {
     setPosition(Degrees.of(ShooterLookup.getHoodMap().get(hoodDist)));
   }
 
+  public void setForDistance(double distanceMeters) {
+    setVelocity(ShooterLookup.getFlywheelMap().get(distanceMeters));
+    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
+  }
+
   /** Command that continuously sets the hood position based on distance lookup. */
   public Command runHoodDynamic(DoubleSupplier distance) {
     return run(

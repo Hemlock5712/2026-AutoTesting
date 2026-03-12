@@ -10,6 +10,7 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
@@ -63,8 +64,12 @@ public class Limelight extends SubsystemBase {
       return null;
     }
 
+    if (poseEstimate.rawFiducials[0].ambiguity > 0.5) {
+      return null;
+    }
+
     // Use MegaTag2 for single tag estimates
-    if (poseEstimate.tagCount == 1) {
+    if (poseEstimate.tagCount == 1 && !DriverStation.isAutonomous()) {
       PoseEstimate megaTag2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(m_limelightName);
       if (!LimelightHelpers.validPoseEstimate(megaTag2)) {
         return null;
