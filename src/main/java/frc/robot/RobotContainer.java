@@ -96,10 +96,10 @@ public class RobotContainer {
     autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
 
     // Add autonomous mode options to dashboard
-    autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     autoChooser.addOption("None", Commands.none());
-    // AutoHumanPlayerSIMONLY
+    autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
+    autoChooser.addOption("Short Right Auto", autoRoutines.rightShortAuto());
     autoChooser.addOption("Pizza Auto Feed Back", autoRoutines.pizzaAutoFeedBack());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftSideAuto());
 

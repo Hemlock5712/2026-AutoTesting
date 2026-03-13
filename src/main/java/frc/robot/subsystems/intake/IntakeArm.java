@@ -5,7 +5,6 @@ import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicTorqueCurrentFOC;
-import com.ctre.phoenix6.controls.TorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
@@ -17,7 +16,6 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
@@ -31,8 +29,6 @@ public class IntakeArm extends SubsystemBase {
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
   private final MotionMagicTorqueCurrentFOC positionOut = new MotionMagicTorqueCurrentFOC(0);
-
-  private final TorqueCurrentFOC ff = new TorqueCurrentFOC(-40);
 
   private static final Angle TOLERANCE = Degrees.of(3);
 
@@ -70,10 +66,8 @@ public class IntakeArm extends SubsystemBase {
   }
 
   public Command intakeDown() {
-    return runOnce(() -> setPosition(Rotations.of(0)))
-        .andThen(Commands.waitUntil(() -> isAtTarget()))
-        .andThen(stopArm())
-        .andThen(runOnce(() -> arm.setControl(ff)));
+    // return runOnce(() -> arm.setControl(positionOut.withPosition(0).withFeedForward(-40)));
+    return runOnce(() -> arm.setControl(positionOut.withPosition(0)));
   }
 
   public Command intakeUp() {
