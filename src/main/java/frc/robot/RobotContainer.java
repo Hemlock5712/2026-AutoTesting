@@ -100,6 +100,7 @@ public class RobotContainer {
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
     autoChooser.addOption("Short Right Auto", autoRoutines.rightShortAuto());
+    autoChooser.addOption("Short Right Extend Auto", autoRoutines.rightShortExtendedAuto());
     autoChooser.addOption("Pizza Auto Feed Back", autoRoutines.pizzaAutoFeedBack());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftSideAuto());
 

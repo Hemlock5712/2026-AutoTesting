@@ -62,7 +62,7 @@ public class IntakeCoordinator {
   }
 
   public Command upAndRun() {
-    return Commands.parallel(arm.intakeUp(), wheels.runIntake());
+    return Commands.parallel(arm.intakeUp(), wheels.runFast());
   }
 
   /** Stop the wheels and retract the arm up in parallel (different subsystems). */

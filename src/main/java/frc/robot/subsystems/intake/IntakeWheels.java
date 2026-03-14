@@ -48,6 +48,10 @@ public class IntakeWheels extends SubsystemBase {
     return runOnce(() -> wheel.setControl(voltageOut.withVelocity(20)));
   }
 
+  public Command runFast() {
+    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(30)));
+  }
+
   public Command stopWheel() {
     return runOnce(() -> wheel.stopMotor());
   }
