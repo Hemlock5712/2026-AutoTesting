@@ -2,6 +2,7 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Degrees;
 
+import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
@@ -96,9 +97,6 @@ public class Superstructure {
   // SWM feasibility
   private boolean swmSolutionFeasible = true;
   private boolean swmConverged = true;
-
-  // SWM tunable: advance pose to compensate for processing/communication latency
-  private final TunableDouble compDelay = Tunables.value("SWM/CompDelay", 0.03);
 
   private boolean isShooting = false;
 
@@ -248,7 +246,7 @@ public class Superstructure {
     // Our sensor data is slightly old by the time we use it. Predict where the
     // robot will actually be when the ball leaves the shooter by advancing the
     // pose forward in time by "delay" seconds using the current velocity.
-    double delay = compDelay.get();
+    double delay = (Utils.getCurrentTimeSeconds() - state.Timestamp) + 0.02;
     Pose2d advancedPose =
         state.Pose.exp(
             new Twist2d(
