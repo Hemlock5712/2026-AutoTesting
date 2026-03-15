@@ -35,7 +35,7 @@ public class Turret extends SubsystemBase {
 
   private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
 
-  private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
+  private static final Angle TOLERANCE = Rotations.of(0.015); // ~5.9 degrees
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 

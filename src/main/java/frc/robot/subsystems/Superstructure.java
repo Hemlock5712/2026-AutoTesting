@@ -269,6 +269,11 @@ public class Superstructure {
     // The turret moves because (a) the whole robot is translating and (b) the
     // turret is off-center, so robot rotation swings it in a circle (like
     // sitting on a merry-go-round). We need both parts.
+    //
+    // Predict velocity at ball-release time: v_predicted = v_now + a * delay.
+    // The pose is already advanced by "delay", so advancing velocity by the
+    // same amount keeps the two predictions consistent.
+    // ChassisSpeeds accel = AccelerationLimiter.getLastAcceleration();
     double omega = fieldSpeeds.omegaRadiansPerSecond;
 
     // Rotate the turret offset from robot frame into field frame

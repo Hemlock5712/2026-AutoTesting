@@ -6,6 +6,7 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -24,6 +25,7 @@ import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.geometry.ExtPose;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -72,7 +74,7 @@ public class RobotContainer {
   public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain);
   public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
-  public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
+  // public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -80,6 +82,10 @@ public class RobotContainer {
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;
+
+  /* Starting position selector */
+  private final SendableChooser<StartingPosition> startPositionChooser;
+  private StartingPosition lastStartingPosition = null;
 
   private final AutoRoutines autoRoutines;
 
@@ -90,14 +96,23 @@ public class RobotContainer {
     autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
 
     // Add autonomous mode options to dashboard
-    autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     autoChooser.addOption("None", Commands.none());
-    // AutoHumanPlayerSIMONLY
+    autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
+    autoChooser.addOption("Short Right Auto", autoRoutines.rightShortAuto());
+    autoChooser.addOption("Short Right Extend Auto", autoRoutines.rightShortExtendedAuto());
     autoChooser.addOption("Pizza Auto Feed Back", autoRoutines.pizzaAutoFeedBack());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftSideAuto());
+    autoChooser.addOption("Left Short Side Auto", autoRoutines.leftShortSideAuto());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
+
+    // Set up starting position chooser
+    startPositionChooser = new SendableChooser<>();
+    startPositionChooser.setDefaultOption("Right", StartingPosition.RIGHT);
+    startPositionChooser.addOption("Left", StartingPosition.LEFT);
+    startPositionChooser.addOption("Middle", StartingPosition.MIDDLE);
+    SmartDashboard.putData("Starting Position", startPositionChooser);
 
     configureBindings();
   }
@@ -184,6 +199,35 @@ public class RobotContainer {
 
   public Superstructure getSuperstructure() {
     return superstructure;
+  }
+
+  public Command fmsInitCommand() {
+    return Commands.parallel(intakeCoordinator.deployAndRun(), superstructure.stopShoot());
+  }
+
+  public Command stopCommand() {
+    return Commands.parallel(intakeCoordinator.stopBoth(), superstructure.stopShoot());
+  }
+
+  public enum StartingPosition {
+    LEFT(new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.kZero)),
+    MIDDLE(new ExtPose(4.378, FieldInfo.width().in(Meters) / 2.0, Rotation2d.kZero)),
+    RIGHT(new ExtPose(4.378, 0.639445, Rotation2d.kZero));
+
+    public final ExtPose pose;
+
+    StartingPosition(ExtPose pose) {
+      this.pose = pose;
+    }
+  }
+
+  /** Checks if starting position changed and resets drivetrain pose. Call from disabledPeriodic. */
+  public void checkStartingPosition() {
+    StartingPosition selected = startPositionChooser.getSelected();
+    if (selected != null && selected != lastStartingPosition) {
+      drivetrain.resetPose(selected.pose.get());
+      lastStartingPosition = selected;
+    }
   }
 
   /** Sets the rumble intensity on the driver controller (0.0 = off, 1.0 = full). */

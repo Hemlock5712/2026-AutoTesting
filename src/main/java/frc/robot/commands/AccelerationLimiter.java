@@ -51,7 +51,25 @@ public final class AccelerationLimiter {
   // [0] = vx, [1] = vy, [2] = omega
   private static final double[] ACCEL_RESULT = new double[3];
 
+  // Last limited acceleration from integrateVelocity(), in caller's frame (field-relative).
+  // Stored separately from ACCEL_RESULT because that array is a scratch buffer.
+  private static double lastAccelVx = 0;
+  private static double lastAccelVy = 0;
+  private static double lastAccelOmega = 0;
+
   private AccelerationLimiter() {}
+
+  /**
+   * Returns the last limited acceleration computed by {@link #integrateVelocity}.
+   *
+   * <p>The returned ChassisSpeeds represents acceleration (m/s^2 and rad/s^2), not velocity. It is
+   * in the same frame as the inputs to integrateVelocity (field-relative for all current callers).
+   *
+   * @return Last limited acceleration as ChassisSpeeds (fields are m/s^2 and rad/s^2)
+   */
+  public static ChassisSpeeds getLastAcceleration() {
+    return new ChassisSpeeds(lastAccelVx, lastAccelVy, lastAccelOmega);
+  }
 
   /**
    * Applies motor torque and friction limits to acceleration using primitives.
@@ -240,6 +258,11 @@ public final class AccelerationLimiter {
 
     // Apply physics limits (result stored in ACCEL_RESULT)
     applyLimits(accelX, accelY, accelOmega, curVx, curVy, curOmega, ACCEL_RESULT);
+
+    // Store limited acceleration for external consumers (e.g., SWM velocity prediction)
+    lastAccelVx = ACCEL_RESULT[0];
+    lastAccelVy = ACCEL_RESULT[1];
+    lastAccelOmega = ACCEL_RESULT[2];
 
     // Integrate to get next velocity: current + limitedAccel * dt
     double nextVx = curVx + ACCEL_RESULT[0] * dt;

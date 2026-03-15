@@ -35,8 +35,6 @@ public class DriveToPoint extends Command {
   private double rotationTolerance = Math.toRadians(2); // radians
   private double maxSpeed = Double.POSITIVE_INFINITY;
   private double endTargetSpeed = 0; // m/s (0 = stop at endpoint)
-  private double maxEndSpeedX = Double.POSITIVE_INFINITY; // m/s (no constraint)
-  private double maxEndSpeedY = Double.POSITIVE_INFINITY; // m/s (no constraint)
   private boolean isWaypoint = false;
 
   // State tracking between execute cycles
@@ -122,9 +120,7 @@ public class DriveToPoint extends Command {
               BRAKING_REACTION_TIME,
               targetOmega,
               angleError,
-              endTargetSpeed,
-              maxEndSpeedX,
-              maxEndSpeedY);
+              endTargetSpeed);
 
       // Apply configured overall speed limit
       double targetSpeed = targetLinearVel.getNorm();
@@ -228,22 +224,7 @@ public class DriveToPoint extends Command {
    * @return This command for chaining
    */
   public DriveToPoint withWaypoint(double targetSpeed) {
-    return withWaypoint(targetSpeed, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY);
-  }
-
-  /**
-   * Configures this command as a waypoint with axis-constrained approach. Sets looser position
-   * tolerance and constrains velocity on each axis.
-   *
-   * @param targetSpeed Target speed at endpoint in m/s (0 = stop with waypoint tolerance)
-   * @param maxSpeedX End X speed
-   * @param maxSpeedY End Y speed
-   * @return This command for chaining
-   */
-  public DriveToPoint withWaypoint(double targetSpeed, double maxEndSpeedX, double maxEndSpeedY) {
     this.endTargetSpeed = targetSpeed;
-    this.maxEndSpeedX = Math.abs(maxEndSpeedX);
-    this.maxEndSpeedY = Math.abs(maxEndSpeedY);
     this.positionTolerance = WAYPOINT_TOLERANCE;
     this.isWaypoint = true;
     return this;

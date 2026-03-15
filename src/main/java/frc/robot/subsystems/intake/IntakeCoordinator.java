@@ -40,6 +40,10 @@ public class IntakeCoordinator {
     return arm.stopArm();
   }
 
+  public Command stopBoth() {
+    return stopArm().alongWith(stopWheel());
+  }
+
   // ==================== Delegated Wheel Commands ====================
 
   public Command runIntake() {
@@ -58,7 +62,7 @@ public class IntakeCoordinator {
   }
 
   public Command upAndRun() {
-    return Commands.parallel(arm.intakeUp(), wheels.runIntake());
+    return Commands.parallel(arm.intakeUp(), wheels.runFast());
   }
 
   /** Stop the wheels and retract the arm up in parallel (different subsystems). */

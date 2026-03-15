@@ -105,7 +105,7 @@ public final class FieldInfo {
 
   public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1.5, 1.500);
 
-  public static final double ALLIANCE_ZONE_X = 4.625594;
+  public static final double ALLIANCE_ZONE_X = 5.4;
 
   /** Y-axis lock position on the right side (blue alliance coordinates). */
   public static final double AXIS_LOCK_Y_RIGHT = 0.639445;

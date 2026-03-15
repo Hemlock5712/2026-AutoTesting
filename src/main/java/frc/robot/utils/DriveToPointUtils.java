@@ -118,11 +118,10 @@ public final class DriveToPointUtils {
   }
 
   /**
-   * Calculates per-axis target velocity for braking with independent X/Y end speed constraints.
+   * Calculates per-axis target velocity for braking to a target end speed.
    *
-   * <p>This method calculates braking speeds for each axis independently, allowing the robot to
-   * approach a target with controlled velocity in each field-centric direction. This is useful for
-   * approaching field edges or scoring positions where you want to limit velocity in one direction.
+   * <p>This method calculates braking speeds for each axis independently, projecting the scalar end
+   * speed onto each axis based on the direction to the goal.
    *
    * @param toGoal Vector from current position to goal (field-centric)
    * @param currentVelocity Current velocity for reaction time buffering
@@ -130,9 +129,7 @@ public final class DriveToPointUtils {
    * @param targetOmega Planned angular velocity (reduces available braking force)
    * @param angleError Remaining angle error (determines rotation deceleration needs)
    * @param endTargetSpeed Scalar end speed (projected onto axes based on direction)
-   * @param maxEndSpeedX Maximum X velocity at endpoint (POSITIVE_INFINITY = no constraint)
-   * @param maxEndSpeedY Maximum Y velocity at endpoint (POSITIVE_INFINITY = no constraint)
-   * @return Target velocity vector that satisfies per-axis constraints
+   * @return Target velocity vector
    */
   public static Translation2d calculatePerAxisBrakingVelocity(
       Translation2d toGoal,
@@ -140,9 +137,7 @@ public final class DriveToPointUtils {
       double brakingReactionTime,
       double targetOmega,
       double angleError,
-      double endTargetSpeed,
-      double maxEndSpeedX,
-      double maxEndSpeedY) {
+      double endTargetSpeed) {
 
     double distance = toGoal.getNorm();
     if (distance < EPSILON) {
@@ -158,14 +153,11 @@ public final class DriveToPointUtils {
     double distanceX = Math.abs(toGoalX);
     double distanceY = Math.abs(toGoalY);
 
-    // Calculate effective end speed constraint for each axis
-    // Project scalar endTargetSpeed onto each axis, then apply per-axis max constraint
+    // Project scalar endTargetSpeed onto each axis based on direction
     double dirX = toGoalX / distance;
     double dirY = toGoalY / distance;
-    double projectedEndSpeedX = endTargetSpeed * Math.abs(dirX);
-    double projectedEndSpeedY = endTargetSpeed * Math.abs(dirY);
-    double effectiveEndSpeedX = Math.min(projectedEndSpeedX, maxEndSpeedX);
-    double effectiveEndSpeedY = Math.min(projectedEndSpeedY, maxEndSpeedY);
+    double effectiveEndSpeedX = endTargetSpeed * Math.abs(dirX);
+    double effectiveEndSpeedY = endTargetSpeed * Math.abs(dirY);
 
     double currentSpeedX = Math.abs(currentVelocity.getX());
     double currentSpeedY = Math.abs(currentVelocity.getY());

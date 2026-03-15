@@ -1,8 +1,8 @@
 package frc.robot.subsystems.intake;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.epilogue.Logged;
@@ -25,11 +25,17 @@ public class IntakeWheels extends SubsystemBase {
 
   Alert motorConfigAlert = new Alert("Intake Wheel Motor Configuration Failed", AlertType.kError);
 
+  VelocityVoltage voltageOut = new VelocityVoltage(0);
+
   public IntakeWheels() {
     wheelConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
     wheelConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
-    wheelConfig.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
     wheelConfig.Feedback.SensorToMechanismRatio = 2.33;
+
+    // wheelConfig.Slot0.kG = 15; // Gravity compensation
+    wheelConfig.Slot0.kS = 0.3; // Static friction
+    wheelConfig.Slot0.kP = 0.1; // Proportional gain (speed of correction)
+    wheelConfig.Slot0.kV = 0.288; // Derivative gain (smoothness)
 
     boolean success = TalonFXUtil.applyConfigWithRetries(wheel, wheelConfig);
     motorConfigAlert.set(!success);
@@ -39,7 +45,11 @@ public class IntakeWheels extends SubsystemBase {
   public void periodic() {}
 
   public Command runIntake() {
-    return runOnce(() -> wheel.setVoltage(INTAKE_VOLTAGE));
+    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(20)));
+  }
+
+  public Command runFast() {
+    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(30)));
   }
 
   public Command stopWheel() {
