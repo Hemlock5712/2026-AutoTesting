@@ -32,10 +32,9 @@ public class IntakeWheels extends SubsystemBase {
     wheelConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     wheelConfig.Feedback.SensorToMechanismRatio = 2.33;
 
-    // wheelConfig.Slot0.kG = 15; // Gravity compensation
     wheelConfig.Slot0.kS = 0.3; // Static friction
     wheelConfig.Slot0.kP = 0.1; // Proportional gain (speed of correction)
-    wheelConfig.Slot0.kV = 0.288; // Derivative gain (smoothness)
+    wheelConfig.Slot0.kV = 0.288; // Velocity feedforward
 
     boolean success = TalonFXUtil.applyConfigWithRetries(wheel, wheelConfig);
     motorConfigAlert.set(!success);

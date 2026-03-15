@@ -35,7 +35,8 @@ public class Turret extends SubsystemBase {
 
   private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
 
-  private static final Angle TOLERANCE = Rotations.of(0.015); // ~5.9 degrees
+  // Shooting gate: distance-dependent position tolerance (~half the effective scoring radius)
+  private static final double MAX_LATERAL_MISS_M = 0.15; // 15cm
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
@@ -111,13 +112,14 @@ public class Turret extends SubsystemBase {
   }
 
   @Logged
-  public Angle getTolerance() {
-    return TOLERANCE;
+  public double getVelocityRPS() {
+    return leader.getVelocity().getValueAsDouble();
   }
 
-  @Logged
-  public boolean isAtTarget() {
-    return getAngle().isNear(getTargetAngle(), TOLERANCE);
+  /** Distance-dependent shoot gate: tighter position tolerance at longer range. */
+  public boolean isAtTarget(double distanceToTarget) {
+    double maxAngleRot = Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
+    return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
   }
 
   /** Command that continuously tracks the hub using a supplied angle. */

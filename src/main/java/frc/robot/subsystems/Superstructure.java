@@ -209,7 +209,10 @@ public class Superstructure {
             Commands.either(
                     spindexer.forwardCommand(),
                     spindexer.prepFeed(),
-                    () -> turret.isAtTarget() && swmSolutionFeasible)
+                    () ->
+                        turret.isAtTarget(distanceToVirtualTarget)
+                            && shooter.isAtTarget(distanceToVirtualTarget)
+                            && swmSolutionFeasible)
                 .repeatedly()));
   }
 
@@ -224,7 +227,10 @@ public class Superstructure {
             Commands.either(
                     spindexer.forwardCommand(),
                     spindexer.prepFeed(),
-                    () -> turret.isAtTarget() && swmSolutionFeasible)
+                    () ->
+                        turret.isAtTarget(distanceToVirtualTarget)
+                            && shooter.isAtTarget(distanceToVirtualTarget)
+                            && swmSolutionFeasible)
                 .repeatedly()));
   }
 
@@ -233,11 +239,11 @@ public class Superstructure {
         Commands.runOnce(() -> isShooting = false), spindexer.stopCommand(), shooter.stopCommand());
   }
 
-  public Command spinSpinDexerBack() {
+  public Command reverseSpindexer() {
     return spindexer.backCommand();
   }
 
-  public Command spinSpinDexerStop() {
+  public Command stopSpindexer() {
     return spindexer.stopCommand();
   }
 
@@ -271,7 +277,6 @@ public class Superstructure {
     // Predict velocity at ball-release time: v_predicted = v_now + a * delay.
     // The pose is already advanced by "delay", so advancing velocity by the
     // same amount keeps the two predictions consistent.
-    // ChassisSpeeds accel = AccelerationLimiter.getLastAcceleration();
     double omega = fieldSpeeds.omegaRadiansPerSecond;
 
     // Rotate the turret offset from robot frame into field frame

@@ -66,7 +66,6 @@ public class IntakeArm extends SubsystemBase {
   }
 
   public Command intakeDown() {
-    // return runOnce(() -> arm.setControl(positionOut.withPosition(0).withFeedForward(-40)));
     return runOnce(() -> arm.setControl(positionOut.withPosition(0)));
   }
 

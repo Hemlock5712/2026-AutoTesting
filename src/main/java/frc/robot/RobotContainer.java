@@ -74,7 +74,6 @@ public class RobotContainer {
   public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain);
   public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
-  // public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -125,7 +124,7 @@ public class RobotContainer {
         new OrbitDrive(
             drivetrain,
             () -> {
-              // Not the cleanest but claculate scaled joystick values
+              // Not the cleanest but calculate scaled joystick values
               Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
               translationVel[0] = -scaled.get(0) * maxSpeed;
               translationVel[1] = -scaled.get(1) * maxSpeed;
@@ -146,7 +145,6 @@ public class RobotContainer {
                 () ->
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
-    // rotation)
 
     joystick
         .rightBumper()
@@ -170,12 +168,7 @@ public class RobotContainer {
                 intakeCoordinator.stopAndRetract(),
                 () -> intakeCoordinator.getTargetPositionRotations() != 0));
 
-    // joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
-
-    joystick
-        .x()
-        .onTrue(superstructure.spinSpinDexerBack())
-        .onFalse(superstructure.spinSpinDexerStop());
+    joystick.x().onTrue(superstructure.reverseSpindexer()).onFalse(superstructure.stopSpindexer());
 
     joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 

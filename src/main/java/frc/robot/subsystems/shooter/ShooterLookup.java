@@ -13,19 +13,6 @@ public class ShooterLookup {
     buildToF();
   }
 
-  // private static void buildFlywheel() {
-  //   flywheelMap.put(0.0, 20.0);
-  //   flywheelMap.put(1.0, 20.0);
-  //   flywheelMap.put(1.5, 26.0);
-  //   flywheelMap.put(2.0, 30.0);
-  //   flywheelMap.put(2.5, 29.0);
-  //   flywheelMap.put(3.0, 30.0);
-  //   flywheelMap.put(3.5, 32.0);
-  //   flywheelMap.put(4.0, 35.0);
-  //   flywheelMap.put(4.5, 36.0);
-  //   flywheelMap.put(5.0, 40.0);
-  // }
-
   private static void buildFlywheel() {
     flywheelMap.put(0.0, 20.0);
     flywheelMap.put(1.0, 20.0);

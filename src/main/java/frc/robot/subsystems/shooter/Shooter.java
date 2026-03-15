@@ -185,6 +185,25 @@ public class Shooter extends SubsystemBase {
     return flywheelIsAtTarget() && hoodIsAtTarget();
   }
 
+  /** Distance-dependent check: would this flywheel/hood produce a scoring shot at this range? */
+  public boolean isAtTarget(double distance) {
+    double margin = 0.3; // ~75% of goal radius
+    double minDist = Math.max(1.5, distance - margin);
+    double maxDist = Math.min(5.5, distance + margin);
+
+    double actualRPS = getVelocity().in(RotationsPerSecond);
+    boolean flywheelOk =
+        actualRPS >= ShooterLookup.getFlywheelMap().get(minDist)
+            && actualRPS <= ShooterLookup.getFlywheelMap().get(maxDist);
+
+    double actualHoodDeg = getPosition().in(Degrees);
+    boolean hoodOk =
+        actualHoodDeg >= ShooterLookup.getHoodMap().get(minDist)
+            && actualHoodDeg <= ShooterLookup.getHoodMap().get(maxDist);
+
+    return flywheelOk && hoodOk;
+  }
+
   /**
    * Get how fast the flywheel is currently spinning.
    *

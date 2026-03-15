@@ -97,7 +97,7 @@ public final class FieldInfo {
   // alliance-correct values.
 
   /** Hub/target position for turret tracking (blue alliance coordinates). */
-  public static final Translation2d HUB_POSITION = new Translation2d(4.621, 4.030);
+  public static final Translation2d HUB_POSITION = new Translation2d(4.625594, 4.034);
 
   public static final Distance HUB_HEIGHT = Meters.of(1.828);
 
