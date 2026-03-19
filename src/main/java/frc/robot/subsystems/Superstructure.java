@@ -230,7 +230,9 @@ public class Superstructure {
                     () ->
                         turret.isAtTarget(distanceToVirtualTarget)
                             && shooter.isAtTarget(distanceToVirtualTarget)
-                            && swmSolutionFeasible)
+                            && (swmSolutionFeasible
+                                || (FieldInfo.flipX(driveState.get().Pose.getX())
+                                    < FieldInfo.ALLIANCE_ZONE_X)))
                 .repeatedly()));
   }
 
