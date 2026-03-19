@@ -236,7 +236,7 @@ public class Superstructure {
     return Commands.parallel(
         shooter.runFromSolution(this::getActiveFlywheelRPS, this::getActiveElevationDeg),
         Commands.sequence(
-            Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && turret.isAtTarget()),
+            Commands.waitUntil(() -> shooter.flywheelIsAtTarget() && shooter.hoodIsAtTarget() && turret.isAtTarget(()->distanceToHub)),
             spindexer.startCommand(),
             spindexer.startKickerVoltageCommand()));
   }

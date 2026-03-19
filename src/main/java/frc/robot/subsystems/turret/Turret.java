@@ -1,5 +1,6 @@
 package frc.robot.subsystems.turret;
 
+import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
@@ -16,6 +17,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 @Logged
@@ -34,7 +36,9 @@ public class Turret extends SubsystemBase {
 
   private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
 
-  private static final Angle TOLERANCE = Rotations.of(0.01); // ~3.6 degrees
+  private final double TOLERANCE_METERS = 0.6 / 2;
+
+  private static Angle TOLERANCE = Degrees.of(3); // ~3.6 degrees
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
@@ -111,8 +115,9 @@ public class Turret extends SubsystemBase {
     return TOLERANCE;
   }
 
-  public boolean isAtTarget() {
-    return getAngle().isNear(getTargetAngle(), TOLERANCE);
+  public boolean isAtTarget(DoubleSupplier distance) {
+    return getAngle()
+        .isNear(getTargetAngle(), 1 / Math.tan(TOLERANCE_METERS / distance.getAsDouble()));
   }
 
   /** Command that continuously tracks the hub using a supplied angle. */
