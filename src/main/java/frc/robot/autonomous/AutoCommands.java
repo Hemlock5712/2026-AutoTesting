@@ -43,6 +43,13 @@ public class AutoCommands {
     this.drivetrain = drivetrain;
   }
 
+  // tell which side of the field the robot is on looking from driverstation
+  public boolean onRightSide() {
+    if (drivetrain.getPose().getY() < 4) {
+      return true;
+    } else return false;
+  }
+
   // ==================== Drive Commands ====================
 
   public DriveToPoint driveTo(Supplier<Pose2d> pose) {

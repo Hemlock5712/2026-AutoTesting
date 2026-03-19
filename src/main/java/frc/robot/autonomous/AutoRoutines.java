@@ -372,4 +372,40 @@ public class AutoRoutines {
                 Commands.waitSeconds(3), intakeCoordinator.upAndRun(), Commands.waitSeconds(2)),
             superstructure.shoot()));
   }
+
+  public Command driveStationSweep() {
+    return Commands.either(
+        Commands.sequence(
+            autoCommands
+                .driveTo(() -> new ExtPose(2.5, 0.6, Rotation2d.fromDegrees(180)).get())
+                .withMaxSpeed(1.5),
+            autoCommands
+                .driveTo(() -> new ExtPose(1.0, 0.6, Rotation2d.fromDegrees(180)).get())
+                .withMaxSpeed(1.5)
+                .alongWith(intakeCoordinator.deployAndRun()),
+            autoCommands
+                .driveTo(() -> new ExtPose(0.6, 1, Rotation2d.fromDegrees(90)).get())
+                .withMaxSpeed(1.5),
+            autoCommands
+                .driveTo(() -> new ExtPose(0.6, 2.25, Rotation2d.fromDegrees(90)).get())
+                .withMaxSpeed(1.5),
+            autoCommands
+                .driveTo(() -> new ExtPose(1.6, 2.4, Rotation2d.fromDegrees(180)).get())
+                .withMaxSpeed(1.5)),
+        Commands.sequence(
+            autoCommands
+                .driveTo(() -> new ExtPose(2.0, 7.4, Rotation2d.fromDegrees(180)).get())
+                .withMaxSpeed(1.5)
+                .alongWith(intakeCoordinator.deployAndRun()),
+            autoCommands
+                .driveTo(() -> new ExtPose(1.0, 7.4, Rotation2d.fromDegrees(180)).get())
+                .withMaxSpeed(1.5),
+            autoCommands
+                .driveTo(() -> new ExtPose(0.6, 5.2, Rotation2d.fromDegrees(270)).get())
+                .withMaxSpeed(1.5),
+            autoCommands
+                .driveTo(() -> new ExtPose(2, 5.2, Rotation2d.fromDegrees(180)).get())
+                .withMaxSpeed(1.5)),
+        () -> autoCommands.onRightSide());
+  }
 }

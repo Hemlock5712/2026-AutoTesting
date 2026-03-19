@@ -134,6 +134,8 @@ public class RobotContainer {
             () -> translationVel[1],
             () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
 
+    joystick.povRight().whileTrue(autoRoutines.driveStationSweep());
+
     // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
     joystick
         .leftBumper()
