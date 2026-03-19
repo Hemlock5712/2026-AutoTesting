@@ -6,9 +6,12 @@ package frc.robot.subsystems.shooter;
 
 import static edu.wpi.first.units.Units.Degree;
 import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
@@ -58,6 +61,11 @@ public class Shooter extends SubsystemBase {
   protected TalonFXConfiguration hoodConfig = new TalonFXConfiguration();
 
   // Alert for motor configuration failures
+  // Cached status signals for latency compensation
+  private final StatusSignal<AngularVelocity> flywheelVelocitySignal;
+  private final StatusSignal<Angle> hoodPositionSignal;
+  private final StatusSignal<AngularVelocity> hoodVelocitySignal;
+
   Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
 
   public Shooter() {
@@ -117,11 +125,25 @@ public class Shooter extends SubsystemBase {
 
     flywheel.getTorqueCurrent().setUpdateFrequency(500);
     follower.setControl(new Follower(flywheel.getDeviceID(), MotorAlignmentValue.Opposed));
+
+    // Cache status signals and set update frequencies
+    flywheelVelocitySignal = flywheel.getVelocity();
+    hoodPositionSignal = hood.getPosition();
+    hoodVelocitySignal = hood.getVelocity();
+
+    flywheelVelocitySignal.setUpdateFrequency(100);
+    hoodPositionSignal.setUpdateFrequency(100);
+    hoodVelocitySignal.setUpdateFrequency(100);
+
+    flywheel.optimizeBusUtilization();
+    hood.optimizeBusUtilization();
+    hoodEncoder.optimizeBusUtilization();
+    follower.optimizeBusUtilization();
   }
 
   @Override
   public void periodic() {
-    // No periodic updates needed - control is entirely feedforward/feedback
+    BaseStatusSignal.refreshAll(flywheelVelocitySignal, hoodPositionSignal, hoodVelocitySignal);
   }
 
   /**
@@ -187,7 +209,7 @@ public class Shooter extends SubsystemBase {
 
   /** Distance-dependent check: would this flywheel/hood produce a scoring shot at this range? */
   public boolean isAtTarget(double distance) {
-    double margin = 0.3; // ~75% of goal radius
+    double margin = 0.2; // ~50% of goal radius
     double minDist = Math.max(1.5, distance - margin);
     double maxDist = Math.min(5.5, distance + margin);
 
@@ -211,17 +233,19 @@ public class Shooter extends SubsystemBase {
    */
   @Logged
   public AngularVelocity getVelocity() {
-    return flywheel.getVelocity().getValue();
+    return flywheelVelocitySignal.getValue();
   }
 
   /**
    * Get what position the hood is at.
    *
-   * @return Current hood position
+   * @return Current hood position (latency-compensated)
    */
   @Logged
   public Angle getPosition() {
-    return hood.getPosition().getValue();
+    return Rotations.of(
+        BaseStatusSignal.getLatencyCompensatedValueAsDouble(
+            hoodPositionSignal, hoodVelocitySignal));
   }
 
   /**

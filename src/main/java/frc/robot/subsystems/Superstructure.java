@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Robot;
+import frc.robot.commands.AccelerationLimiter;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
@@ -82,6 +83,7 @@ public class Superstructure {
 
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
+  private final TunableDouble swmPoseDelay = Tunables.value("SWM/PoseDelay", 0.02);
 
   // ==================== Targeting Data (calculated once per loop)
   // ====================
@@ -97,6 +99,7 @@ public class Superstructure {
   // SWM feasibility
   private boolean swmSolutionFeasible = true;
   private boolean swmConverged = true;
+  private double swmDelay = 0;
 
   private boolean isShooting = false;
 
@@ -155,6 +158,10 @@ public class Superstructure {
     Robot.telemetry().log("SWM/VirtualTargetDist", distanceToVirtualTarget);
     Robot.telemetry().log("SWM/Feasible", swmSolutionFeasible);
     Robot.telemetry().log("SWM/Converged", swmConverged);
+    Robot.telemetry().log("SWM/Delay", swmDelay);
+    Robot.telemetry()
+        .log("SWM/OdometryAge_ms", (Utils.getCurrentTimeSeconds() - state.Timestamp) * 1000.0);
+    Robot.telemetry().log("SWM/TotalDelay_ms", swmDelay * 1000.0);
   }
 
   // ==================== Targeting Getters ====================
@@ -205,7 +212,10 @@ public class Superstructure {
         shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance),
         Commands.runOnce(() -> isShooting = true),
         Commands.sequence(
-            Commands.waitUntil(() -> shooter.isAtTarget()),
+            Commands.waitUntil(
+                () ->
+                    shooter.isAtTarget(distanceToVirtualTarget)
+                        && turret.isAtTarget(distanceToVirtualTarget)),
             Commands.either(
                     spindexer.forwardCommand(),
                     spindexer.prepFeed(),
@@ -252,7 +262,8 @@ public class Superstructure {
     // Our sensor data is slightly old by the time we use it. Predict where the
     // robot will actually be when the ball leaves the shooter by advancing the
     // pose forward in time by "delay" seconds using the current velocity.
-    double delay = (Utils.getCurrentTimeSeconds() - state.Timestamp) + 0.02;
+    double delay = (Utils.getCurrentTimeSeconds() - state.Timestamp) + swmPoseDelay.get();
+    swmDelay = delay;
     Pose2d advancedPose =
         state.Pose.exp(
             new Twist2d(
@@ -267,29 +278,24 @@ public class Superstructure {
     Translation2d realTarget = getTargetPosition().getTranslation();
     // The turret isn't at robot center -- apply the offset to get its real position
     Pose2d turretPose = advancedPose.transformBy(TURRET_TRANSFORM);
+    Robot.telemetry().log("SWM/TurretPose", turretPose, Pose2d.struct);
     Translation2d robotPosition = turretPose.getTranslation();
 
-    // --- Step 2: Calculate the turret's total velocity on the field ---
-    // The turret moves because (a) the whole robot is translating and (b) the
-    // turret is off-center, so robot rotation swings it in a circle (like
-    // sitting on a merry-go-round). We need both parts.
-    //
-    // Predict velocity at ball-release time: v_predicted = v_now + a * delay.
-    // The pose is already advanced by "delay", so advancing velocity by the
-    // same amount keeps the two predictions consistent.
-    double omega = fieldSpeeds.omegaRadiansPerSecond;
-
-    // Rotate the turret offset from robot frame into field frame
-    Translation2d fieldOffset =
-        TURRET_TRANSFORM.getTranslation().rotateBy(advancedPose.getRotation());
-
-    // Total velocity = robot translation + omega × r
-    // rotateBy(kCCW_90deg) turns (x,y) into (-y,x), which is the 2D cross product
-    // with omega
-    Translation2d robotVelocity =
-        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    // --- Step 2: Turret velocity on the field ---
+    // During shooting, center of rotation is at the turret so it has zero
+    // tangential velocity from rotation — only translation matters.
     Translation2d velocity =
-        robotVelocity.plus(fieldOffset.rotateBy(Rotation2d.kCCW_90deg).times(omega));
+        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+
+    // --- Step 2b: Predict velocity at ball-release time ---
+    // v_predicted = v_now + a * delay
+    // The pose is already advanced by "delay"; advance velocity by the same amount
+    // so the virtual target accounts for acceleration, not just constant velocity.
+    ChassisSpeeds lastAccel = AccelerationLimiter.getLastAcceleration();
+    velocity =
+        velocity.plus(
+            new Translation2d(lastAccel.vxMetersPerSecond, lastAccel.vyMetersPerSecond)
+                .times(delay));
 
     // --- Step 3: Find the virtual target (where to actually aim) ---
     // Think of it like throwing a ball on a moving train: you aim behind your

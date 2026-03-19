@@ -1,7 +1,5 @@
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.MetersPerSecondPerSecond;
-
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
@@ -240,23 +238,5 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   public ChassisSpeeds getTargetFieldSpeeds() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(
         getKinematics().toChassisSpeeds(getModuleTargets()), getRotation());
-  }
-
-  /** Returns pigeon acceleration magnitude in m/s² */
-  @Logged
-  public double getPigeonAcceleration() {
-    return Math.hypot(getPigeonAccelerationX(), getPigeonAccelerationY());
-  }
-
-  /** Returns pigeon X acceleration in m/s² (robot-relative, forward positive) */
-  @Logged
-  public double getPigeonAccelerationX() {
-    return getPigeon2().getAccelerationX().getValue().in(MetersPerSecondPerSecond);
-  }
-
-  /** Returns pigeon Y acceleration in m/s² (robot-relative, left positive) */
-  @Logged
-  public double getPigeonAccelerationY() {
-    return getPigeon2().getAccelerationY().getValue().in(MetersPerSecondPerSecond);
   }
 }

@@ -104,5 +104,8 @@ public class Spindexer extends SubsystemBase {
     motorConfigAlert.set(!success);
     success = TalonFXUtil.applyConfigWithRetries(kicker, kickerConfig);
     kickerMotorConfigAlert.set(!success);
+
+    spindexer.optimizeBusUtilization();
+    kicker.optimizeBusUtilization();
   }
 }

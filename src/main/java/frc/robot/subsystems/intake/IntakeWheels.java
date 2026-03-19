@@ -17,8 +17,6 @@ import frc.robot.utils.TalonFXUtil;
 @Logged(strategy = Strategy.OPT_IN)
 public class IntakeWheels extends SubsystemBase {
 
-  private static final double INTAKE_VOLTAGE = 7;
-
   private final TalonFX wheel = new TalonFX(23, TunerConstants.kCANBus);
 
   private TalonFXConfiguration wheelConfig = new TalonFXConfiguration();
@@ -38,6 +36,8 @@ public class IntakeWheels extends SubsystemBase {
 
     boolean success = TalonFXUtil.applyConfigWithRetries(wheel, wheelConfig);
     motorConfigAlert.set(!success);
+
+    wheel.optimizeBusUtilization();
   }
 
   @Override

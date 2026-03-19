@@ -18,6 +18,7 @@ import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
 import frc.robot.commands.OrbitDrive;
+import frc.robot.commands.TurretDrive;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.BallPhysicsSimulation;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
@@ -57,6 +58,9 @@ public class RobotContainer {
   private double maxAngularRate =
       RotationsPerSecond.of(1)
           .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
+
+  private double maxShootSpeed = 1.5;
+  private double maxShootAngularRate = maxAngularRate * 0.75;
 
   private final CommandXboxController joystick = new CommandXboxController(0);
 
@@ -158,7 +162,26 @@ public class RobotContainer {
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
 
-    joystick.rightTrigger(0.5).onTrue(superstructure.shoot()).onFalse(superstructure.stopShoot());
+    // Shoot-mode drive: limits acceleration/velocity/jerk while shooting for SWM accuracy.
+    // Runs alongside the shoot command (different subsystem requirements).
+    joystick
+        .rightTrigger(0.5)
+        .onTrue(
+            Commands.parallel(
+                superstructure.shoot(),
+                new TurretDrive(
+                    drivetrain,
+                    () -> {
+                      // Not the cleanest but calculate scaled joystick values
+                      Vector<N2> scaled =
+                          rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+                      translationVel[0] = -scaled.get(0) * maxShootSpeed;
+                      translationVel[1] = -scaled.get(1) * maxShootSpeed;
+                      return translationVel[0];
+                    },
+                    () -> translationVel[1],
+                    () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate)))
+        .onFalse(superstructure.stopShoot());
 
     joystick
         .leftTrigger(0.5)

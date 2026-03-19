@@ -31,10 +31,15 @@ public class Limelight extends SubsystemBase {
   private static final double ROTATION_STD_DEV_COEFFICIENT = 1.5;
   private static final double MEGATAG2_ROTATION_STD_DEV = Double.POSITIVE_INFINITY;
 
+  // Cap effective tag count to prevent over-trusting 3+ tags.
+  // tagCount^2 assumes independent measurements, but tags on the same wall are correlated.
+  // Real accuracy improvement from 2→3 tags is ~40%, not the 125% the formula gives uncapped.
+  private static final double MAX_EFFECTIVE_TAG_COUNT = 2.5;
+
   // --- Rejection Thresholds ---
   private static final double MAX_AMBIGUITY = 0.3;
   private static final double FIELD_BORDER_MARGIN_METERS = 0.5;
-  private static final double MAX_ANGULAR_VELOCITY_MT1_DEG_PER_SEC = 70;
+  private static final double MAX_ANGULAR_VELOCITY_MT1_DEG_PER_SEC = 360;
   private static final double MAX_ANGULAR_VELOCITY_MT2_DEG_PER_SEC = 200;
 
   private final String m_limelightName;
@@ -145,7 +150,8 @@ public class Limelight extends SubsystemBase {
 
   private void addVisionMeasurement(PoseEstimate poseEstimate) {
     double distanceFactor = Math.pow(poseEstimate.avgTagDist, 1.2);
-    double tagFactor = Math.pow(poseEstimate.tagCount, 2.0);
+    double effectiveTags = Math.min(MAX_EFFECTIVE_TAG_COUNT, poseEstimate.tagCount);
+    double tagFactor = Math.pow(effectiveTags, 2.0);
 
     double xyStdDev = XY_STD_DEV_COEFFICIENT * distanceFactor / tagFactor * m_stdDevFactor;
     double rotationStdDev =
