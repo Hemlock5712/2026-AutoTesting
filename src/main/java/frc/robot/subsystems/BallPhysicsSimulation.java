@@ -10,6 +10,7 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.BallTrajectorySimulator;
@@ -298,11 +299,15 @@ public class BallPhysicsSimulation extends SubsystemBase {
     double robotVelY = flywheelLinearVel * sinYaw * cosPitch;
     double robotVelZ = flywheelLinearVel * sinPitch;
 
-    // Get robot velocity and add it to launch velocity
+    // Get turret velocity (not robot center) and add it to launch velocity.
+    // The ball exits from the turret, which has additional tangential velocity
+    // when the robot rotates: v_turret = v_center + omega x r_{center->turret}.
     var robotSpeeds = drivetrain.getRobotSpeeds();
-    robotVelX += robotSpeeds.vxMetersPerSecond;
-    robotVelY += robotSpeeds.vyMetersPerSecond;
-    // Robot Z velocity is always 0 (ground robot)
+    Translation2d turretOffset =
+        Superstructure.TURRET_TRANSFORM.getTranslation().rotateBy(drivetrain.getRotation());
+    double omega = robotSpeeds.omegaRadiansPerSecond;
+    robotVelX += robotSpeeds.vxMetersPerSecond - omega * turretOffset.getY();
+    robotVelY += robotSpeeds.vyMetersPerSecond + omega * turretOffset.getX();
 
     // Transform to field coordinates
     Rotation2d robotRotation = drivetrain.getRotation();

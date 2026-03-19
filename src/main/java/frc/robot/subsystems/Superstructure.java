@@ -162,6 +162,13 @@ public class Superstructure {
     Robot.telemetry()
         .log("SWM/OdometryAge_ms", (Utils.getCurrentTimeSeconds() - state.Timestamp) * 1000.0);
     Robot.telemetry().log("SWM/TotalDelay_ms", swmDelay * 1000.0);
+
+    boolean shootReady =
+        isShooting
+            && turret.isAtTarget(distanceToVirtualTarget)
+            && shooter.isAtTarget(distanceToVirtualTarget)
+            && swmSolutionFeasible;
+    Robot.telemetry().log("SWM/ShootReady", shootReady);
   }
 
   // ==================== Targeting Getters ====================
@@ -215,7 +222,8 @@ public class Superstructure {
             Commands.waitUntil(
                 () ->
                     shooter.isAtTarget(distanceToVirtualTarget)
-                        && turret.isAtTarget(distanceToVirtualTarget)),
+                        && turret.isAtTarget(distanceToVirtualTarget)
+                        && swmSolutionFeasible),
             Commands.either(
                     spindexer.forwardCommand(),
                     spindexer.prepFeed(),
@@ -282,10 +290,17 @@ public class Superstructure {
     Translation2d robotPosition = turretPose.getTranslation();
 
     // --- Step 2: Turret velocity on the field ---
-    // During shooting, center of rotation is at the turret so it has zero
-    // tangential velocity from rotation — only translation matters.
+    // The ball exits from the turret, not the robot center. state.Speeds reports
+    // robot-center velocity, so apply the rigid-body correction: v_turret =
+    // v_center + omega x r_{center->turret}.
+    Translation2d turretOffsetField =
+        TURRET_TRANSFORM.getTranslation().rotateBy(advancedPose.getRotation());
+    double omega = fieldSpeeds.omegaRadiansPerSecond;
     Translation2d velocity =
-        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+        new Translation2d(
+            fieldSpeeds.vxMetersPerSecond - omega * turretOffsetField.getY(),
+            fieldSpeeds.vyMetersPerSecond + omega * turretOffsetField.getX());
+    Robot.telemetry().log("SWM/TurretVelocity", velocity.getNorm());
 
     // --- Step 2b: Predict velocity at ball-release time ---
     // v_predicted = v_now + a * delay
