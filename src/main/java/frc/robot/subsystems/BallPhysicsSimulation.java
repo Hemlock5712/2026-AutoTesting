@@ -286,7 +286,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
     double sinYaw = Math.sin(turretAngleRad);
 
     // Then apply hood pitch (rotation around Y)
-    double hoodAngleRad = Degrees.of(85).minus(superstructure.getTargetHoodAngle()).in(Radians);
+    double hoodAngleRad = Degrees.of(75).minus(superstructure.getTargetHoodAngle()).in(Radians);
     // This tilts the velocity up/down
     double cosPitch = Math.cos(hoodAngleRad);
     double sinPitch = Math.sin(hoodAngleRad);

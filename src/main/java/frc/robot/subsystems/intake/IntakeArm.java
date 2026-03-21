@@ -51,7 +51,7 @@ public class IntakeArm extends SubsystemBase {
     config.MotionMagic.MotionMagicCruiseVelocity = 4; // Max speed
     config.MotionMagic.MotionMagicAcceleration = 8; // How fast to speed up
     // Tell the motor to use the CANcoder sensor for position measurements
-    config.Feedback.withRemoteCANcoder(armEncoder);
+    config.Feedback.withFusedCANcoder(armEncoder);
     config.Feedback.RotorToSensorRatio = 25;
 
     boolean success = TalonFXUtil.applyConfigWithRetries(arm, config);

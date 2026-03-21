@@ -19,6 +19,7 @@ import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
+import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
@@ -80,7 +81,7 @@ public class Shooter extends SubsystemBase {
     config.Slot0.kP = 10; // Proportional gain
     config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseVelocitySign;
 
-    config.Feedback.SensorToMechanismRatio = 2.0;
+    config.Feedback.SensorToMechanismRatio = 1.66666666666667;
 
     // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
     config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // RPS
@@ -96,20 +97,20 @@ public class Shooter extends SubsystemBase {
     hoodConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // Control values
-    hoodConfig.Slot0.kS = 0.33; // Static friction
+    hoodConfig.Slot0.kG = 0.35; // Gravity compensation
+    hoodConfig.Slot0.kS = 0.1; // Static friction
     hoodConfig.Slot0.kV = 0.0; // Velocity feedforward
-    hoodConfig.Slot0.kP = 200; // Proportional gain
-    hoodConfig.Slot0.kD = 3; // Proportional gain
+    hoodConfig.Slot0.kP = 100; // Proportional gain
+    hoodConfig.Slot0.kD = 0; // Proportional gain
     hoodConfig.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
-
-    hoodConfig.Feedback.SensorToMechanismRatio = 2.0;
+    hoodConfig.Slot0.GravityType = GravityTypeValue.Elevator_Static;
 
     // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
-    hoodConfig.MotionMagic.MotionMagicCruiseVelocity = 0.5; // RPS
-    hoodConfig.MotionMagic.MotionMagicAcceleration = 1.0; // RPS²
+    hoodConfig.MotionMagic.MotionMagicCruiseVelocity = 1.0; // RPS
+    hoodConfig.MotionMagic.MotionMagicAcceleration = 0.4; // RPS²
 
     hoodConfig.Feedback.FeedbackRemoteSensorID = hoodEncoder.getDeviceID();
-    hoodConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RemoteCANcoder;
+    hoodConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
     hoodConfig.Feedback.SensorToMechanismRatio = 3;
     hoodConfig.Feedback.RotorToSensorRatio = 75.38;
 
@@ -131,14 +132,14 @@ public class Shooter extends SubsystemBase {
     hoodPositionSignal = hood.getPosition();
     hoodVelocitySignal = hood.getVelocity();
 
-    flywheelVelocitySignal.setUpdateFrequency(100);
-    hoodPositionSignal.setUpdateFrequency(100);
-    hoodVelocitySignal.setUpdateFrequency(100);
+    // flywheelVelocitySignal.setUpdateFrequency(100);
+    // hoodPositionSignal.setUpdateFrequency(100);
+    // hoodVelocitySignal.setUpdateFrequency(100);
 
-    flywheel.optimizeBusUtilization();
-    hood.optimizeBusUtilization();
-    hoodEncoder.optimizeBusUtilization();
-    follower.optimizeBusUtilization();
+    // flywheel.optimizeBusUtilization();
+    // hood.optimizeBusUtilization();
+    // hoodEncoder.optimizeBusUtilization();
+    // follower.optimizeBusUtilization();
   }
 
   @Override
