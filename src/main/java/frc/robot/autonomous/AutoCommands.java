@@ -45,9 +45,12 @@ public class AutoCommands {
 
   // tell which side of the field the robot is on looking from driverstation
   public boolean onRightSide() {
+    boolean onRight = false;
     if (drivetrain.getPose().getY() < 4) {
-      return true;
-    } else return false;
+      onRight = true;
+    }
+    onRight = FieldInfo.shouldFlip() ? !onRight : onRight;
+    return onRight;
   }
 
   // ==================== Drive Commands ====================
