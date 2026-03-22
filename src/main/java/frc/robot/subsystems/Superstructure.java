@@ -256,6 +256,21 @@ public class Superstructure {
                 .repeatedly()));
   }
 
+  /**
+   * Automatically determines whether to shoot or not.
+   * Should be set as the default command, making it so it will shoot when it's
+   * supposed to.
+   * 
+   * @return A command that will shoot when it's supposed to, and do nothing
+   *         otherwise.
+   */
+  public Command automaticallyDetermineShoot() {
+    return Commands.either(
+        autoShoot(),
+        Commands.none(),
+        () -> shouldShoot());
+  }
+
   /** Auto-selects hub shot or feed shot based on field position. */
   public Command autoShoot() {
     return Commands.either(

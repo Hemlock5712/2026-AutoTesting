@@ -8,12 +8,14 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
@@ -31,20 +33,23 @@ import frc.robot.utils.geometry.ExtPose;
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
  *
- * <p>This class handles:
+ * <p>
+ * This class handles:
  *
  * <ul>
- *   <li>Creating all subsystems (drive, arm, flywheel, vision, etc.)
- *   <li>Setting up controller buttons
- *   <li>Building autonomous routines
- *   <li>Setting default actions for each subsystem
+ * <li>Creating all subsystems (drive, arm, flywheel, vision, etc.)
+ * <li>Setting up controller buttons
+ * <li>Building autonomous routines
+ * <li>Setting default actions for each subsystem
  * </ul>
  *
- * <p>The robot can run in two modes:
+ * <p>
+ * The robot can run in two modes:
  *
  * <ul>
- *   <li><b>Real hardware:</b> Uses actual motors and sensors
- *   <li><b>Simulation:</b> Uses simulated physics for testing without a real robot
+ * <li><b>Real hardware:</b> Uses actual motors and sensors
+ * <li><b>Simulation:</b> Uses simulated physics for testing without a real
+ * robot
  * </ul>
  *
  * The code automatically picks the right version.
@@ -53,11 +58,9 @@ import frc.robot.utils.geometry.ExtPose;
 public class RobotContainer {
   private static final double JOYSTICK_DEADBAND = 0.05;
 
-  private double maxSpeed =
-      TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
-  private double maxAngularRate =
-      RotationsPerSecond.of(1)
-          .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
+  private double maxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
+  private double maxAngularRate = RotationsPerSecond.of(1)
+      .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
 
   private double maxShootSpeed = 1.5;
   private double maxShootAngularRate = maxAngularRate * 0.75;
@@ -80,8 +83,7 @@ public class RobotContainer {
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
 
   // Create ball physics simulation if in simulation mode
-  public final BallPhysicsSimulation ballPhysicsSimulation =
-      new BallPhysicsSimulation(drivetrain, superstructure);
+  public final BallPhysicsSimulation ballPhysicsSimulation = new BallPhysicsSimulation(drivetrain, superstructure);
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;
@@ -122,7 +124,7 @@ public class RobotContainer {
 
   private void configureBindings() {
     // Cached translation velocities - computed once per cycle in velocityX supplier
-    double[] translationVel = {0, 0};
+    double[] translationVel = { 0, 0 };
 
     drivetrain.setDefaultCommand(
         new OrbitDrive(
@@ -146,9 +148,8 @@ public class RobotContainer {
                 () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
                 () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
-                () ->
-                    AutoRoutines.snapToNearest180Degrees(
-                        drivetrain.getRotation()))); // Lock to closest 180
+                () -> AutoRoutines.snapToNearest180Degrees(
+                    drivetrain.getRotation()))); // Lock to closest 180
 
     joystick
         .rightBumper()
@@ -158,11 +159,11 @@ public class RobotContainer {
                 () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
                 () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
-                () ->
-                    AutoRoutines.snapToNearest180Degrees(
-                        drivetrain.getRotation()))); // Lock to closest 180
+                () -> AutoRoutines.snapToNearest180Degrees(
+                    drivetrain.getRotation()))); // Lock to closest 180
 
-    // Shoot-mode drive: limits acceleration/velocity/jerk while shooting for SWM accuracy.
+    // Shoot-mode drive: limits acceleration/velocity/jerk while shooting for SWM
+    // accuracy.
     // Runs alongside the shoot command (different subsystem requirements).
     joystick
         .rightTrigger(0.5)
@@ -173,8 +174,7 @@ public class RobotContainer {
                     drivetrain,
                     () -> {
                       // Not the cleanest but calculate scaled joystick values
-                      Vector<N2> scaled =
-                          rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+                      Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
                       translationVel[0] = -scaled.get(0) * maxShootSpeed;
                       translationVel[1] = -scaled.get(1) * maxShootSpeed;
                       return translationVel[0];
@@ -198,6 +198,10 @@ public class RobotContainer {
     joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.b().onTrue(intakeCoordinator.stopWheel());
+
+    // I don't love this, but it works.
+    new Trigger(() -> DriverStation.isEnabled() && DriverStation.isTeleop())
+        .whileTrue(superstructure.automaticallyDetermineShoot()).onFalse(superstructure.stopShoot());
   }
 
   public Command getAutonomousCommand() {
@@ -239,7 +243,10 @@ public class RobotContainer {
     }
   }
 
-  /** Checks if starting position changed and resets drivetrain pose. Call from disabledPeriodic. */
+  /**
+   * Checks if starting position changed and resets drivetrain pose. Call from
+   * disabledPeriodic.
+   */
   public void checkStartingPosition() {
     StartingPosition selected = startPositionChooser.getSelected();
     if (selected != null && selected != lastStartingPosition) {
@@ -248,7 +255,9 @@ public class RobotContainer {
     }
   }
 
-  /** Sets the rumble intensity on the driver controller (0.0 = off, 1.0 = full). */
+  /**
+   * Sets the rumble intensity on the driver controller (0.0 = off, 1.0 = full).
+   */
   public void setRumble(double value) {
     joystick.getHID().setRumble(RumbleType.kBothRumble, value);
   }
