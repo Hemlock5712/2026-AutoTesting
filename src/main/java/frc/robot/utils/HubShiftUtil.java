@@ -3,6 +3,7 @@ package frc.robot.utils;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
+import frc.robot.Robot;
 
 /**
  * Tracks whether our alliance's hub is currently active based on the shift schedule. Call {@link
@@ -37,6 +38,8 @@ public class HubShiftUtil {
     boolean[] schedule = getSchedule();
     int shiftIndex = getShiftIndex(timer.get());
     hubActive = schedule[shiftIndex];
+    Robot.telemetry().log("Hub/HubActive", hubActive);
+    Robot.telemetry().log("Hub/TimeUntilShift", getSecondsUntilNextShift());
   }
 
   /** Returns whether our hub is currently active. */
