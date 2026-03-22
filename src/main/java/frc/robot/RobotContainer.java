@@ -207,7 +207,21 @@ public class RobotContainer {
     // Automatically shoot when able, unless right trigger is pressed
     new Trigger(() -> superstructure.shouldShoot() && DriverStation.isTeleopEnabled())
         .and(joystick.rightTrigger().negate())
-        .whileTrue(superstructure.autoShoot())
+        .whileTrue(
+            Commands.parallel(
+                superstructure.autoShoot(),
+                new TurretDrive(
+                    drivetrain,
+                    () -> {
+                      // Not the cleanest but calculate scaled joystick values
+                      Vector<N2> scaled =
+                          rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+                      translationVel[0] = -scaled.get(0) * maxShootSpeed;
+                      translationVel[1] = -scaled.get(1) * maxShootSpeed;
+                      return translationVel[0];
+                    },
+                    () -> translationVel[1],
+                    () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate)))
         .onFalse(superstructure.stopShoot());
   }
 

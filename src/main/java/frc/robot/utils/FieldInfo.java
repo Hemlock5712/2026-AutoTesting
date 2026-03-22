@@ -232,7 +232,8 @@ public final class FieldInfo {
           FieldInfo.length().div(2).minus(Meters.of(5.304)).times(2),
           FieldInfo.width());
   private static final Rectangle2d ALLIANCE_ZONE =
-      new Rectangle2d(new Translation2d(0, 0), new Translation2d(Meters.of(5), FieldInfo.width()));
+      new Rectangle2d(
+          new Translation2d(0, 0), new Translation2d(Meters.of(4.5), FieldInfo.width()));
 
   private static final Distance NEUTRAL_ZONE_DEADZONE_DEPTH = Meters.of(3);
   private static final Distance NEUTRAL_ZONE_DEADZONE_WIDTH = Meters.of(1);
