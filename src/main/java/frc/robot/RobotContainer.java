@@ -169,6 +169,8 @@ public class RobotContainer {
     // Runs alongside the shoot command (different subsystem requirements).
     joystick
         .rightTrigger(0.5)
+        // Only run in test mode
+        .and(() -> DriverStation.isTest())
         .onTrue(
             Commands.parallel(
                 superstructure.autoShoot(),
@@ -202,9 +204,10 @@ public class RobotContainer {
 
     joystick.b().onTrue(intakeCoordinator.stopWheel());
 
-    // I don't love this, but it works.
-    new Trigger(() -> DriverStation.isEnabled() && DriverStation.isTeleop())
-        .whileTrue(superstructure.automaticallyDetermineShoot())
+    // Automatically shoot when able, unless right trigger is pressed
+    new Trigger(() -> superstructure.shouldShoot() && DriverStation.isTeleopEnabled())
+        .and(joystick.rightTrigger().negate())
+        .whileTrue(superstructure.autoShoot())
         .onFalse(superstructure.stopShoot());
   }
 
