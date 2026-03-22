@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.Meters;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rectangle2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
@@ -30,16 +31,15 @@ public final class FieldInfo {
   public static void setLayout(AprilTagFields field) {
     try {
       layout = AprilTagFieldLayout.loadField(field);
-      symmetryType =
-          switch (field) {
-            case k2026RebuiltAndymark -> SymmetryType.ROTATE;
-            case k2026RebuiltWelded -> SymmetryType.ROTATE;
-            case k2025ReefscapeWelded -> SymmetryType.ROTATE;
-            case k2025ReefscapeAndyMark -> SymmetryType.ROTATE;
-            case k2024Crescendo -> SymmetryType.MIRROR;
-            case k2023ChargedUp -> SymmetryType.MIRROR;
-            case k2022RapidReact -> SymmetryType.ROTATE;
-          };
+      symmetryType = switch (field) {
+        case k2026RebuiltAndymark -> SymmetryType.ROTATE;
+        case k2026RebuiltWelded -> SymmetryType.ROTATE;
+        case k2025ReefscapeWelded -> SymmetryType.ROTATE;
+        case k2025ReefscapeAndyMark -> SymmetryType.ROTATE;
+        case k2024Crescendo -> SymmetryType.MIRROR;
+        case k2023ChargedUp -> SymmetryType.MIRROR;
+        case k2022RapidReact -> SymmetryType.ROTATE;
+      };
     } catch (Exception e) {
       layout = new AprilTagFieldLayout(List.of(), 0.0, 0.0);
       symmetryType = SymmetryType.MIRROR;
@@ -114,7 +114,10 @@ public final class FieldInfo {
     return width().in(Meters) - 0.639445;
   }
 
-  /** Rotation preset: facing toward opponent alliance wall (blue alliance coordinates). */
+  /**
+   * Rotation preset: facing toward opponent alliance wall (blue alliance
+   * coordinates).
+   */
   public static final Rotation2d FACING_FORWARD = Rotation2d.kZero;
 
   /** Rotation preset: facing left (relative to blue alliance driver station). */
@@ -123,7 +126,9 @@ public final class FieldInfo {
   /** Rotation preset: facing right (relative to blue alliance driver station). */
   public static final Rotation2d FACING_RIGHT = Rotation2d.fromDegrees(-90);
 
-  /** Rotation preset: facing toward own alliance wall (blue alliance coordinates). */
+  /**
+   * Rotation preset: facing toward own alliance wall (blue alliance coordinates).
+   */
   public static final Rotation2d FACING_BACK = Rotation2d.k180deg;
 
   // ==================== Flip Utilities ====================
@@ -134,7 +139,8 @@ public final class FieldInfo {
   }
 
   /**
-   * Flips joystick X/Y for BlueAlliance perspective driving. Negates both axes on red alliance so
+   * Flips joystick X/Y for BlueAlliance perspective driving. Negates both axes on
+   * red alliance so
    * "forward" = positive field X.
    *
    * @param x Joystick X value (forward/back)
@@ -143,9 +149,9 @@ public final class FieldInfo {
    */
   public static double[] flipJoystick(double x, double y) {
     if (shouldFlip()) {
-      return new double[] {-x, -y};
+      return new double[] { -x, -y };
     }
-    return new double[] {x, y};
+    return new double[] { x, y };
   }
 
   /** Flips rotation input for red alliance. */
@@ -158,15 +164,15 @@ public final class FieldInfo {
     if (shouldFlip()) {
       return switch (symmetryType) {
         case MIRROR ->
-            new Pose2d(
-                layout.getFieldLength() - pose.getX(),
-                pose.getY(),
-                new Rotation2d(Math.PI - pose.getRotation().getRadians()));
+          new Pose2d(
+              layout.getFieldLength() - pose.getX(),
+              pose.getY(),
+              new Rotation2d(Math.PI - pose.getRotation().getRadians()));
         case ROTATE ->
-            new Pose2d(
-                layout.getFieldLength() - pose.getX(),
-                layout.getFieldWidth() - pose.getY(),
-                pose.getRotation().rotateBy(Rotation2d.k180deg));
+          new Pose2d(
+              layout.getFieldLength() - pose.getX(),
+              layout.getFieldWidth() - pose.getY(),
+              pose.getRotation().rotateBy(Rotation2d.k180deg));
       };
     }
     return pose;
@@ -177,11 +183,11 @@ public final class FieldInfo {
     if (shouldFlip()) {
       return switch (symmetryType) {
         case MIRROR ->
-            new Translation2d(layout.getFieldLength() - translation.getX(), translation.getY());
+          new Translation2d(layout.getFieldLength() - translation.getX(), translation.getY());
         case ROTATE ->
-            new Translation2d(
-                layout.getFieldLength() - translation.getX(),
-                layout.getFieldWidth() - translation.getY());
+          new Translation2d(
+              layout.getFieldLength() - translation.getX(),
+              layout.getFieldWidth() - translation.getY());
       };
     }
     return translation;
@@ -198,7 +204,10 @@ public final class FieldInfo {
     return rotation;
   }
 
-  /** Flips an X coordinate based on alliance. Always flipped for both MIRROR and ROTATE. */
+  /**
+   * Flips an X coordinate based on alliance. Always flipped for both MIRROR and
+   * ROTATE.
+   */
   public static double flipX(double x) {
     if (shouldFlip()) {
       return layout.getFieldLength() - x;
@@ -220,5 +229,60 @@ public final class FieldInfo {
 
   public static double flipY(Distance y) {
     return flipY(y.in(Meters));
+  }
+
+  private static final Translation2d CENTER_OF_FIELD = new Translation2d(FieldInfo.length().div(2),
+      FieldInfo.width().div(2));
+
+  private static final Rectangle2d NEUTRAL_ZONE = new Rectangle2d(
+      new Pose2d(CENTER_OF_FIELD, Rotation2d.kZero), FieldInfo.length().div(2).minus(Meters.of(5.304)).times(2),
+      FieldInfo.width());
+  private static final Rectangle2d ALLIANCE_ZONE = new Rectangle2d(new Translation2d(0, 0),
+      new Translation2d(Meters.of(5), FieldInfo.width()));
+
+  private static final Distance NEUTRAL_ZONE_DEADZONE_DEPTH = Meters.of(3);
+  private static final Distance NEUTRAL_ZONE_DEADZONE_WIDTH = Meters.of(1);
+
+  private static final Rectangle2d NEUTRAL_ZONE_DEADZONE = new Rectangle2d(new Pose2d(
+      CENTER_OF_FIELD.minus(new Translation2d(NEUTRAL_ZONE_DEADZONE_DEPTH.div(2), NEUTRAL_ZONE_DEADZONE_WIDTH.div(2))),
+      Rotation2d.kZero),
+      NEUTRAL_ZONE_DEADZONE_DEPTH, NEUTRAL_ZONE_DEADZONE_WIDTH);
+
+  private static final Distance TOWER_WIDTH = Meters.of(1.1);
+  private static final Distance TOWER_DEPTH = Meters.of(1.1);
+  private static final Translation2d TOWER_POSITION = new Translation2d(TOWER_DEPTH.div(2), width().div(2));
+  private static final Rectangle2d TOWER_ZONE = new Rectangle2d(new Pose2d(TOWER_POSITION, Rotation2d.kZero),
+      TOWER_WIDTH, TOWER_DEPTH);
+
+  public static boolean isInNeutralZone(Translation2d translation) {
+    return NEUTRAL_ZONE.contains(translation);
+  }
+
+  public static boolean isInNeutralZone(Pose2d pose) {
+    return isInNeutralZone(pose.getTranslation());
+  }
+
+  public static boolean isInAllianceZone(Translation2d translation) {
+    return ALLIANCE_ZONE.contains(translation);
+  }
+
+  public static boolean isInAllianceZone(Pose2d pose) {
+    return isInAllianceZone(pose.getTranslation());
+  }
+
+  public static boolean isInNeutralZoneDeadzone(Translation2d translation) {
+    return NEUTRAL_ZONE_DEADZONE.contains(translation);
+  }
+
+  public static boolean isInNeutralZoneDeadzone(Pose2d pose) {
+    return isInNeutralZoneDeadzone(pose.getTranslation());
+  }
+
+  public static boolean isUnderTower(Translation2d translation) {
+    return TOWER_ZONE.contains(translation);
+  }
+
+  public static boolean isUnderTower(Pose2d pose) {
+    return isUnderTower(pose.getTranslation());
   }
 }
