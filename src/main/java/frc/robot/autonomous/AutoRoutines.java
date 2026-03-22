@@ -20,8 +20,8 @@ public class AutoRoutines {
   private final Superstructure superstructure;
   private final IntakeCoordinator intakeCoordinator;
 
-  private static final double RIGHT_TRENCH_CENTER = 0.639445; // Center of right trench
-  private static final double LEFT_TRENCH_CENTER = FieldInfo.width().in(Meters) - 0.639445;
+  public static final double RIGHT_TRENCH_CENTER = 0.639445; // Center of right trench
+  public static final double LEFT_TRENCH_CENTER = FieldInfo.width().in(Meters) - 0.639445;
   private static final double BUMPERS_ON_LINE =
       4.378; // Under trench, bumpers just barely on the line, starting X
 

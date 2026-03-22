@@ -6,7 +6,9 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -145,10 +147,8 @@ public class RobotContainer {
                 drivetrain,
                 () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
-                () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
-                () ->
-                    AutoRoutines.snapToNearest180Degrees(
-                        drivetrain.getRotation()))); // Lock to closest 180
+                () -> FieldInfo.flipY(newLeftCenter()),
+                null)); // Lock to closest 180
 
     joystick
         .rightBumper()
@@ -157,10 +157,8 @@ public class RobotContainer {
                 drivetrain,
                 () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
                 () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
-                () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
-                () ->
-                    AutoRoutines.snapToNearest180Degrees(
-                        drivetrain.getRotation()))); // Lock to closest 180
+                () -> FieldInfo.flipY(newRightCenter()),
+                null)); // Lock to closest 180
 
     // Shoot-mode drive: limits acceleration/velocity/jerk while shooting for SWM accuracy.
     // Runs alongside the shoot command (different subsystem requirements).
@@ -249,5 +247,25 @@ public class RobotContainer {
   /** Sets the rumble intensity on the driver controller (0.0 = off, 1.0 = full). */
   public void setRumble(double value) {
     joystick.getHID().setRumble(RumbleType.kBothRumble, value);
+  }
+
+  public double newLeftCenter() {
+    Pose2d curPos = drivetrain.getPose();
+    Pose2d newCenter = curPos.transformBy(new Transform2d(0.108, 0, Rotation2d.kZero));
+
+    double trenchOffset = newCenter.getY() - curPos.getY();
+    double newTrenchCenter = AutoRoutines.LEFT_TRENCH_CENTER - trenchOffset;
+
+    return newTrenchCenter;
+  }
+
+  public double newRightCenter() {
+    Pose2d curPos = drivetrain.getPose();
+    Pose2d newCenter = curPos.transformBy(new Transform2d(0.108, 0, Rotation2d.kZero));
+
+    double trenchOffset = newCenter.getY() - curPos.getY();
+    double newTrenchCenter = AutoRoutines.RIGHT_TRENCH_CENTER - trenchOffset;
+
+    return newTrenchCenter;
   }
 }
