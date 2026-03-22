@@ -3,6 +3,7 @@ package frc.robot.utils;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import frc.robot.utils.geometry.ExtTranslation;
 
 /**
  * Utility class for flipping field locations across lines of symmetry. {@link FieldInfo} is
@@ -68,6 +69,12 @@ public final class FieldFlip {
    */
   public static Pose2d overWidth(Pose2d pose) {
     return new Pose2d(overWidth(pose.getTranslation()), overWidth(pose.getRotation()));
+  }
+
+  public static ExtTranslation overWidth(ExtTranslation translation) {
+    return new ExtTranslation(
+        translation.getBlue().getMeasureX(),
+        FieldInfo.width().minus(translation.getBlue().getMeasureY()));
   }
 
   /**

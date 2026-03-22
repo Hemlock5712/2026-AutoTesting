@@ -6,11 +6,17 @@ public class ShooterLookup {
   private static final InterpolatingDoubleTreeMap flywheelMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap hoodMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap tofMap = new InterpolatingDoubleTreeMap();
+  private static final InterpolatingDoubleTreeMap feedShootMap = new InterpolatingDoubleTreeMap();
+  private static final InterpolatingDoubleTreeMap feedHoodMap = new InterpolatingDoubleTreeMap();
+  private static final InterpolatingDoubleTreeMap feedTime = new InterpolatingDoubleTreeMap();
 
   static {
     buildFlywheel();
     buildHood();
     buildToF();
+    buildFeedFlywheel();
+    buildFeedHood();
+    buildFeedTime();
   }
 
   private static void buildFlywheel() {
@@ -55,6 +61,21 @@ public class ShooterLookup {
     tofMap.put(5.5, 1.3278);
   }
 
+  private static void buildFeedFlywheel() {
+    feedShootMap.put(0.0, 20.0);
+    feedShootMap.put(9.5, 50.0);
+  }
+
+  private static void buildFeedHood() {
+    feedHoodMap.put(0.0, 0.00);
+    feedHoodMap.put(9.5, 20.0);
+  }
+
+  private static void buildFeedTime() {
+    feedTime.put(0.0, 0.00);
+    feedTime.put(9.5, 1.67);
+  }
+
   public static InterpolatingDoubleTreeMap getFlywheelMap() {
     return flywheelMap;
   }
@@ -65,5 +86,17 @@ public class ShooterLookup {
 
   public static InterpolatingDoubleTreeMap getToFMap() {
     return tofMap;
+  }
+
+  public static InterpolatingDoubleTreeMap getFeedFlywheelMap() {
+    return feedShootMap;
+  }
+
+  public static InterpolatingDoubleTreeMap getFeedHoodMap() {
+    return feedHoodMap;
+  }
+
+  public static InterpolatingDoubleTreeMap getFeedTimeMap() {
+    return feedTime;
   }
 }

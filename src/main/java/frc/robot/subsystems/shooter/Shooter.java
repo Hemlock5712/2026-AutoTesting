@@ -26,12 +26,15 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
+import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Robot;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
@@ -54,6 +57,8 @@ public class Shooter extends SubsystemBase {
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
   private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
+
+  private final Debouncer atTargetDebouncer = new Debouncer(0.1, DebounceType.kFalling);
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
@@ -116,7 +121,7 @@ public class Shooter extends SubsystemBase {
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
     hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
-    hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.0555;
+    hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.069444;
     hoodConfig.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
     hoodConfig.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
 
@@ -223,8 +228,9 @@ public class Shooter extends SubsystemBase {
     boolean hoodOk =
         actualHoodDeg >= ShooterLookup.getHoodMap().get(minDist)
             && actualHoodDeg <= ShooterLookup.getHoodMap().get(maxDist);
-
-    return flywheelOk;
+    boolean debouncedTrue = atTargetDebouncer.calculate(flywheelOk);
+    Robot.telemetry().log("SWM/DebounceAtTarget", debouncedTrue);
+    return debouncedTrue;
   }
 
   /**
@@ -309,10 +315,34 @@ public class Shooter extends SubsystemBase {
     setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
   }
 
+  public void setForFeedDistance(double distanceMeters) {
+    setVelocity(ShooterLookup.getFeedFlywheelMap().get(distanceMeters));
+    setPosition(Degrees.of(ShooterLookup.getFeedHoodMap().get(distanceMeters)));
+  }
+
+  /** Check if flywheel is at target for a feed shot (wider tolerance). */
+  public boolean isFeedAtTarget(double distance) {
+    double margin = 0.5;
+    double minDist = Math.max(0.0, distance - margin);
+    double maxDist = Math.min(9.5, distance + margin);
+
+    double actualRPS = getVelocity().in(RotationsPerSecond);
+    boolean flywheelOk =
+        actualRPS >= ShooterLookup.getFeedFlywheelMap().get(minDist)
+            && actualRPS <= ShooterLookup.getFeedFlywheelMap().get(maxDist);
+
+    return flywheelOk;
+  }
+
   /** Command that continuously sets the hood position based on distance lookup. */
   public Command runHoodDynamic(DoubleSupplier distance) {
     return run(
         () -> setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distance.getAsDouble()))));
+  }
+
+  /** Command that continuously sets flywheel and hood for a feed shot based on distance. */
+  public Command runDynamicFeed(DoubleSupplier distance) {
+    return run(() -> setForFeedDistance(distance.getAsDouble()));
   }
 
   /** Command that sets shooter for SWM with separate flywheel and hood distances. */

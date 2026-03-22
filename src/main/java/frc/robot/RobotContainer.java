@@ -168,7 +168,7 @@ public class RobotContainer {
         .rightTrigger(0.5)
         .onTrue(
             Commands.parallel(
-                superstructure.shoot(),
+                superstructure.autoShoot(),
                 new TurretDrive(
                     drivetrain,
                     () -> {
@@ -193,7 +193,9 @@ public class RobotContainer {
 
     joystick.x().onTrue(superstructure.reverseSpindexer()).onFalse(superstructure.stopSpindexer());
 
-    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.b().onTrue(intakeCoordinator.stopWheel());
   }

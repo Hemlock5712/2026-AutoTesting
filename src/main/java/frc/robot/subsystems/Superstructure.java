@@ -229,10 +229,7 @@ public class Superstructure {
                     spindexer.prepFeed(),
                     () ->
                         turret.isAtTarget(distanceToVirtualTarget)
-                            && shooter.isAtTarget(distanceToVirtualTarget)
-                            && (swmSolutionFeasible
-                                || (FieldInfo.flipX(driveState.get().Pose.getX())
-                                    < FieldInfo.ALLIANCE_ZONE_X)))
+                            && shooter.isAtTarget(distanceToVirtualTarget))
                 .repeatedly()));
   }
 
@@ -252,6 +249,27 @@ public class Superstructure {
                             && shooter.isAtTarget(distanceToVirtualTarget)
                             && swmSolutionFeasible)
                 .repeatedly()));
+  }
+
+  /** Auto-selects hub shot or feed shot based on field position. */
+  public Command autoShoot() {
+    return Commands.either(
+        shoot(),
+        feedShoot(),
+        () -> FieldInfo.flipX(driveState.get().Pose.getX()) < FieldInfo.ALLIANCE_ZONE_X);
+  }
+
+  /** Feed shot sequence — wider tolerance, uses feed lookup maps. */
+  public Command feedShoot() {
+    return Commands.parallel(
+        shooter.runDynamicFeed(this::getFlywheelDistance),
+        Commands.runOnce(() -> isShooting = true),
+        Commands.sequence(
+            Commands.waitUntil(
+                () ->
+                    shooter.isFeedAtTarget(distanceToVirtualTarget)
+                        && turret.isAtTarget(distanceToVirtualTarget)),
+            spindexer.forwardCommand()));
   }
 
   public Command stopShoot() {
