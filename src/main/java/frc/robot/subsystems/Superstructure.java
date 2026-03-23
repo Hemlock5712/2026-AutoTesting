@@ -231,12 +231,11 @@ public class Superstructure {
                         && turret.isAtTarget(distanceToVirtualTarget)
                         && swmSolutionFeasible),
             Commands.either(
-                    spindexer.forwardCommand(),
-                    spindexer.prepFeed(),
-                    () ->
-                        turret.isAtTarget(distanceToVirtualTarget)
-                            && shooter.isAtTarget(distanceToVirtualTarget))
-                .repeatedly()));
+                spindexer.forwardCommand(),
+                spindexer.prepFeed(),
+                () ->
+                    turret.isAtTarget(distanceToVirtualTarget)
+                        && shooter.isAtTarget(distanceToVirtualTarget))));
   }
 
   /** Shooting sequence with SWM compensation (degrades to static when stationary). */
@@ -264,7 +263,8 @@ public class Superstructure {
    * @return A command that will shoot when it's supposed to, and do nothing otherwise.
    */
   public Command automaticallyDetermineShoot() {
-    return Commands.either(autoShoot(), Commands.none(), () -> shouldShoot());
+    return Commands.either(
+        autoShoot().until(() -> !shouldShoot()), stopShoot(), () -> shouldShoot());
   }
 
   /** Auto-selects hub shot or feed shot based on field position. */

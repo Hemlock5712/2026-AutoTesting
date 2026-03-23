@@ -169,6 +169,8 @@ public class RobotContainer {
     // Runs alongside the shoot command (different subsystem requirements).
     joystick
         .rightTrigger(0.5)
+        // Only run in test mode
+        .and(() -> DriverStation.isTest())
         .onTrue(
             Commands.parallel(
                 superstructure.autoShoot(),
@@ -202,10 +204,27 @@ public class RobotContainer {
 
     joystick.b().onTrue(intakeCoordinator.stopWheel());
 
-    // I don't love this, but it works.
-    new Trigger(() -> DriverStation.isEnabled() && DriverStation.isTeleop())
-        .whileTrue(superstructure.automaticallyDetermineShoot())
+    // Automatically shoot when able, unless right trigger is pressed
+    new Trigger(() -> superstructure.shouldShoot() && DriverStation.isTeleopEnabled())
+        .and(joystick.rightTrigger().negate())
+        .whileTrue(superstructure.autoShoot())
         .onFalse(superstructure.stopShoot());
+
+    new Trigger(() -> superstructure.isInAllianceZone() && DriverStation.isTeleopEnabled())
+        .and(joystick.leftBumper().negate())
+        .and(joystick.rightBumper().negate())
+        .whileTrue(
+            new TurretDrive(
+                drivetrain,
+                () -> {
+                  // Not the cleanest but calculate scaled joystick values
+                  Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+                  translationVel[0] = -scaled.get(0) * maxShootSpeed;
+                  translationVel[1] = -scaled.get(1) * maxShootSpeed;
+                  return translationVel[0];
+                },
+                () -> translationVel[1],
+                () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate));
   }
 
   public Command getAutonomousCommand() {
