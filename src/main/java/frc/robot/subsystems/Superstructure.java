@@ -286,7 +286,14 @@ public class Superstructure {
                 () ->
                     shooter.isFeedAtTarget(distanceToVirtualTarget)
                         && turret.isAtTarget(distanceToVirtualTarget)),
-            spindexer.forwardCommand()));
+            Commands.either(
+                    spindexer.forwardCommand(),
+                    spindexer.prepFeed(),
+                    () ->
+                        turret.isAtTarget(distanceToVirtualTarget)
+                            && shooter.isAtTarget(distanceToVirtualTarget)
+                            && swmSolutionFeasible)
+                .repeatedly()));
   }
 
   public Command stopShoot() {
