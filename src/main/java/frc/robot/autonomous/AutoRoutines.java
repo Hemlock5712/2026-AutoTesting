@@ -134,7 +134,7 @@ public class AutoRoutines {
             .driveTo(
                 () -> new ExtPose(0.744, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
             .withMaxSpeed(2)
-            .alongWith(superstructure.shoot())
+            .alongWith(superstructure.hubShoot())
             .alongWith(Commands.waitSeconds(10).andThen(intakeCoordinator.upAndRun())));
   }
 
@@ -160,8 +160,8 @@ public class AutoRoutines {
                             new ExtPose(3.5, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180))
                                 .get())
                     .withMaxSpeed(2)),
-            superstructure.shoot()),
-        superstructure.shoot());
+            superstructure.hubShoot()),
+        superstructure.hubShoot());
   }
 
   public Command rightShortExtendedAuto() {
@@ -187,7 +187,7 @@ public class AutoRoutines {
                                 .get())
                     .withMaxSpeed(2)
                     .withEndTargetSpeed(2)),
-            superstructure.shoot()),
+            superstructure.hubShoot()),
         superstructure.stopShoot(),
         // Extended: second pass
         autoCommands
@@ -203,7 +203,7 @@ public class AutoRoutines {
         // Drive under trench
         autoCommands.driveTo(
             () -> new ExtPose(4.0, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get()),
-        superstructure.shoot());
+        superstructure.hubShoot());
   }
 
   public Command pizzaAutoFeedBack() {
@@ -227,7 +227,7 @@ public class AutoRoutines {
             .withWaypoint(0.5)
             .withMaxSpeed(2)
             .withWaypointTolerance()
-            .deadlineFor(superstructure.shoot()),
+            .deadlineFor(superstructure.hubShoot()),
 
         // Drive back to trench
         autoCommands
@@ -261,7 +261,7 @@ public class AutoRoutines {
                     .driveTo(() -> new ExtPose(0.814, 1.5, Rotation2d.fromDegrees(180)).get())
                     .withEndTargetSpeed(0)
                     .withMaxSpeed(2))
-            .alongWith(superstructure.shoot())
+            .alongWith(superstructure.hubShoot())
             .alongWith(intakeCoordinator.runIntake()));
   }
 
@@ -297,7 +297,7 @@ public class AutoRoutines {
         autoCommands.driveTo(
             () -> new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get()),
         // Shoot for 3 seconds
-        Commands.deadline(Commands.sequence(Commands.waitSeconds(3)), superstructure.shoot()),
+        Commands.deadline(Commands.sequence(Commands.waitSeconds(3)), superstructure.hubShoot()),
         superstructure.stopShoot(),
         intakeCoordinator.deployAndRun(),
         // Second pass: drive back through trench
@@ -319,6 +319,6 @@ public class AutoRoutines {
         Commands.parallel(
             Commands.sequence(
                 Commands.waitSeconds(3), intakeCoordinator.upAndRun(), Commands.waitSeconds(2)),
-            superstructure.shoot()));
+            superstructure.hubShoot()));
   }
 }

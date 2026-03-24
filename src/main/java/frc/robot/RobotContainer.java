@@ -8,14 +8,12 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
@@ -164,20 +162,17 @@ public class RobotContainer {
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
 
-    // Shoot-mode drive: limits acceleration/velocity/jerk while shooting for SWM
-    // accuracy.
-    // Runs alongside the shoot command (different subsystem requirements).
+    // Right trigger toggles auto-shoot mode on/off.
+    // Debounce prevents analog trigger noise from causing multiple toggles.
     joystick
-        .rightTrigger(0.5)
-        // Only run in test mode
-        .and(() -> DriverStation.isTest())
-        .onTrue(
+        .rightTrigger()
+        .debounce(0.1)
+        .toggleOnTrue(
             Commands.parallel(
-                superstructure.autoShoot(),
+                superstructure.autoShootMode(),
                 new TurretDrive(
                     drivetrain,
                     () -> {
-                      // Not the cleanest but calculate scaled joystick values
                       Vector<N2> scaled =
                           rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
                       translationVel[0] = -scaled.get(0) * maxShootSpeed;
@@ -185,18 +180,7 @@ public class RobotContainer {
                       return translationVel[0];
                     },
                     () -> translationVel[1],
-                    () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate)))
-        .onFalse(superstructure.stopShoot());
-
-    // Right trigger to toggle auto shoot enabled, only when in teleop
-    joystick
-        .rightTrigger()
-        .and(() -> DriverStation.isTeleopEnabled())
-        .onTrue(
-            Commands.either(
-                superstructure.disableAutoShoot(),
-                superstructure.enableAutoShoot(),
-                () -> superstructure.isAutoShootEnabled()));
+                    () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate)));
 
     joystick
         .leftTrigger(0.5)
@@ -213,28 +197,6 @@ public class RobotContainer {
     joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.b().onTrue(intakeCoordinator.stopWheel());
-
-    // Automatically shoot when able, unless right trigger is pressed
-    new Trigger(() -> superstructure.shouldShoot() && DriverStation.isTeleopEnabled())
-        .and(new Trigger(() -> superstructure.isAutoShootEnabled()))
-        .whileTrue(superstructure.autoShoot())
-        .onFalse(superstructure.stopShoot());
-
-    new Trigger(() -> superstructure.isInAllianceZone() && DriverStation.isTeleopEnabled())
-        .and(joystick.leftBumper().negate())
-        .and(joystick.rightBumper().negate())
-        .whileTrue(
-            new TurretDrive(
-                drivetrain,
-                () -> {
-                  // Not the cleanest but calculate scaled joystick values
-                  Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
-                  translationVel[0] = -scaled.get(0) * maxShootSpeed;
-                  translationVel[1] = -scaled.get(1) * maxShootSpeed;
-                  return translationVel[0];
-                },
-                () -> translationVel[1],
-                () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate));
   }
 
   public Command getAutonomousCommand() {
