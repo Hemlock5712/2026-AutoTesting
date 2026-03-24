@@ -227,16 +227,14 @@ public class Superstructure {
         Commands.runOnce(() -> isShooting = true),
         Commands.sequence(
             Commands.waitUntil(
-                () ->
-                    shooter.isAtTarget(distanceToVirtualTarget)
-                        && turret.isAtTarget(distanceToVirtualTarget)
-                        && swmSolutionFeasible),
+                () -> shooter.isAtTarget(distanceToVirtualTarget) && swmSolutionFeasible),
             Commands.either(
-                spindexer.forwardCommand(),
-                spindexer.prepFeed(),
-                () ->
-                    turret.isAtTarget(distanceToVirtualTarget)
-                        && shooter.isAtTarget(distanceToVirtualTarget))));
+                    spindexer.forwardCommand(),
+                    spindexer.prepFeed(),
+                    () ->
+                        turret.isAtTarget(distanceToVirtualTarget)
+                            && shooter.isAtTarget(distanceToVirtualTarget))
+                .repeatedly()));
   }
 
   /** Shooting sequence with SWM compensation (degrades to static when stationary). */

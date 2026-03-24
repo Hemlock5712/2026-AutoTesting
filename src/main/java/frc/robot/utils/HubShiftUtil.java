@@ -23,6 +23,12 @@ public class HubShiftUtil {
 
   private static boolean hubActive = false;
 
+  public static void setupNTValues() {
+    Robot.telemetry().log("Hub/HubActive", true);
+    Robot.telemetry().log("Hub/TimeUntilShift", 10.0);
+    Robot.telemetry().log("Hub/TimeUntilShiftHumanDisplay", "10.0");
+  }
+
   /** Starts the timer. Call at the beginning of teleop. */
   public static void initialize() {
     timer.restart();
@@ -30,7 +36,7 @@ public class HubShiftUtil {
 
   /** Updates the cached active state. Call from robotPeriodic. */
   public static void update() {
-    if (!DriverStation.isTeleopEnabled()) {
+    if (!DriverStation.isTeleopEnabled() && !DriverStation.isTestEnabled()) {
       hubActive = DriverStation.isAutonomousEnabled();
       return;
     }
@@ -40,6 +46,8 @@ public class HubShiftUtil {
     hubActive = schedule[shiftIndex];
     Robot.telemetry().log("Hub/HubActive", hubActive);
     Robot.telemetry().log("Hub/TimeUntilShift", getSecondsUntilNextShift());
+    Robot.telemetry()
+        .log("Hub/TimeUntilShiftHumanDisplay", String.format("%02.1f", getSecondsUntilNextShift()));
   }
 
   /** Returns whether our hub is currently active. */

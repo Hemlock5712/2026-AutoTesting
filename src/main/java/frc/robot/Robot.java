@@ -44,6 +44,8 @@ public class Robot extends TimedRobot {
     //                 new NTEpilogueBackend(NetworkTableInstance.getDefault()),
     //                 new FileBackend(DataLogManager.getLog())));
     Epilogue.bind(this);
+
+    HubShiftUtil.setupNTValues();
   }
 
   @Override
@@ -123,7 +125,15 @@ public class Robot extends TimedRobot {
   }
 
   @Override
-  public void testPeriodic() {}
+  public void testPeriodic() {
+    HubShiftUtil.update();
+    // Rumble controller when a shift change is 5 seconds away
+    double secondsUntilShift = HubShiftUtil.getSecondsUntilNextShift();
+    m_robotContainer.setRumble(
+        (secondsUntilShift <= RUMBLE_START_THRESHOLD && secondsUntilShift > RUMBLE_END_THRESHOLD)
+            ? 1.0
+            : 0.0);
+  }
 
   @Override
   public void testExit() {}
