@@ -188,6 +188,16 @@ public class RobotContainer {
                     () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate)))
         .onFalse(superstructure.stopShoot());
 
+    // Right trigger to toggle auto shoot enabled, only when in teleop
+    joystick
+        .rightTrigger()
+        .and(() -> DriverStation.isTeleopEnabled())
+        .onTrue(
+            Commands.either(
+                superstructure.disableAutoShoot(),
+                superstructure.enableAutoShoot(),
+                () -> superstructure.isAutoShootEnabled()));
+
     joystick
         .leftTrigger(0.5)
         .onTrue(
@@ -206,7 +216,7 @@ public class RobotContainer {
 
     // Automatically shoot when able, unless right trigger is pressed
     new Trigger(() -> superstructure.shouldShoot() && DriverStation.isTeleopEnabled())
-        .and(joystick.rightTrigger().negate())
+        .and(new Trigger(() -> superstructure.isAutoShootEnabled()))
         .whileTrue(superstructure.autoShoot())
         .onFalse(superstructure.stopShoot());
 

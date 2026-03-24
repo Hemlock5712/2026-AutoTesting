@@ -104,6 +104,7 @@ public class Superstructure {
   private double swmDelay = 0;
 
   private boolean isShooting = false;
+  @Logged private boolean isAutoShootEnabled = false;
 
   // ==================== Configuration ====================
   private final TunableDouble neutralZoneShootDelay =
@@ -479,5 +480,21 @@ public class Superstructure {
     }
 
     return false;
+  }
+
+  public boolean isAutoShootEnabled() {
+    return isAutoShootEnabled;
+  }
+
+  public Command enableAutoShoot() {
+    return Commands.runOnce(() -> isAutoShootEnabled = true);
+  }
+
+  public Command disableAutoShoot() {
+    return Commands.runOnce(() -> isAutoShootEnabled = false);
+  }
+
+  public Command toggleAutoShootEnabled() {
+    return Commands.runOnce(() -> isAutoShootEnabled = !isAutoShootEnabled);
   }
 }
