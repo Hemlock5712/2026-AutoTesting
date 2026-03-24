@@ -18,8 +18,8 @@ import edu.wpi.first.wpilibj2.command.Commands;
 @Logged(strategy = Strategy.OPT_IN)
 public class IntakeCoordinator {
 
-  private final IntakeArm arm;
-  private final IntakeWheels wheels;
+  @Logged private final IntakeArm arm;
+  @Logged private final IntakeWheels wheels;
 
   public IntakeCoordinator() {
     arm = RobotBase.isSimulation() ? new IntakeArmSIM() : new IntakeArm();
