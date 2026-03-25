@@ -65,7 +65,7 @@ public class Spindexer extends SubsystemBase {
     return runOnce(() -> setVelocity(0, PREP_FEED_KICKER_VEL));
   }
 
-  private void stop() {
+  public void stop() {
     spindexer.stopMotor();
     kicker.stopMotor();
   }

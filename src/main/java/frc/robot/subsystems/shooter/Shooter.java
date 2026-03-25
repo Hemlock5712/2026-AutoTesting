@@ -295,8 +295,7 @@ public class Shooter extends SubsystemBase {
     return HOOD_TOLERANCE;
   }
 
-  // Stop the shooter motors (private to enforce Command-based control flow)
-  private void stopMotors() {
+  public void stopMotors() {
     flywheel.stopMotor();
     hood.stopMotor();
   }

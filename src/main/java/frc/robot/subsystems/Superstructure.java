@@ -282,6 +282,8 @@ public class Superstructure {
             () -> {
               isAutoShootEnabled = false;
               isShooting = false;
+              shooter.stopMotors();
+              spindexer.stop();
             });
   }
 
