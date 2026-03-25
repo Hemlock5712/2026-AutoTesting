@@ -239,10 +239,7 @@ public class Superstructure {
   public Command feedShoot() {
     return shootSequence(
         shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
-        () ->
-            turret.isAtTarget(distanceToVirtualTarget)
-                && shooter.isFeedAtTarget(distanceToVirtualTarget)
-                && swmSolutionFeasible);
+        () -> turret.isAtTargetFeed() && shooter.isFeedAtTarget(distanceToVirtualTarget));
   }
 
   /** Manual shooting at fixed distance — fallback when vision is unavailable. */
