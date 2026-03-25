@@ -30,9 +30,9 @@ import frc.robot.subsystems.spindexer.SpindexerSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.HubShiftUtil;
 import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -105,10 +105,6 @@ public class Superstructure {
 
   private boolean isShooting = false;
   @Logged private boolean isAutoShootEnabled = false;
-
-  // ==================== Configuration ====================
-  private final TunableDouble neutralZoneShootDelay =
-      Tunables.value("StopShootingBeforeHubActiveTime", 5.0);
 
   // ==================== Constructor ====================
 
@@ -220,21 +216,13 @@ public class Superstructure {
                 Commands.waitUntil(() -> shooter.isAtTarget()), spindexer.forwardCommand()));
   }
 
-  /** Shooting sequence with SWM compensation (degrades to static when stationary). */
-  public Command shoot() {
+  /** Core shoot logic: runs shooter, then feeds when ready. */
+  private Command shootSequence(Command shooterCommand, BooleanSupplier readyToFeed) {
     return Commands.parallel(
-        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance),
+        shooterCommand,
         Commands.runOnce(() -> isShooting = true),
-        Commands.sequence(
-            Commands.waitUntil(
-                () -> shooter.isAtTarget(distanceToVirtualTarget) && swmSolutionFeasible),
-            Commands.either(
-                    spindexer.forwardCommand(),
-                    spindexer.prepFeed(),
-                    () ->
-                        turret.isAtTarget(distanceToVirtualTarget)
-                            && shooter.isAtTarget(distanceToVirtualTarget))
-                .repeatedly()));
+        Commands.either(spindexer.forwardCommand(), spindexer.prepFeed(), readyToFeed)
+            .repeatedly());
   }
 
   public Command spinUpShooter() {
@@ -242,60 +230,63 @@ public class Superstructure {
   }
 
   /** Shooting sequence with SWM compensation (degrades to static when stationary). */
+  /** Hub shot with SWM compensation. */
+  public Command hubShoot() {
+    return shootSequence(
+        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance),
+        () ->
+            turret.isAtTarget(distanceToVirtualTarget)
+                && shooter.isAtTarget(distanceToVirtualTarget)
+                && swmSolutionFeasible);
+  }
+
+  /** Feed shot — wider tolerance, uses feed lookup maps. */
+  public Command feedShoot() {
+    return shootSequence(
+        shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
+        () -> turret.isAtTargetFeed() && shooter.isFeedAtTarget(distanceToVirtualTarget));
+  }
+
+  /** Manual shooting at fixed distance — fallback when vision is unavailable. */
   public Command shootManual() {
     return Commands.parallel(
         Commands.run(() -> shooter.setForDistance(3.4)),
         turret.trackHubCommand(() -> 0.0),
-        Commands.runOnce(() -> isShooting = true),
-        Commands.sequence(
-            Commands.waitUntil(() -> shooter.isAtTarget()),
-            Commands.either(
-                    spindexer.forwardCommand(),
-                    spindexer.prepFeed(),
-                    () ->
-                        turret.isAtTarget(distanceToVirtualTarget)
-                            && shooter.isAtTarget(distanceToVirtualTarget)
-                            && swmSolutionFeasible)
-                .repeatedly()));
+        shootSequence(
+            Commands.none(),
+            () ->
+                turret.isAtTarget(distanceToVirtualTarget)
+                    && shooter.isAtTarget(distanceToVirtualTarget)
+                    && swmSolutionFeasible));
   }
 
-  /**
-   * Automatically determines whether to shoot or not. Should be set as the default command, making
-   * it so it will shoot when it's supposed to.
-   *
-   * @return A command that will shoot when it's supposed to, and do nothing otherwise.
-   */
-  public Command automaticallyDetermineShoot() {
+  /** Selects hub shot or feed shot based on field position. */
+  public Command shoot() {
     return Commands.either(
-        autoShoot().until(() -> !shouldShoot()), stopShoot(), () -> shouldShoot());
-  }
-
-  /** Auto-selects hub shot or feed shot based on field position. */
-  public Command autoShoot() {
-    return Commands.either(
-        shoot(),
+        hubShoot(),
         feedShoot(),
         () -> FieldInfo.flipX(driveState.get().Pose.getX()) < FieldInfo.ALLIANCE_ZONE_X);
   }
 
-  /** Feed shot sequence — wider tolerance, uses feed lookup maps. */
-  public Command feedShoot() {
-    return Commands.parallel(
-        shooter.runDynamicFeed(this::getFlywheelDistance),
-        Commands.runOnce(() -> isShooting = true),
-        Commands.sequence(
-            Commands.waitUntil(
-                () ->
-                    shooter.isFeedAtTarget(distanceToVirtualTarget)
-                        && turret.isAtTarget(distanceToVirtualTarget)),
-            Commands.either(
-                    spindexer.forwardCommand(),
-                    spindexer.prepFeed(),
-                    () ->
-                        turret.isAtTarget(distanceToVirtualTarget)
-                            && shooter.isAtTarget(distanceToVirtualTarget)
-                            && swmSolutionFeasible)
-                .repeatedly()));
+  /**
+   * Long-running auto-shoot mode toggled by the driver. Shooting activates only in valid zones and
+   * stops when leaving them. Run alongside TurretDrive in RobotContainer.
+   */
+  public Command autoShootMode() {
+    return Commands.sequence(
+            Commands.runOnce(() -> isAutoShootEnabled = true),
+            Commands.sequence(
+                    Commands.waitUntil(this::shouldShoot),
+                    shoot().until(() -> !shouldShoot()),
+                    stopShoot())
+                .repeatedly())
+        .finallyDo(
+            () -> {
+              isAutoShootEnabled = false;
+              isShooting = false;
+              shooter.stopMotors();
+              spindexer.stop();
+            });
   }
 
   public Command stopShoot() {
@@ -310,7 +301,7 @@ public class Superstructure {
    */
   public Command autoForceFeed() {
     return Commands.parallel(
-        shooter.runDynamicFeed(this::getFlywheelDistance),
+        shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
         Commands.runOnce(() -> isShooting = true),
         spindexer.forwardCommand());
   }
@@ -480,42 +471,16 @@ public class Superstructure {
 
   @Logged
   public boolean shouldShoot() {
-    double timeUntilBallHitsHub = ShooterLookup.getFeedTimeMap().get(distanceToVirtualTarget);
-    // Hub is active
-    if (HubShiftUtil.isHubActive()
-        || HubShiftUtil.getSecondsUntilNextShift() < timeUntilBallHitsHub) {
-      // Hub will be active by the time the ball hits the hub
-      return isInAllianceZone() && !isUnderTower();
+    if (isInAllianceZone() && !isUnderTower()) {
+      return true;
     }
-
-    // Hub not active
-    if (!HubShiftUtil.isHubActive()) {
-      if (HubShiftUtil.getSecondsUntilNextShift() < neutralZoneShootDelay.get()) {
-        // Hub becomes active soon, don't shoot, so we can build up hopper storage
-        // This is configurable by the neutralZoneShootDelay tunable
-        return false;
-      }
-
-      // Hub is not active, feed back to alliance zone`
-      return isInNeutralZone() && !isInNeutralZoneDeadzone();
+    if (isInNeutralZone() && !isInNeutralZoneDeadzone()) {
+      return true;
     }
-
     return false;
   }
 
   public boolean isAutoShootEnabled() {
     return isAutoShootEnabled;
-  }
-
-  public Command enableAutoShoot() {
-    return Commands.runOnce(() -> isAutoShootEnabled = true);
-  }
-
-  public Command disableAutoShoot() {
-    return Commands.runOnce(() -> isAutoShootEnabled = false);
-  }
-
-  public Command toggleAutoShootEnabled() {
-    return Commands.runOnce(() -> isAutoShootEnabled = !isAutoShootEnabled);
   }
 }

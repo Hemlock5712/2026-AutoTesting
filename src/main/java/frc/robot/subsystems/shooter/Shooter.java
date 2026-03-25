@@ -295,8 +295,7 @@ public class Shooter extends SubsystemBase {
     return HOOD_TOLERANCE;
   }
 
-  // Stop the shooter motors (private to enforce Command-based control flow)
-  private void stopMotors() {
+  public void stopMotors() {
     flywheel.stopMotor();
     hood.stopMotor();
   }
@@ -315,9 +314,9 @@ public class Shooter extends SubsystemBase {
     setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
   }
 
-  public void setForFeedDistance(double distanceMeters) {
-    setVelocity(ShooterLookup.getFeedFlywheelMap().get(distanceMeters));
-    setPosition(Degrees.of(ShooterLookup.getFeedHoodMap().get(distanceMeters)));
+  public void setForFeedDistance(double flywheelDist, double hoodDist) {
+    setVelocity(ShooterLookup.getFeedFlywheelMap().get(flywheelDist));
+    setPosition(Degrees.of(ShooterLookup.getFeedHoodMap().get(hoodDist)));
   }
 
   /** Check if flywheel is at target for a feed shot (wider tolerance). */
@@ -341,8 +340,8 @@ public class Shooter extends SubsystemBase {
   }
 
   /** Command that continuously sets flywheel and hood for a feed shot based on distance. */
-  public Command runDynamicFeed(DoubleSupplier distance) {
-    return run(() -> setForFeedDistance(distance.getAsDouble()));
+  public Command runDynamicFeed(DoubleSupplier flywheelDist, DoubleSupplier hoodDist) {
+    return run(() -> setForFeedDistance(flywheelDist.getAsDouble(), hoodDist.getAsDouble()));
   }
 
   /** Command that sets shooter for SWM with separate flywheel and hood distances. */

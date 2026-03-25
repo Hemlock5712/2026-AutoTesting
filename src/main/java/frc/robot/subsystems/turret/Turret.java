@@ -1,5 +1,6 @@
 package frc.robot.subsystems.turret;
 
+import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.BaseStatusSignal;
@@ -144,6 +145,10 @@ public class Turret extends SubsystemBase {
   public boolean isAtTarget(double distanceToTarget) {
     double maxAngleRot = Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
     return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
+  }
+
+  public boolean isAtTargetFeed() {
+    return getAngle().isNear(getTargetAngle(), Degrees.of(3));
   }
 
   /** Command that continuously tracks the hub using a supplied angle. */
