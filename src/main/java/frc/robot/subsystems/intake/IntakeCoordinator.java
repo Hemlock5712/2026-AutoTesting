@@ -50,6 +50,10 @@ public class IntakeCoordinator {
     return wheels.runIntake();
   }
 
+  public Command reverseIntake() {
+    return wheels.reverseIntake();
+  }
+
   public Command stopWheel() {
     return wheels.stopWheel();
   }
