@@ -29,7 +29,7 @@ public class IntakeArm extends SubsystemBase {
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
   private final DynamicMotionMagicTorqueCurrentFOC positionOut =
-      new DynamicMotionMagicTorqueCurrentFOC(0, 4, 20);
+      new DynamicMotionMagicTorqueCurrentFOC(0, 4, 8);
 
   private static final Angle TOLERANCE = Degrees.of(3);
 
@@ -67,12 +67,12 @@ public class IntakeArm extends SubsystemBase {
 
   private void setPosition(Angle position) {
     arm.setControl(
-        positionOut.withPosition(position.in(Rotations)).withVelocity(5).withAcceleration(20));
+        positionOut.withPosition(position.in(Rotations)).withVelocity(5).withAcceleration(8));
   }
 
   private void setPositionSlow(Angle position) {
     arm.setControl(
-        positionOut.withPosition(position.in(Rotations)).withVelocity(0.1).withAcceleration(0.5));
+        positionOut.withPosition(position.in(Rotations)).withVelocity(0.25).withAcceleration(1));
   }
 
   public Command intakeDown() {
