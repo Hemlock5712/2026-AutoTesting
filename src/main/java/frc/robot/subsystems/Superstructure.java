@@ -81,6 +81,7 @@ public class Superstructure {
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
   private final Supplier<SwerveDriveState> driveState;
+  private final Supplier<Rotation3d> pigeonRotation;
 
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
@@ -111,8 +112,9 @@ public class Superstructure {
 
   // ==================== Constructor ====================
 
-  public Superstructure(Supplier<SwerveDriveState> driveState) {
+  public Superstructure(Supplier<SwerveDriveState> driveState, Supplier<Rotation3d> pigeonRotation) {
     this.driveState = driveState;
+    this.pigeonRotation = pigeonRotation;
     // Set turret tracking as default command - uses SWM-aware getters for seamless
     // mode switching
     turret.setDefaultCommand(turret.trackHubCommand(this::getTurretAngle));
@@ -177,6 +179,20 @@ public class Superstructure {
     Robot.telemetry().log("SWM/ShootReady", shootReady);
   }
 
+  @Logged
+  public boolean pigeonXIsGood() {
+    return pigeonRotation.get().getMeasureX().isNear(Degrees.of(0), Degrees.of(5));
+  }
+
+  @Logged
+  public boolean pigeonYIsGood() {
+    return pigeonRotation.get().getMeasureY().isNear(Degrees.of(0), Degrees.of(5));
+  }
+  
+  @Logged
+  public boolean pigeonIsGood() {
+    return pigeonXIsGood() && pigeonYIsGood();
+  }
   // ==================== Targeting Getters ====================
 
   @Logged
@@ -229,7 +245,7 @@ public class Superstructure {
                 () ->
                     shooter.isAtTarget(distanceToVirtualTarget)
                         && turret.isAtTarget(distanceToVirtualTarget)
-                        && swmSolutionFeasible),
+                        && swmSolutionFeasible && pigeonIsGood()),
             Commands.either(
                 spindexer.forwardCommand(),
                 spindexer.prepFeed(),
