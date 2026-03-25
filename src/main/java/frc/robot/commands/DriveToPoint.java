@@ -1,5 +1,7 @@
 package frc.robot.commands;
 
+import static edu.wpi.first.units.Units.Meters;
+
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
@@ -8,6 +10,7 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
@@ -177,6 +180,11 @@ public class DriveToPoint extends Command {
    */
   public DriveToPoint withPositionTolerance(double tolerance) {
     this.positionTolerance = tolerance;
+    return this;
+  }
+
+  public DriveToPoint withPositionTolerance(Distance tolerance) {
+    this.positionTolerance = tolerance.in(Meters);
     return this;
   }
 

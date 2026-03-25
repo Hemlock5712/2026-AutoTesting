@@ -200,4 +200,14 @@ public class AutoCommands {
     }
     return Commands.none();
   }
+
+  public Command leftAutoSetupSideways() {
+    if (Robot.isSimulation()) {
+      return resetPose(
+          () ->
+              new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.kCW_90deg)
+                  .get());
+    }
+    return Commands.none();
+  }
 }

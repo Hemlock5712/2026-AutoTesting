@@ -237,6 +237,10 @@ public class Superstructure {
                 .repeatedly()));
   }
 
+  public Command spinUpShooter() {
+    return shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance);
+  }
+
   /** Shooting sequence with SWM compensation (degrades to static when stationary). */
   public Command shootManual() {
     return Commands.parallel(
@@ -297,6 +301,18 @@ public class Superstructure {
   public Command stopShoot() {
     return Commands.sequence(
         Commands.runOnce(() -> isShooting = false), spindexer.stopCommand(), shooter.stopCommand());
+  }
+
+  /**
+   * ONLY USE THIS IN AUTO. FORCES BALLS TO BE SHOT AND BYPASSES ALL CHECKS
+   *
+   * @return
+   */
+  public Command autoForceFeed() {
+    return Commands.parallel(
+        shooter.runDynamicFeed(this::getFlywheelDistance),
+        Commands.runOnce(() -> isShooting = true),
+        spindexer.forwardCommand());
   }
 
   public Command reverseSpindexer() {

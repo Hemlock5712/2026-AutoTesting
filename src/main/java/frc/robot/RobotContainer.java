@@ -80,6 +80,7 @@ public class RobotContainer {
   public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain);
   public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
+  public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -109,6 +110,7 @@ public class RobotContainer {
     autoChooser.addOption("Pizza Auto Feed Back", autoRoutines.pizzaAutoFeedBack());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftSideAuto());
     autoChooser.addOption("Left Short Side Auto", autoRoutines.leftShortSideAuto());
+    autoChooser.addOption("Left Side Feed Auto", autoRoutines.leftAutoFeed(8.1));
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

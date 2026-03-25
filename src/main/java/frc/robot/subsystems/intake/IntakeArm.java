@@ -4,7 +4,7 @@ import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicTorqueCurrentFOC;
+import com.ctre.phoenix6.controls.DynamicMotionMagicTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
@@ -28,7 +28,8 @@ public class IntakeArm extends SubsystemBase {
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
-  private final MotionMagicTorqueCurrentFOC positionOut = new MotionMagicTorqueCurrentFOC(0);
+  private final DynamicMotionMagicTorqueCurrentFOC positionOut =
+      new DynamicMotionMagicTorqueCurrentFOC(0, 4, 20);
 
   private static final Angle TOLERANCE = Degrees.of(3);
 
@@ -65,15 +66,29 @@ public class IntakeArm extends SubsystemBase {
   public void periodic() {}
 
   private void setPosition(Angle position) {
-    arm.setControl(positionOut.withPosition(position.in(Rotations)));
+    arm.setControl(
+        positionOut.withPosition(position.in(Rotations)).withVelocity(5).withAcceleration(20));
+  }
+
+  private void setPositionSlow(Angle position) {
+    arm.setControl(
+        positionOut.withPosition(position.in(Rotations)).withVelocity(0.1).withAcceleration(0.5));
   }
 
   public Command intakeDown() {
     return runOnce(() -> arm.setControl(positionOut.withPosition(0)));
   }
 
+  public Command intakeDownAUTO() {
+    return runOnce(() -> arm.setControl(positionOut.withPosition(0).withFeedForward(-40)));
+  }
+
   public Command intakeUp() {
     return runOnce(() -> setPosition(Rotations.of(.17)));
+  }
+
+  public Command intakeUpSlow() {
+    return runOnce(() -> setPositionSlow(Rotations.of(.17)));
   }
 
   @Logged
