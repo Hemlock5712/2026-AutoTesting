@@ -137,14 +137,14 @@ public class Shooter extends SubsystemBase {
     hoodPositionSignal = hood.getPosition();
     hoodVelocitySignal = hood.getVelocity();
 
-    // flywheelVelocitySignal.setUpdateFrequency(100);
-    // hoodPositionSignal.setUpdateFrequency(100);
-    // hoodVelocitySignal.setUpdateFrequency(100);
+    flywheelVelocitySignal.setUpdateFrequency(100);
+    hoodPositionSignal.setUpdateFrequency(100);
+    hoodVelocitySignal.setUpdateFrequency(100);
 
-    // flywheel.optimizeBusUtilization();
-    // hood.optimizeBusUtilization();
-    // hoodEncoder.optimizeBusUtilization();
-    // follower.optimizeBusUtilization();
+    flywheel.optimizeBusUtilization();
+    hood.optimizeBusUtilization();
+    hoodEncoder.optimizeBusUtilization();
+    follower.optimizeBusUtilization();
   }
 
   @Override

@@ -103,6 +103,7 @@ public class Superstructure {
   private boolean swmConverged = true;
   private double swmDelay = 0;
 
+  private boolean isHubShot = true;
   private boolean isShooting = false;
   @Logged private boolean isAutoShootEnabled = false;
 
@@ -123,7 +124,8 @@ public class Superstructure {
     SwerveDriveState state = driveState.get();
     Pose2d robotPose = state.Pose;
 
-    if (FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X) {
+    isHubShot = FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X;
+    if (isHubShot) {
       targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
     } else {
       // Compute both feed positions in current-alliance coordinates, then pick the
@@ -166,12 +168,9 @@ public class Superstructure {
         .log("SWM/OdometryAge_ms", (Utils.getCurrentTimeSeconds() - state.Timestamp) * 1000.0);
     Robot.telemetry().log("SWM/TotalDelay_ms", swmDelay * 1000.0);
 
-    boolean shootReady =
-        isShooting
-            && turret.isAtTarget(distanceToVirtualTarget)
-            && shooter.isAtTarget(distanceToVirtualTarget)
-            && swmSolutionFeasible;
+    boolean shootReady = isShooting && (isHubShot ? isHubReady() : isFeedReady());
     Robot.telemetry().log("SWM/ShootReady", shootReady);
+    Robot.telemetry().log("SWM/IsHubShot", isHubShot);
   }
 
   // ==================== Targeting Getters ====================
@@ -228,18 +227,14 @@ public class Superstructure {
   /** Hub shot with SWM compensation. */
   public Command hubShoot() {
     return shootSequence(
-        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance),
-        () ->
-            turret.isAtTarget(distanceToVirtualTarget)
-                && shooter.isAtTarget(distanceToVirtualTarget)
-                && swmSolutionFeasible);
+        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance), this::isHubReady);
   }
 
   /** Feed shot — wider tolerance, uses feed lookup maps. */
   public Command feedShoot() {
     return shootSequence(
         shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
-        () -> turret.isAtTargetFeed() && shooter.isFeedAtTarget(distanceToVirtualTarget));
+        this::isFeedReady);
   }
 
   /** Manual shooting at fixed distance — fallback when vision is unavailable. */
@@ -247,12 +242,19 @@ public class Superstructure {
     return Commands.parallel(
         Commands.run(() -> shooter.setForDistance(3.4)),
         turret.trackHubCommand(() -> 0.0),
-        shootSequence(
-            Commands.none(),
-            () ->
-                turret.isAtTarget(distanceToVirtualTarget)
-                    && shooter.isAtTarget(distanceToVirtualTarget)
-                    && swmSolutionFeasible));
+        shootSequence(Commands.none(), this::isHubReady));
+  }
+
+  private boolean isHubReady() {
+    return turret.isAtTarget(distanceToVirtualTarget)
+        && shooter.isAtTarget(distanceToVirtualTarget)
+        && swmSolutionFeasible;
+  }
+
+  private boolean isFeedReady() {
+    return turret.isAtTargetFeed()
+        && shooter.isFeedAtTarget(distanceToVirtualTarget)
+        && swmSolutionFeasible;
   }
 
   /** Selects hub shot or feed shot based on field position. */
@@ -354,6 +356,7 @@ public class Superstructure {
     // We iterate because time-of-flight depends on distance to virtualTarget,
     // but virtualTarget depends on time-of-flight. The loop finds the answer
     // where both agree (usually converges in 2-3 iterations).
+    double maxRange = isHubShot ? 5.5 : 9.5;
     Translation2d virtualTarget = realTarget;
     Translation2d prev = virtualTarget;
     swmConverged = false;
@@ -366,8 +369,11 @@ public class Superstructure {
       }
 
       // Clamp distance to lookup table range to prevent extrapolation
-      double lookupDist = Math.min(dist, 5.5);
-      double tof = ShooterLookup.getToFMap().get(lookupDist);
+      double lookupDist = Math.min(dist, maxRange);
+      double tof =
+          isHubShot
+              ? ShooterLookup.getToFMap().get(lookupDist)
+              : ShooterLookup.getFeedTimeMap().get(lookupDist);
 
       // Decompose velocity into radial (along aim) and tangential (perpendicular)
       Translation2d aim = virtualTarget.minus(robotPosition).div(dist);
@@ -407,7 +413,7 @@ public class Superstructure {
     // Reject if the virtual target is unreasonably close (shooter can't contribute)
     // or beyond our lookup table range (extrapolated values are unreliable).
     double virtDist = robotPosition.getDistance(virtualTarget);
-    swmSolutionFeasible = swmConverged && virtDist > 1 && virtDist <= 5.5;
+    swmSolutionFeasible = swmConverged && virtDist > 1 && virtDist <= maxRange;
 
     return virtualTarget;
   }

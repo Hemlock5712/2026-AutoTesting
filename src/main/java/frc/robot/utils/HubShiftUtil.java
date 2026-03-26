@@ -36,7 +36,7 @@ public class HubShiftUtil {
 
   /** Updates the cached active state. Call from robotPeriodic. */
   public static void update() {
-    if (!DriverStation.isTeleopEnabled() && !DriverStation.isTestEnabled()) {
+    if (!DriverStation.isTeleopEnabled()) {
       hubActive = DriverStation.isAutonomousEnabled();
       return;
     }
