@@ -8,6 +8,9 @@ import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.epilogue.logging.EpilogueBackend;
+import edu.wpi.first.epilogue.logging.FileBackend;
+import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotController;
@@ -37,12 +40,12 @@ public class Robot extends TimedRobot {
     m_robotContainer = new RobotContainer();
     RobotController.setBrownoutVoltage(MIN_OCV);
     DataLogManager.start();
-    // Epilogue.configure(
-    //     config ->
-    //         config.backend =
-    //             EpilogueBackend.multi(
-    //                 new NTEpilogueBackend(NetworkTableInstance.getDefault()),
-    //                 new FileBackend(DataLogManager.getLog())));
+    Epilogue.configure(
+        config ->
+            config.backend =
+                EpilogueBackend.multi(
+                    new NTEpilogueBackend(NetworkTableInstance.getDefault()),
+                    new FileBackend(DataLogManager.getLog())));
     Epilogue.bind(this);
 
     HubShiftUtil.setupNTValues();
@@ -125,15 +128,7 @@ public class Robot extends TimedRobot {
   }
 
   @Override
-  public void testPeriodic() {
-    HubShiftUtil.update();
-    // Rumble controller when a shift change is 5 seconds away
-    double secondsUntilShift = HubShiftUtil.getSecondsUntilNextShift();
-    m_robotContainer.setRumble(
-        (secondsUntilShift <= RUMBLE_START_THRESHOLD && secondsUntilShift > RUMBLE_END_THRESHOLD)
-            ? 1.0
-            : 0.0);
-  }
+  public void testPeriodic() {}
 
   @Override
   public void testExit() {}

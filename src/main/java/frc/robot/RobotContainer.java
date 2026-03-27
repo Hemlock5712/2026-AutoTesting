@@ -199,6 +199,8 @@ public class RobotContainer {
     joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.b().onTrue(intakeCoordinator.stopWheel());
+
+    joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }
 
   public Command getAutonomousCommand() {
