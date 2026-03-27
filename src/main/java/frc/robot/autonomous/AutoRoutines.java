@@ -77,15 +77,6 @@ public class AutoRoutines {
 
   // ==================== Right-Side Shared Helpers ====================
 
-  /** Setup + drive through trench to 5.965m (shared by all right autos). */
-  private Command rightTrenchDrive() {
-    return Commands.sequence(
-        autoCommands.rightAutoSetup(),
-        autoCommands
-            .driveTo(() -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
-            .withWaypoint(5));
-  }
-
   /** Short midline approach at 7.6m (shared by rightShort and rightShortExtended). */
   private Command rightShortMidline() {
     return Commands.sequence(
@@ -116,19 +107,53 @@ public class AutoRoutines {
 
   // ==================== Right-Side Auto Routines ====================
 
-  public Command rightAuto() {
+  public Command rightAutoPass() {
     return Commands.sequence(
-        rightTrenchDrive(),
+        autoCommands.rightAutoSetup(),
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(90)).get())
+            .withWaypoint(5),
         // Drive to midline, right of balls (wide approach)
         autoCommands
-            .driveTo(() -> new ExtPose(8.652, 1.036, Rotation2d.fromDegrees(90)).get())
-            .withWaypoint(2)
+            .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
+            .withWaypoint(1.5)
+            .alongWith(intakeCoordinator.deployAndRunAUTO()),
+        // Drive left through balls at midline, at a slight backwards angle
+        autoCommands
+            .driveTo(() -> new ExtPose(8.1, 2.766, Rotation2d.fromDegrees(110)).get())
+            .withWaypoint(1.5)
+            .withMaxSpeed(1.5)
+            .deadlineFor(superstructure.feedShoot()),
+        rightReturnToTrench(true),
+        superstructure.stopShoot(),
+        rightUnderTrench(),
+        // Drive to outpost
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(0.744, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+            .withMaxSpeed(2)
+            .alongWith(superstructure.hubShoot())
+            .alongWith(Commands.waitSeconds(10).andThen(intakeCoordinator.upAndRun())));
+  }
+
+  public Command rightAuto() {
+    return Commands.sequence(
+        autoCommands.rightAutoSetup(),
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(90)).get())
+            .withWaypoint(5),
+        // Drive to midline, right of balls (wide approach)
+        autoCommands
+            .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
+            .withWaypoint(1.5)
             .alongWith(intakeCoordinator.deployAndRun()),
         // Drive left through balls at midline, at a slight backwards angle
         autoCommands
-            .driveTo(() -> new ExtPose(8.481, 2.766, Rotation2d.fromDegrees(110)).get())
-            .withWaypoint(2)
-            .withMaxSpeed(2),
+            .driveTo(() -> new ExtPose(8.1, 2.766, Rotation2d.fromDegrees(110)).get())
+            .withWaypoint(1.5)
+            .withMaxSpeed(1.5),
         rightReturnToTrench(true),
         rightUnderTrench(),
         // Drive to outpost
@@ -142,7 +167,11 @@ public class AutoRoutines {
 
   public Command rightShortAuto() {
     return Commands.sequence(
-        rightTrenchDrive(),
+        autoCommands.rightAutoSetup(),
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(90)).get())
+            .withWaypoint(5),
         rightShortMidline(),
         rightReturnToTrench(true),
         rightUnderTrench(),
@@ -168,7 +197,11 @@ public class AutoRoutines {
 
   public Command rightShortExtendedAuto() {
     return Commands.sequence(
-        rightTrenchDrive(),
+        autoCommands.rightAutoSetup(),
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(90)).get())
+            .withWaypoint(5),
         rightShortMidline(),
         rightReturnToTrench(false),
         rightUnderTrench(),
@@ -208,65 +241,6 @@ public class AutoRoutines {
         superstructure.hubShoot());
   }
 
-  public Command pizzaAutoFeedBack() {
-    return Commands.sequence(
-        autoCommands.rightAutoSetup(),
-        // Drive through trench
-        autoCommands
-            .driveTo(() -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
-            .withWaypoint(5)
-            .withWaypointTolerance(),
-        // Drive to midline, right of balls
-        autoCommands
-            .driveTo(() -> new ExtPose(8.652, 1.036, Rotation2d.fromDegrees(90)).get())
-            .withWaypointTolerance()
-            .withWaypoint(2)
-            .alongWith(intakeCoordinator.deployAndRun()),
-
-        // Drive left through balls at midline, at a slight backwards angle
-        autoCommands
-            .driveTo(() -> new ExtPose(8.481, 3.6, Rotation2d.fromDegrees(110)).get())
-            .withWaypoint(0.5)
-            .withMaxSpeed(2)
-            .withWaypointTolerance()
-            .deadlineFor(superstructure.hubShoot()),
-
-        // Drive back to trench
-        autoCommands
-            .driveTo(
-                () -> new ExtPose(5.959, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
-            .withWaypoint(0.2)
-            .withMaxSpeed(3)
-            .deadlineFor(superstructure.stopShoot()),
-        // Drive under trench
-        autoCommands
-            .driveTo(
-                () -> new ExtPose(4.378, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get())
-            .withWaypoint(2)
-            .withMaxSpeed(4),
-        Commands.sequence(
-                // Drive to outpost
-                autoCommands
-                    .driveTo(
-                        () ->
-                            new ExtPose(0.814, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180))
-                                .get())
-                    .withEndTargetSpeed(0)
-                    .withMaxSpeed(2),
-                // Give robot some time to get loaded from outpost
-                Commands.waitSeconds(5),
-                autoCommands
-                    .driveTo(() -> new ExtPose(2.0, 1.5, Rotation2d.fromDegrees(180)).get())
-                    .withWaypoint(0.5)
-                    .withMaxSpeed(2),
-                autoCommands
-                    .driveTo(() -> new ExtPose(0.814, 1.5, Rotation2d.fromDegrees(180)).get())
-                    .withEndTargetSpeed(0)
-                    .withMaxSpeed(2))
-            .alongWith(superstructure.hubShoot())
-            .alongWith(intakeCoordinator.runIntake()));
-  }
-
   public Command leftSideAuto() {
     return leftAutoCore(8.652);
   }
@@ -280,33 +254,25 @@ public class AutoRoutines {
         autoCommands.leftAutoSetup(),
         // Drive through trench
         autoCommands
-            .driveTo(() -> new ExtPose(5.965, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
+            .driveTo(
+                () -> new ExtPose(5.965, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)).get())
             .withWaypoint(5),
         // Drive to midline, left of balls
         autoCommands
             .driveTo(() -> new ExtPose(midlineX, 7.20, Rotation2d.fromDegrees(-90)).get())
-            .withWaypoint(1)
+            .withWaypoint(0.5)
             .alongWith(intakeCoordinator.deployAndRun()),
         // Drive right through balls at midline, at a slight backwards angle
         autoCommands
-            .driveTo(
-                () ->
-                    new ExtPose(
-                            8.481,
-                            FieldInfo.width().div(2).in(Meters),
-                            Rotation2d.fromDegrees(-110))
-                        .get())
+            .driveTo(() -> new ExtPose(8.481, 5.263, Rotation2d.fromDegrees(-110)).get())
             .withWaypoint(0.5)
-            .withMaxSpeed(1.5),
+            .withMaxSpeed(2),
         // Drive back to trench
-        autoCommands
-            .driveTo(() -> new ExtPose(6.2, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
-            .withPositionTolerance(Inches.of(4)),
+        autoCommands.driveTo(
+            () -> new ExtPose(6.2, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get()),
         // Drive under trench
-        autoCommands
-            .driveTo(() -> new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
-            .withPositionTolerance(Inches.of(4))
-            .deadlineFor(superstructure.spinUpShooter()),
+        autoCommands.driveTo(
+            () -> new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get()),
         // Shoot for 3 seconds
         Commands.deadline(Commands.sequence(Commands.waitSeconds(3)), superstructure.hubShoot()),
         superstructure.stopShoot(),
@@ -314,21 +280,18 @@ public class AutoRoutines {
         // Second pass: drive back through trench
         autoCommands
             .driveTo(() -> new ExtPose(5.965, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
-            .withWaypoint(1.5),
+            .withWaypoint(2),
         // Drive right through balls at midline, at a slight backwards angle
         autoCommands
             .driveTo(() -> new ExtPose(7.8, 4.0, Rotation2d.fromDegrees(-80)).get())
             .withWaypoint(0.5)
-            .withMaxSpeed(1.5),
+            .withMaxSpeed(2),
         // Drive back to trench
-        autoCommands
-            .driveTo(() -> new ExtPose(6.2, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
-            .withPositionTolerance(Inches.of(4)),
+        autoCommands.driveTo(
+            () -> new ExtPose(6.2, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get()),
         // Drive under trench
-        autoCommands
-            .driveTo(() -> new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
-            .withPositionTolerance(Inches.of(6))
-            .deadlineFor(superstructure.spinUpShooter()),
+        autoCommands.driveTo(
+            () -> new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get()),
         // Final shoot
         Commands.parallel(
             Commands.sequence(
@@ -336,9 +299,83 @@ public class AutoRoutines {
             superstructure.hubShoot()));
   }
 
+  public Command throughRightTrench(boolean centerToZone) {
+    return Commands.either(
+        Commands.sequence(
+
+            // Drive back to trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        new ExtPose(5.959, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+                .withWaypoint(0.2)
+                .withMaxSpeed(3)
+                .deadlineFor(superstructure.stopShoot()),
+            // Drive under trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        new ExtPose(3.517, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get())
+                .withWaypoint(2)
+                .withMaxSpeed(4)),
+        Commands.sequence(
+            // Drive under trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        new ExtPose(3.517, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get())
+                .withWaypoint(2)
+                .withMaxSpeed(4),
+            // Drive back to trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        new ExtPose(5.959, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+                .withWaypoint(0.2)
+                .withMaxSpeed(3)
+                .deadlineFor(superstructure.stopShoot())),
+        () -> (centerToZone));
+  }
+
+  public Command throughLeftTrench(boolean centerToZone) {
+    return Commands.either(
+        Commands.sequence(
+
+            // Drive back to trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        new ExtPose(5.959, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+                .withWaypoint(0.2)
+                .withMaxSpeed(3)
+                .deadlineFor(superstructure.stopShoot()),
+            // Drive under trench
+            autoCommands
+                .driveTo(
+                    () -> new ExtPose(3.517, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get())
+                .withWaypoint(2)
+                .withMaxSpeed(4)),
+        Commands.sequence(
+            // Drive under trench
+            autoCommands
+                .driveTo(
+                    () -> new ExtPose(3.517, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get())
+                .withWaypoint(2)
+                .withMaxSpeed(4),
+            // Drive back to trench
+            autoCommands
+                .driveTo(
+                    () ->
+                        new ExtPose(5.959, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+                .withWaypoint(0.2)
+                .withMaxSpeed(3)
+                .deadlineFor(superstructure.stopShoot())),
+        () -> (centerToZone));
+  }
+
   public Command leftAutoFeed(double midlineX) {
     return Commands.sequence(
-        autoCommands.leftAutoSetupSideways(),
+        autoCommands.leftAutoSetup(),
         // Drive to midline, left of balls
         autoCommands
             .driveTo(

@@ -6,7 +6,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.Robot;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.FieldInfo;
@@ -186,28 +185,13 @@ public class AutoCommands {
    * @return
    */
   public Command rightAutoSetup() {
-    if (Robot.isSimulation()) {
-      return resetPose(() -> new ExtPose(4.378, 0.639445, Rotation2d.kZero).get());
-    }
-    return Commands.none();
+    return resetPose(() -> new ExtPose(4.378, 0.639445, Rotation2d.fromDegrees(90)).get());
   }
 
   public Command leftAutoSetup() {
-    if (Robot.isSimulation()) {
-      return resetPose(
-          () ->
-              new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.kZero).get());
-    }
-    return Commands.none();
-  }
-
-  public Command leftAutoSetupSideways() {
-    if (Robot.isSimulation()) {
-      return resetPose(
-          () ->
-              new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.kCW_90deg)
-                  .get());
-    }
-    return Commands.none();
+    return resetPose(
+        () ->
+            new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.fromDegrees(-90))
+                .get());
   }
 }
