@@ -107,6 +107,9 @@ public class Superstructure {
   private boolean isShooting = false;
   @Logged private boolean isAutoShootEnabled = false;
 
+  /** When non-null, overrides targetPosition in update(). Blue alliance coordinates. */
+  private Translation2d passTargetOverride = null;
+
   // ==================== Constructor ====================
 
   public Superstructure(Supplier<SwerveDriveState> driveState) {
@@ -124,19 +127,24 @@ public class Superstructure {
     SwerveDriveState state = driveState.get();
     Pose2d robotPose = state.Pose;
 
-    isHubShot = FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X;
-    if (isHubShot) {
-      targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+    if (passTargetOverride != null) {
+      targetPosition = FieldInfo.flip(passTargetOverride);
+      isHubShot = false; // Use feed lookup tables (0-9.5m range)
     } else {
-      // Compute both feed positions in current-alliance coordinates, then pick the
-      // one
-      // on the same side of the field (upper vs. lower Y half) as the robot.
-      Translation2d feedA = FieldInfo.LEFT_FEED_POSITION.get();
-      Translation2d feedB = FieldInfo.RIGHT_FEED_POSITION.get();
-      Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
-      Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
-      targetPosition =
-          robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
+      isHubShot = FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X;
+      if (isHubShot) {
+        targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+      } else {
+        // Compute both feed positions in current-alliance coordinates, then pick the
+        // one
+        // on the same side of the field (upper vs. lower Y half) as the robot.
+        Translation2d feedA = FieldInfo.LEFT_FEED_POSITION.get();
+        Translation2d feedB = FieldInfo.RIGHT_FEED_POSITION.get();
+        Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
+        Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
+        targetPosition =
+            robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
+      }
     }
 
     turretPose = robotPose.transformBy(TURRET_TRANSFORM);
@@ -306,6 +314,30 @@ public class Superstructure {
         shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
         Commands.runOnce(() -> isShooting = true),
         spindexer.forwardCommand());
+  }
+
+  /**
+   * Autonomous pass to a specific field location. Bypasses ALL checks (zone, convergence, speed
+   * readiness) and fires immediately. Uses feed lookup tables for long-range passes. SWM
+   * compensation still applies so the ball reaches the target while the robot moves.
+   *
+   * @param blueAllianceTarget Target position in blue alliance coordinates (auto-flipped)
+   * @return Command that aims and fires at the target, cleaning up on end/interrupt
+   */
+  public Command passToLocation(Translation2d blueAllianceTarget) {
+    return Commands.parallel(
+            shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
+            Commands.runOnce(
+                () -> {
+                  passTargetOverride = blueAllianceTarget;
+                  isShooting = true;
+                }),
+            spindexer.forwardCommand())
+        .finallyDo(
+            () -> {
+              passTargetOverride = null;
+              isShooting = false;
+            });
   }
 
   public Command reverseSpindexer() {

@@ -6,6 +6,7 @@ import static edu.wpi.first.units.Units.Meters;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.ParallelDeadlineGroup;
@@ -115,10 +116,10 @@ public class AutoRoutines {
                 () -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(90)).get())
             .withWaypoint(5),
         // Drive to midline, right of balls (wide approach)
+        intakeCoordinator.deployAndRunAUTO(),
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
-            .withWaypoint(0.5)
-            .alongWith(intakeCoordinator.deployAndRunAUTO()),
+            .withWaypoint(0.5),
         // Drive left through balls at midline, at a slight backwards angle
         autoCommands
             .driveTo(
@@ -126,7 +127,7 @@ public class AutoRoutines {
                     new ExtPose(8.1, FieldInfo.width().in(Meters) / 2.0, Rotation2d.fromDegrees(90))
                         .get())
             .withMaxSpeed(0.5)
-            .deadlineFor(superstructure.feedShoot()),
+            .deadlineFor(superstructure.passToLocation(new Translation2d(Inches.of(48), Inches.of(32)))),
         autoCommands
             .driveTo(
                 () -> new ExtPose(6.5, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
