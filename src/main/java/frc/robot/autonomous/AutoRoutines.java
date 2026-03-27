@@ -117,21 +117,26 @@ public class AutoRoutines {
         // Drive to midline, right of balls (wide approach)
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
-            .withWaypoint(1.5)
+            .withWaypoint(0.5)
             .alongWith(intakeCoordinator.deployAndRunAUTO()),
         // Drive left through balls at midline, at a slight backwards angle
         autoCommands
-            .driveTo(() -> new ExtPose(8.1, 2.766, Rotation2d.fromDegrees(110)).get())
-            .withWaypoint(1.5)
-            .withMaxSpeed(1.5)
+            .driveTo(
+                () ->
+                    new ExtPose(8.1, FieldInfo.width().in(Meters) / 2.0, Rotation2d.fromDegrees(90))
+                        .get())
+            .withMaxSpeed(0.5)
             .deadlineFor(superstructure.feedShoot()),
-        rightReturnToTrench(true),
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(6.5, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+            .withMaxSpeed(2),
         superstructure.stopShoot(),
         rightUnderTrench(),
         // Drive to outpost
         autoCommands
             .driveTo(
-                () -> new ExtPose(0.744, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+                () -> new ExtPose(0.914, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
             .withMaxSpeed(2)
             .alongWith(superstructure.hubShoot())
             .alongWith(Commands.waitSeconds(10).andThen(intakeCoordinator.upAndRun())));
