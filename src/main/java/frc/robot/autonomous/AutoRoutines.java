@@ -120,18 +120,26 @@ public class AutoRoutines {
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
             .withWaypoint(0.5),
+
         // Drive left through balls at midline, at a slight backwards angle
-        autoCommands
-            .driveTo(
-                () ->
-                    new ExtPose(8.1, FieldInfo.width().in(Meters) / 2.0, Rotation2d.fromDegrees(90))
-                        .get())
-            .withMaxSpeed(0.5)
-            .deadlineFor(superstructure.passToLocation(new Translation2d(Inches.of(48), Inches.of(32)))),
-        autoCommands
-            .driveTo(
-                () -> new ExtPose(6.5, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
-            .withMaxSpeed(2),
+        Commands.sequence(
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    8.1,
+                                    FieldInfo.width().in(Meters) / 2.0,
+                                    Rotation2d.fromDegrees(90))
+                                .get())
+                    .withMaxSpeed(1),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(6.5, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(-180))
+                                .get())
+                    .withMaxSpeed(2))
+            .deadlineFor(
+                superstructure.passToLocation(new Translation2d(Inches.of(48), Inches.of(32)))),
         superstructure.stopShoot(),
         rightUnderTrench(),
         // Drive to outpost
@@ -245,10 +253,6 @@ public class AutoRoutines {
         autoCommands.driveTo(
             () -> new ExtPose(4.0, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(180)).get()),
         superstructure.hubShoot());
-  }
-
-  public Command leftSideAuto() {
-    return leftAutoCore(8.652);
   }
 
   public Command leftShortSideAuto() {
@@ -387,9 +391,9 @@ public class AutoRoutines {
             .driveTo(
                 () -> new ExtPose(midlineX, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)).get())
             .withWaypoint(1)
-            .withMaxSpeed(5)
-            .deadlineFor(superstructure.stopShoot()),
+            .withMaxSpeed(5),
         // Drive right through balls at midline, at a slight backwards angle
+        intakeCoordinator.deployAndRunAUTO(),
         autoCommands
             .driveTo(
                 () ->
@@ -399,8 +403,7 @@ public class AutoRoutines {
                             Rotation2d.fromDegrees(-100))
                         .get())
             .withWaypoint(1.5)
-            .withMaxSpeed(1.5)
-            .deadlineFor(intakeCoordinator.deployAndRunAUTO()),
+            .withMaxSpeed(1.5),
         autoCommands
             .driveTo(
                 () ->
@@ -410,8 +413,7 @@ public class AutoRoutines {
                             Rotation2d.fromDegrees(-235))
                         .get())
             .withWaypoint(1.5)
-            .withMaxSpeed(1.5)
-            .deadlineFor(superstructure.stopShoot()),
+            .withMaxSpeed(1.5),
         autoCommands
             .driveTo(
                 () ->
@@ -420,8 +422,7 @@ public class AutoRoutines {
                             LEFT_TRENCH_CENTER,
                             Rotation2d.fromDegrees(-180))
                         .get())
-            .withMaxSpeed(2)
-            .deadlineFor(superstructure.stopShoot()),
+            .withMaxSpeed(2),
         autoCommands
             .driveTo(() -> new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
             .withPositionTolerance(Inches.of(4))
@@ -432,15 +433,11 @@ public class AutoRoutines {
         Commands.deadline(
             Commands.sequence(
                 autoCommands
-                    .driveTo(new ExtPose(1, 7.483, Rotation2d.k180deg))
+                    .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
                     .withMaxSpeed(1.25)
                     .withWaypoint(0.75),
                 autoCommands
-                    .driveTo(new ExtPose(1, 7, Rotation2d.fromDegrees(-120)))
-                    .withMaxSpeed(0.75)
-                    .withWaypoint(0.75),
-                autoCommands
-                    .driveTo(new ExtPose(1, 5.284, Rotation2d.fromDegrees(-120)))
+                    .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
                     .withMaxSpeed(1)
                     .withWaypoint(0.75),
                 autoCommands

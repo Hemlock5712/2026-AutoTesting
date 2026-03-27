@@ -100,9 +100,8 @@ public class RobotContainer {
     autoChooser.addOption("Right Auto Pass", autoRoutines.rightAutoPass());
     autoChooser.addOption("Short Right Auto", autoRoutines.rightShortAuto());
     autoChooser.addOption("Short Right Extend Auto", autoRoutines.rightShortExtendedAuto());
-    autoChooser.addOption("Left Side Auto", autoRoutines.leftSideAuto());
     autoChooser.addOption("Left Short Side Auto", autoRoutines.leftShortSideAuto());
-    autoChooser.addOption("Left Side Feed Auto", autoRoutines.leftAutoFeed(8.1));
+    autoChooser.addOption("Left Side Auto", autoRoutines.leftAutoFeed(8.1));
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
@@ -176,16 +175,14 @@ public class RobotContainer {
         .onTrue(
             Commands.either(
                 intakeCoordinator.deployAndRun(),
-                intakeCoordinator.stopAndRetract(),
+                intakeCoordinator.upAndRun(),
                 () -> intakeCoordinator.getTargetPositionRotations() != 0));
 
-    joystick.x().onTrue(superstructure.reverseSpindexer()).onFalse(superstructure.stopSpindexer());
+    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
-    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
-    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
-
-    joystick.b().onTrue(intakeCoordinator.stopWheel());
+    joystick.x().onTrue(intakeCoordinator.straightUp());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }

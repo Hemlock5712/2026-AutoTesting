@@ -58,6 +58,10 @@ public class IntakeCoordinator {
     return wheels.stopWheel();
   }
 
+  public Command straightUp() {
+    return wheels.stopWheel().andThen(arm.straightUp());
+  }
+
   // ==================== Coordinated Commands ====================
 
   /** Deploy the arm down and start spinning the wheels in parallel (different subsystems). */

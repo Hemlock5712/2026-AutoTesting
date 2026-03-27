@@ -87,6 +87,10 @@ public class IntakeArm extends SubsystemBase {
     return runOnce(() -> setPosition(Rotations.of(.17)));
   }
 
+  public Command straightUp() {
+    return runOnce(() -> setPosition(Rotations.of(0.25)));
+  }
+
   public Command intakeUpSlow() {
     return runOnce(() -> setPositionSlow(Rotations.of(.17)));
   }
