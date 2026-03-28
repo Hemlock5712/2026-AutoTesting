@@ -8,7 +8,6 @@ import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.epilogue.logging.EpilogueBackend;
-import edu.wpi.first.epilogue.logging.FileBackend;
 import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DataLogManager;
@@ -39,11 +38,7 @@ public class Robot extends TimedRobot {
     RobotController.setBrownoutVoltage(MIN_OCV);
     DataLogManager.start();
     Epilogue.configure(
-        config ->
-            config.backend =
-                EpilogueBackend.multi(
-                    new NTEpilogueBackend(NetworkTableInstance.getDefault()),
-                    new FileBackend(DataLogManager.getLog())));
+        config -> config.backend = new NTEpilogueBackend(NetworkTableInstance.getDefault()));
     Epilogue.bind(this);
 
     HubShiftUtil.setupNTValues();
