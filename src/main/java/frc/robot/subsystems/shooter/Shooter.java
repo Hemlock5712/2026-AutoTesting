@@ -26,14 +26,12 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
-
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Robot;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
@@ -56,8 +54,6 @@ public class Shooter extends SubsystemBase {
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
   private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
-
-
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
@@ -304,7 +300,6 @@ public class Shooter extends SubsystemBase {
     setVelocity(ShooterLookup.getFeedFlywheelMap().get(flywheelDist));
     setPosition(Degrees.of(ShooterLookup.getFeedHoodMap().get(hoodDist)));
   }
-
 
   /** Command that continuously sets the hood position based on distance lookup. */
   public Command runHoodDynamic(DoubleSupplier distance) {
