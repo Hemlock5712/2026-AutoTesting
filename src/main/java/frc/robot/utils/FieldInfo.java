@@ -264,7 +264,7 @@ public final class FieldInfo {
   }
 
   public static boolean isInAllianceZone(Translation2d translation) {
-    return ALLIANCE_ZONE.contains(translation);
+    return ALLIANCE_ZONE.contains(flip(translation));
   }
 
   public static boolean isInAllianceZone(Pose2d pose) {
@@ -280,7 +280,7 @@ public final class FieldInfo {
   }
 
   public static boolean isUnderTower(Translation2d translation) {
-    return TOWER_ZONE.contains(translation);
+    return TOWER_ZONE.contains(flip(translation));
   }
 
   public static boolean isUnderTower(Pose2d pose) {
