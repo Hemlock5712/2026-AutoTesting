@@ -114,9 +114,9 @@ public class AutoRoutines {
         autoCommands
             .driveTo(
                 () -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(90)).get())
-            .withWaypoint(5),
+            .withWaypoint(5)
+            .alongWith(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRunAUTO())),
         // Drive to midline, right of balls (wide approach)
-        intakeCoordinator.deployAndRunAUTO(),
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
             .withWaypoint(0.5),
@@ -157,12 +157,12 @@ public class AutoRoutines {
         autoCommands
             .driveTo(
                 () -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(90)).get())
-            .withWaypoint(5),
+            .withWaypoint(5)
+            .alongWith(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRun())),
         // Drive to midline, right of balls (wide approach)
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
-            .withWaypoint(1.5)
-            .alongWith(intakeCoordinator.deployAndRun()),
+            .withWaypoint(1.5),
         // Drive left through balls at midline, at a slight backwards angle
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 2.766, Rotation2d.fromDegrees(110)).get())
@@ -266,12 +266,12 @@ public class AutoRoutines {
         autoCommands
             .driveTo(
                 () -> new ExtPose(5.965, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)).get())
-            .withWaypoint(5),
+            .withWaypoint(5)
+            .alongWith(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRun())),
         // Drive to midline, left of balls
         autoCommands
             .driveTo(() -> new ExtPose(midlineX, 7.20, Rotation2d.fromDegrees(-90)).get())
-            .withWaypoint(0.5)
-            .alongWith(intakeCoordinator.deployAndRun()),
+            .withWaypoint(0.5),
         // Drive right through balls at midline, at a slight backwards angle
         autoCommands
             .driveTo(() -> new ExtPose(8.481, 5.263, Rotation2d.fromDegrees(-110)).get())
@@ -391,9 +391,9 @@ public class AutoRoutines {
             .driveTo(
                 () -> new ExtPose(midlineX, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)).get())
             .withWaypoint(1)
-            .withMaxSpeed(5),
+            .withMaxSpeed(5)
+            .alongWith(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRunAUTO())),
         // Drive right through balls at midline, at a slight backwards angle
-        intakeCoordinator.deployAndRunAUTO(),
         autoCommands
             .driveTo(
                 () ->

@@ -180,6 +180,22 @@ public class AutoCommands {
   }
 
   /**
+   * Returns a command that waits until the robot passes a given X position, then runs a command.
+   * The threshold is specified in blue-alliance coordinates and is automatically flipped for red
+   * alliance using FieldInfo.flipX().
+   *
+   * @param blueAllianceX X position threshold in blue-alliance coordinates
+   * @param commandToRun Command to run once the robot passes the threshold
+   * @return Command that triggers based on robot X position
+   */
+  public Command runWhenPastX(double blueAllianceX, Command commandToRun) {
+    return Commands.sequence(
+        Commands.waitUntil(
+            () -> FieldInfo.flipX(drivetrain.getPose().getX()) > blueAllianceX),
+        commandToRun);
+  }
+
+  /**
    * Only affects sim, resets pose to starting config on right side
    *
    * @return
