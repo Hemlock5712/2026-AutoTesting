@@ -255,7 +255,10 @@ public class Superstructure {
     return Commands.parallel(
         Commands.run(() -> shooter.setForDistance(3.4)),
         turret.trackHubCommand(() -> 0.0),
-        shootSequence(Commands.none(), this::isHubReady));
+        Commands.sequence(
+            Commands.runOnce(() -> isShooting = true),
+            Commands.either(spindexer.forwardCommand(), spindexer.prepFeed(), () -> isFeedReady())
+                .repeatedly()));
   }
 
   private boolean isHubReady() {

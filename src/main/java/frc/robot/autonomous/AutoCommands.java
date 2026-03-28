@@ -190,8 +190,7 @@ public class AutoCommands {
    */
   public Command runWhenPastX(double blueAllianceX, Command commandToRun) {
     return Commands.sequence(
-        Commands.waitUntil(
-            () -> FieldInfo.flipX(drivetrain.getPose().getX()) > blueAllianceX),
+        Commands.waitUntil(() -> FieldInfo.flipX(drivetrain.getPose().getX()) > blueAllianceX),
         commandToRun);
   }
 

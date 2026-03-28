@@ -100,7 +100,12 @@ public class IntakeCoordinator {
 
   @Logged
   public double getTargetPositionRotations() {
-    return arm.getTargetPosition().in(Rotations);
+    return arm.getTargetPosition();
+  }
+
+  @Logged
+  public double getPositionRotations() {
+    return arm.getPosition().in(Rotations);
   }
 
   @Logged

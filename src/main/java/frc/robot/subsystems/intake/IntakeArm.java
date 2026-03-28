@@ -106,7 +106,7 @@ public class IntakeArm extends SubsystemBase {
 
   @Logged
   public boolean isAtTarget() {
-    return getPosition().isNear(getTargetPosition(), TOLERANCE);
+    return getPosition().isNear(Rotations.of(getTargetPosition()), TOLERANCE);
   }
 
   @Logged
@@ -115,8 +115,8 @@ public class IntakeArm extends SubsystemBase {
   }
 
   @Logged
-  public Angle getTargetPosition() {
-    return positionOut.getPositionMeasure();
+  public double getTargetPosition() {
+    return positionOut.Position;
   }
 
   @Logged
