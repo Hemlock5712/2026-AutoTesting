@@ -80,7 +80,7 @@ public class Limelight extends SubsystemBase {
   }
 
   private void updateRobotOrientation() {
-    LimelightHelpers.SetRobotOrientation_NoFlush(
+    LimelightHelpers.SetRobotOrientation(
         m_limelightName,
         m_drivetrain.getPose().getRotation().getDegrees(),
         Math.toDegrees(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond),
