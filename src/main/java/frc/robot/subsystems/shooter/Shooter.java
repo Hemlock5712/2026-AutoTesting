@@ -26,8 +26,7 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.filter.Debouncer.DebounceType;
+
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
@@ -58,7 +57,7 @@ public class Shooter extends SubsystemBase {
 
   private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
 
-  private final Debouncer atTargetDebouncer = new Debouncer(0.1, DebounceType.kFalling);
+
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
@@ -213,24 +212,11 @@ public class Shooter extends SubsystemBase {
     return flywheelIsAtTarget() && hoodIsAtTarget();
   }
 
-  /** Distance-dependent check: would this flywheel/hood produce a scoring shot at this range? */
-  public boolean isAtTarget(double distance) {
-    double margin = 0.2; // ~50% of goal radius
-    double minDist = Math.max(1.5, distance - margin);
-    double maxDist = Math.min(5.5, distance + margin);
-
-    double actualRPS = getVelocity().in(RotationsPerSecond);
-    boolean flywheelOk =
-        actualRPS >= ShooterLookup.getFlywheelMap().get(minDist)
-            && actualRPS <= ShooterLookup.getFlywheelMap().get(maxDist);
-
-    double actualHoodDeg = getPosition().in(Degrees);
-    boolean hoodOk =
-        actualHoodDeg >= ShooterLookup.getHoodMap().get(minDist)
-            && actualHoodDeg <= ShooterLookup.getHoodMap().get(maxDist);
-    boolean debouncedTrue = atTargetDebouncer.calculate(flywheelOk);
-    Robot.telemetry().log("SWM/DebounceAtTarget", debouncedTrue);
-    return debouncedTrue;
+  /** Loose readiness: flywheel and hood roughly at target. */
+  public boolean isInBallpark() {
+    boolean flywheelClose = getVelocity().isNear(getTargetVelocity(), RotationsPerSecond.of(3));
+    boolean hoodClose = getPosition().isNear(getTargetPosition(), Degree.of(5));
+    return flywheelClose && hoodClose;
   }
 
   /**
@@ -319,19 +305,6 @@ public class Shooter extends SubsystemBase {
     setPosition(Degrees.of(ShooterLookup.getFeedHoodMap().get(hoodDist)));
   }
 
-  /** Check if flywheel is at target for a feed shot (wider tolerance). */
-  public boolean isFeedAtTarget(double distance) {
-    double margin = 0.5;
-    double minDist = Math.max(0.0, distance - margin);
-    double maxDist = Math.min(9.5, distance + margin);
-
-    double actualRPS = getVelocity().in(RotationsPerSecond);
-    boolean flywheelOk =
-        actualRPS >= ShooterLookup.getFeedFlywheelMap().get(minDist)
-            && actualRPS <= ShooterLookup.getFeedFlywheelMap().get(maxDist);
-
-    return flywheelOk;
-  }
 
   /** Command that continuously sets the hood position based on distance lookup. */
   public Command runHoodDynamic(DoubleSupplier distance) {

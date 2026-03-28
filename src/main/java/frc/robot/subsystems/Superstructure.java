@@ -259,15 +259,11 @@ public class Superstructure {
   }
 
   private boolean isHubReady() {
-    return turret.isAtTarget(distanceToVirtualTarget)
-        && shooter.isAtTarget(distanceToVirtualTarget)
-        && swmSolutionFeasible;
+    return turret.isNotFlipping() && shooter.isInBallpark();
   }
 
   private boolean isFeedReady() {
-    return turret.isAtTargetFeed()
-        && shooter.isFeedAtTarget(distanceToVirtualTarget)
-        && swmSolutionFeasible;
+    return turret.isNotFlipping() && shooter.isInBallpark();
   }
 
   /** Selects hub shot or feed shot based on field position. */
@@ -302,18 +298,6 @@ public class Superstructure {
   public Command stopShoot() {
     return Commands.sequence(
         Commands.runOnce(() -> isShooting = false), spindexer.stopCommand(), shooter.stopCommand());
-  }
-
-  /**
-   * ONLY USE THIS IN AUTO. FORCES BALLS TO BE SHOT AND BYPASSES ALL CHECKS
-   *
-   * @return
-   */
-  public Command autoForceFeed() {
-    return Commands.parallel(
-        shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
-        Commands.runOnce(() -> isShooting = true),
-        spindexer.forwardCommand());
   }
 
   /**
