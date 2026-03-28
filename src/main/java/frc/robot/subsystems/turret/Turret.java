@@ -28,7 +28,7 @@ public class Turret extends SubsystemBase {
   // Motor
   protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
 
-  private static final double MAX_LATERAL_MISS_M = 0.2; // 20cm — 50% of goal radius
+  private static final double MAX_LATERAL_MISS_M = 0.4; // 20cm — 50% of goal radius
 
   // Dual absolute encoders for CRT positioning
   protected final CANcoder encoder1 =

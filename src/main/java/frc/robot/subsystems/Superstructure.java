@@ -179,6 +179,7 @@ public class Superstructure {
     boolean shootReady = isShooting && (isHubShot ? isHubReady() : isFeedReady());
     Robot.telemetry().log("SWM/ShootReady", shootReady);
     Robot.telemetry().log("SWM/IsHubShot", isHubShot);
+    Robot.telemetry().log("SWM/IsHubShot", turret.isAtTarget(distanceToHub));
   }
 
   // ==================== Targeting Getters ====================
@@ -262,9 +263,13 @@ public class Superstructure {
   }
 
   private boolean isHubReady() {
-    return turret.isAtTarget(distanceToVirtualTarget)
-        && shooter.isAtTarget(distanceToVirtualTarget)
-        && swmSolutionFeasible;
+    boolean turretTarget = turret.isAtTarget(distanceToVirtualTarget);
+    boolean shootTarget = shooter.isAtTarget(distanceToVirtualTarget);
+
+    Robot.telemetry().log("SWM/IsTurretTarget", turretTarget);
+    Robot.telemetry().log("SWM/IsshootTarget", shootTarget);
+
+    return shootTarget && turretTarget && swmSolutionFeasible;
   }
 
   private boolean isFeedReady() {
