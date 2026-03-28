@@ -28,6 +28,8 @@ public class Turret extends SubsystemBase {
   // Motor
   protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
 
+  private static final double MAX_LATERAL_MISS_M = 0.2; // 20cm — 50% of goal radius
+
   // Dual absolute encoders for CRT positioning
   protected final CANcoder encoder1 =
       new CANcoder(DualEncoderCRT.ENCODER_1_ID, TunerConstants.kCANBus);
@@ -138,6 +140,12 @@ public class Turret extends SubsystemBase {
   @Logged
   public double getVelocityRPS() {
     return velocitySignal.getValueAsDouble();
+  }
+
+  /** Distance-dependent shoot gate: tighter position tolerance at longer range. */
+  public boolean isAtTarget(double distanceToTarget) {
+    double maxAngleRot = Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
+    return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
   }
 
   /** Loose check: turret is not way off target (e.g. mid-slew). */

@@ -259,7 +259,9 @@ public class Superstructure {
   }
 
   private boolean isHubReady() {
-    return turret.isNotFlipping() && shooter.isInBallpark();
+    return turret.isAtTarget(distanceToVirtualTarget)
+        && shooter.isAtTarget(distanceToVirtualTarget)
+        && swmSolutionFeasible;
   }
 
   private boolean isFeedReady() {

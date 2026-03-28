@@ -26,12 +26,15 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
+import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Robot;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
@@ -68,6 +71,8 @@ public class Shooter extends SubsystemBase {
   private final StatusSignal<AngularVelocity> hoodVelocitySignal;
 
   Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
+
+  private final Debouncer atTargetDebouncer = new Debouncer(0.1, DebounceType.kFalling);
 
   public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled
@@ -206,6 +211,26 @@ public class Shooter extends SubsystemBase {
   @Logged
   public boolean isAtTarget() {
     return flywheelIsAtTarget() && hoodIsAtTarget();
+  }
+
+  /** Distance-dependent check: would this flywheel/hood produce a scoring shot at this range? */
+  public boolean isAtTarget(double distance) {
+    double margin = 0.2; // ~50% of goal radius
+    double minDist = Math.max(1.5, distance - margin);
+    double maxDist = Math.min(5.5, distance + margin);
+
+    double actualRPS = getVelocity().in(RotationsPerSecond);
+    boolean flywheelOk =
+        actualRPS >= ShooterLookup.getFlywheelMap().get(minDist)
+            && actualRPS <= ShooterLookup.getFlywheelMap().get(maxDist);
+
+    double actualHoodDeg = getPosition().in(Degrees);
+    boolean hoodOk =
+        actualHoodDeg >= ShooterLookup.getHoodMap().get(minDist)
+            && actualHoodDeg <= ShooterLookup.getHoodMap().get(maxDist);
+    boolean debouncedTrue = atTargetDebouncer.calculate(flywheelOk);
+    Robot.telemetry().log("SWM/DebounceAtTarget", debouncedTrue);
+    return debouncedTrue;
   }
 
   /** Loose readiness: flywheel and hood roughly at target. */
