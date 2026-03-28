@@ -31,5 +31,8 @@ public class Climber extends SubsystemBase {
 
     boolean success = TalonFXUtil.applyConfigWithRetries(leader, climberConfig);
     motorConfigAlert.set(!success);
+
+    leader.optimizeBusUtilization();
+    follower.optimizeBusUtilization();
   }
 }

@@ -92,13 +92,14 @@ public final class AccelerationLimiter {
       double velX,
       double velY,
       double velOmega,
+      double maxAccel,
       double[] result) {
 
     // First apply motor torque limit (only affects acceleration, not braking)
     applyMotorLimit(accelX, accelY, accelOmega, velX, velY, velOmega, result);
 
     // Then apply friction limit (affects both acceleration and braking)
-    applyFrictionLimit(result[0], result[1], result[2], result);
+    applyFrictionLimit(result[0], result[1], result[2], maxAccel, result);
   }
 
   /**
@@ -181,7 +182,8 @@ public final class AccelerationLimiter {
    * sqrt(linear^2 + angular^2) must be less than max friction acceleration.
    */
   private static void applyFrictionLimit(
-      double accelX, double accelY, double accelOmega, double[] result) {
+      double accelX, double accelY, double accelOmega, double maxAccel, double[] result) {
+    double effectiveLimit = Math.min(maxAccel, MAX_FRICTION_ACCEL);
     double linearMag = Math.hypot(accelX, accelY);
     // Convert angular acceleration to equivalent linear at wheel radius
     double angularContribution = Math.abs(accelOmega) * DRIVE_BASE_RADIUS;
@@ -190,7 +192,7 @@ public final class AccelerationLimiter {
     double combinedAccel = Math.hypot(linearMag, angularContribution);
 
     // If under the limit, no scaling needed
-    if (combinedAccel <= MAX_FRICTION_ACCEL) {
+    if (combinedAccel <= effectiveLimit) {
       result[0] = accelX;
       result[1] = accelY;
       result[2] = accelOmega;
@@ -198,10 +200,52 @@ public final class AccelerationLimiter {
     }
 
     // Scale all components proportionally to stay within friction circle
-    double scale = MAX_FRICTION_ACCEL / combinedAccel;
+    double scale = effectiveLimit / combinedAccel;
     result[0] = accelX * scale;
     result[1] = accelY * scale;
     result[2] = accelOmega * scale;
+  }
+
+  /**
+   * Applies jerk limit using a combined vector for linear (vx, vy) and independent for omega.
+   *
+   * <p>Limits the rate of change of acceleration. Linear jerk is constrained as a single vector
+   * magnitude (sqrt(jerkX^2 + jerkY^2) <= maxLinearJerk), ensuring direction-independent behavior.
+   * Angular jerk is clamped independently.
+   */
+  private static void applyJerkLimit(
+      double accelX,
+      double accelY,
+      double accelOmega,
+      double prevAccelX,
+      double prevAccelY,
+      double prevAccelOmega,
+      double dt,
+      double maxLinearJerk,
+      double maxOmegaJerk,
+      double[] result) {
+
+    // Linear jerk as combined vector
+    double jerkX = (accelX - prevAccelX) / dt;
+    double jerkY = (accelY - prevAccelY) / dt;
+    double jerkMag = Math.hypot(jerkX, jerkY);
+
+    if (jerkMag > maxLinearJerk) {
+      double scale = maxLinearJerk / jerkMag;
+      result[0] = prevAccelX + jerkX * scale * dt;
+      result[1] = prevAccelY + jerkY * scale * dt;
+    } else {
+      result[0] = accelX;
+      result[1] = accelY;
+    }
+
+    // Angular jerk independently
+    double jerkOmega = (accelOmega - prevAccelOmega) / dt;
+    if (Math.abs(jerkOmega) > maxOmegaJerk) {
+      result[2] = prevAccelOmega + Math.copySign(maxOmegaJerk, jerkOmega) * dt;
+    } else {
+      result[2] = accelOmega;
+    }
   }
 
   /**
@@ -240,6 +284,50 @@ public final class AccelerationLimiter {
    */
   public static ChassisSpeeds integrateVelocity(
       ChassisSpeeds current, ChassisSpeeds desired, double dt) {
+    return integrateVelocity(current, desired, dt, MAX_FRICTION_ACCEL);
+  }
+
+  /**
+   * Integrates velocity with physics-based acceleration limits and an external acceleration cap.
+   *
+   * <p>Same as {@link #integrateVelocity(ChassisSpeeds, ChassisSpeeds, double)} but applies an
+   * additional acceleration limit (e.g., for shoot-mode driving). The effective limit is the
+   * minimum of the external cap and the physics-based friction limit.
+   *
+   * @param current Current velocity (field-centric)
+   * @param desired Desired velocity (field-centric)
+   * @param dt Time step in seconds
+   * @param maxAccel Maximum allowed acceleration in m/s^2 (clamped to friction limit)
+   * @return Limited velocity after integration
+   */
+  public static ChassisSpeeds integrateVelocity(
+      ChassisSpeeds current, ChassisSpeeds desired, double dt, double maxAccel) {
+    return integrateVelocity(current, desired, dt, maxAccel, Double.MAX_VALUE, Double.MAX_VALUE);
+  }
+
+  /**
+   * Integrates velocity with physics-based acceleration and jerk limits.
+   *
+   * <p>Same as {@link #integrateVelocity(ChassisSpeeds, ChassisSpeeds, double, double)} but also
+   * applies jerk limiting (rate of change of acceleration). Linear jerk (vx, vy) is limited as a
+   * combined vector magnitude for direction-independent behavior. Angular jerk is limited
+   * independently.
+   *
+   * @param current Current velocity (field-centric)
+   * @param desired Desired velocity (field-centric)
+   * @param dt Time step in seconds
+   * @param maxAccel Maximum allowed acceleration in m/s^2 (clamped to friction limit)
+   * @param maxLinearJerk Maximum linear jerk in m/s^3 (combined vx/vy vector magnitude)
+   * @param maxOmegaJerk Maximum angular jerk in rad/s^3
+   * @return Limited velocity after integration
+   */
+  public static ChassisSpeeds integrateVelocity(
+      ChassisSpeeds current,
+      ChassisSpeeds desired,
+      double dt,
+      double maxAccel,
+      double maxLinearJerk,
+      double maxOmegaJerk) {
 
     // Guard against zero or negative time step (can happen on first frame)
     if (dt < MIN_DT) {
@@ -256,10 +344,23 @@ public final class AccelerationLimiter {
     double accelY = (desired.vyMetersPerSecond - curVy) / dt;
     double accelOmega = (desired.omegaRadiansPerSecond - curOmega) / dt;
 
-    // Apply physics limits (result stored in ACCEL_RESULT)
-    applyLimits(accelX, accelY, accelOmega, curVx, curVy, curOmega, ACCEL_RESULT);
+    // Apply motor torque and friction limits (result stored in ACCEL_RESULT)
+    applyLimits(accelX, accelY, accelOmega, curVx, curVy, curOmega, maxAccel, ACCEL_RESULT);
 
-    // Store limited acceleration for external consumers (e.g., SWM velocity prediction)
+    // Apply jerk limit (uses previous frame's acceleration as baseline)
+    applyJerkLimit(
+        ACCEL_RESULT[0],
+        ACCEL_RESULT[1],
+        ACCEL_RESULT[2],
+        lastAccelVx,
+        lastAccelVy,
+        lastAccelOmega,
+        dt,
+        maxLinearJerk,
+        maxOmegaJerk,
+        ACCEL_RESULT);
+
+    // Store jerk-limited acceleration for external consumers (e.g., SWM velocity prediction)
     lastAccelVx = ACCEL_RESULT[0];
     lastAccelVy = ACCEL_RESULT[1];
     lastAccelOmega = ACCEL_RESULT[2];

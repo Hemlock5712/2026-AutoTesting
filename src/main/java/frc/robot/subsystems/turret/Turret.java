@@ -1,7 +1,10 @@
 package frc.robot.subsystems.turret;
 
+import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -11,6 +14,7 @@ import com.ctre.phoenix6.signals.InvertedValue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -35,9 +39,14 @@ public class Turret extends SubsystemBase {
 
   private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
 
-  private static final Angle TOLERANCE = Rotations.of(0.015); // ~5.9 degrees
+  // Shooting gate: distance-dependent position tolerance (~half the effective scoring radius)
+  private static final double MAX_LATERAL_MISS_M = 0.2; // 20cm — 50% of goal radius
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
+
+  // Cached status signals for latency compensation
+  private final StatusSignal<Angle> positionSignal;
+  private final StatusSignal<AngularVelocity> velocitySignal;
 
   // Alerts
   Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
@@ -51,6 +60,17 @@ public class Turret extends SubsystemBase {
     // so the motor sees the correct position from the start.
     initializePosition();
     configureMotor();
+
+    // Cache status signals and set update frequencies for latency compensation
+    positionSignal = leader.getPosition();
+    velocitySignal = leader.getVelocity();
+
+    positionSignal.setUpdateFrequency(250);
+    velocitySignal.setUpdateFrequency(250);
+
+    leader.optimizeBusUtilization();
+    encoder1.optimizeBusUtilization();
+    encoder2.optimizeBusUtilization();
   }
 
   /** Configure motor with FusedCANcoder feedback (encoder 1 fused with internal rotor). */
@@ -96,13 +116,19 @@ public class Turret extends SubsystemBase {
     crtInitAlert.set(!success);
   }
 
+  @Override
+  public void periodic() {
+    BaseStatusSignal.refreshAll(positionSignal, velocitySignal);
+  }
+
   public void setAngle(double angle) {
     leader.setControl(angleOut.withPosition(angle));
   }
 
   @Logged
   public Angle getAngle() {
-    return Rotations.of(leader.getPosition().getValueAsDouble());
+    return Rotations.of(
+        BaseStatusSignal.getLatencyCompensatedValueAsDouble(positionSignal, velocitySignal));
   }
 
   @Logged
@@ -111,13 +137,18 @@ public class Turret extends SubsystemBase {
   }
 
   @Logged
-  public Angle getTolerance() {
-    return TOLERANCE;
+  public double getVelocityRPS() {
+    return velocitySignal.getValueAsDouble();
   }
 
-  @Logged
-  public boolean isAtTarget() {
-    return getAngle().isNear(getTargetAngle(), TOLERANCE);
+  /** Distance-dependent shoot gate: tighter position tolerance at longer range. */
+  public boolean isAtTarget(double distanceToTarget) {
+    double maxAngleRot = Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
+    return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
+  }
+
+  public boolean isAtTargetFeed() {
+    return getAngle().isNear(getTargetAngle(), Degrees.of(3));
   }
 
   /** Command that continuously tracks the hub using a supplied angle. */

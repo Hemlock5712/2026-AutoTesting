@@ -8,6 +8,7 @@ import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.epilogue.logging.EpilogueBackend;
+import edu.wpi.first.epilogue.logging.FileBackend;
 import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DataLogManager;
@@ -33,8 +34,6 @@ public class Robot extends TimedRobot {
   private static final double RUMBLE_START_THRESHOLD = 1.0;
   private static final double RUMBLE_END_THRESHOLD = 0.5;
 
-  private boolean hasMatchStarted = false;
-
   public Robot() {
     m_robotContainer = new RobotContainer();
     RobotController.setBrownoutVoltage(MIN_OCV);
@@ -42,8 +41,12 @@ public class Robot extends TimedRobot {
     Epilogue.configure(
         config ->
             config.backend =
-                EpilogueBackend.multi(new NTEpilogueBackend(NetworkTableInstance.getDefault())));
+                EpilogueBackend.multi(
+                    new NTEpilogueBackend(NetworkTableInstance.getDefault()),
+                    new FileBackend(DataLogManager.getLog())));
     Epilogue.bind(this);
+
+    HubShiftUtil.setupNTValues();
   }
 
   @Override
@@ -59,18 +62,13 @@ public class Robot extends TimedRobot {
   }
 
   @Override
-  public void disabledPeriodic() {
-    if (!hasMatchStarted) {
-      m_robotContainer.checkStartingPosition();
-    }
-  }
+  public void disabledPeriodic() {}
 
   @Override
   public void disabledExit() {}
 
   @Override
   public void autonomousInit() {
-    hasMatchStarted = true;
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
     if (m_autonomousCommand != null) {
@@ -86,7 +84,6 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopInit() {
-    hasMatchStarted = true;
     if (m_autonomousCommand != null) {
       m_autonomousCommand.cancel();
     }

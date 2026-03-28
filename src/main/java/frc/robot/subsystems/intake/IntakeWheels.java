@@ -17,8 +17,6 @@ import frc.robot.utils.TalonFXUtil;
 @Logged(strategy = Strategy.OPT_IN)
 public class IntakeWheels extends SubsystemBase {
 
-  private static final double INTAKE_VOLTAGE = 7;
-
   private final TalonFX wheel = new TalonFX(23, TunerConstants.kCANBus);
 
   private TalonFXConfiguration wheelConfig = new TalonFXConfiguration();
@@ -32,13 +30,14 @@ public class IntakeWheels extends SubsystemBase {
     wheelConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     wheelConfig.Feedback.SensorToMechanismRatio = 2.33;
 
-    // wheelConfig.Slot0.kG = 15; // Gravity compensation
     wheelConfig.Slot0.kS = 0.3; // Static friction
     wheelConfig.Slot0.kP = 0.1; // Proportional gain (speed of correction)
-    wheelConfig.Slot0.kV = 0.288; // Derivative gain (smoothness)
+    wheelConfig.Slot0.kV = 0.288; // Velocity feedforward
 
     boolean success = TalonFXUtil.applyConfigWithRetries(wheel, wheelConfig);
     motorConfigAlert.set(!success);
+
+    wheel.optimizeBusUtilization();
   }
 
   @Override
@@ -46,6 +45,10 @@ public class IntakeWheels extends SubsystemBase {
 
   public Command runIntake() {
     return runOnce(() -> wheel.setControl(voltageOut.withVelocity(20)));
+  }
+
+  public Command reverseIntake() {
+    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(-20)));
   }
 
   public Command runFast() {

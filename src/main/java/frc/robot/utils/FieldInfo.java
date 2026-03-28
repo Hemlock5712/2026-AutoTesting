@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.Meters;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rectangle2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
@@ -97,13 +98,12 @@ public final class FieldInfo {
   // alliance-correct values.
 
   /** Hub/target position for turret tracking (blue alliance coordinates). */
-  public static final Translation2d HUB_POSITION = new Translation2d(4.621, 4.030);
+  public static final Translation2d HUB_POSITION = new Translation2d(4.625594, 4.034);
 
   public static final Distance HUB_HEIGHT = Meters.of(1.828);
 
-  public static final ExtTranslation LEFT_FEED_POSITION = new ExtTranslation(1.5, 6.500);
-
-  public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1.5, 1.500);
+  public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1.5, 2.25);
+  public static final ExtTranslation LEFT_FEED_POSITION = FieldFlip.overWidth(RIGHT_FEED_POSITION);
 
   public static final double ALLIANCE_ZONE_X = 5.4;
 
@@ -221,5 +221,69 @@ public final class FieldInfo {
 
   public static double flipY(Distance y) {
     return flipY(y.in(Meters));
+  }
+
+  private static final Translation2d CENTER_OF_FIELD =
+      new Translation2d(FieldInfo.length().div(2), FieldInfo.width().div(2));
+
+  private static final Rectangle2d NEUTRAL_ZONE =
+      new Rectangle2d(
+          new Pose2d(CENTER_OF_FIELD, Rotation2d.kZero),
+          FieldInfo.length().div(2).minus(Meters.of(5.304)).times(2),
+          FieldInfo.width());
+  private static final Rectangle2d ALLIANCE_ZONE =
+      new Rectangle2d(
+          new Translation2d(0, 0), new Translation2d(Meters.of(4.5), FieldInfo.width()));
+
+  private static final Distance NEUTRAL_ZONE_DEADZONE_DEPTH = Meters.of(3);
+  private static final Distance NEUTRAL_ZONE_DEADZONE_WIDTH = Meters.of(1);
+
+  private static final Rectangle2d NEUTRAL_ZONE_DEADZONE =
+      new Rectangle2d(
+          new Pose2d(
+              CENTER_OF_FIELD.minus(
+                  new Translation2d(
+                      NEUTRAL_ZONE_DEADZONE_DEPTH.div(2), NEUTRAL_ZONE_DEADZONE_WIDTH.div(2))),
+              Rotation2d.kZero),
+          NEUTRAL_ZONE_DEADZONE_DEPTH,
+          NEUTRAL_ZONE_DEADZONE_WIDTH);
+
+  private static final Distance TOWER_WIDTH = Meters.of(1.1);
+  private static final Distance TOWER_DEPTH = Meters.of(1.1);
+  private static final Translation2d TOWER_POSITION =
+      new Translation2d(TOWER_DEPTH.div(2), width().div(2));
+  private static final Rectangle2d TOWER_ZONE =
+      new Rectangle2d(new Pose2d(TOWER_POSITION, Rotation2d.kZero), TOWER_WIDTH, TOWER_DEPTH);
+
+  public static boolean isInNeutralZone(Translation2d translation) {
+    return NEUTRAL_ZONE.contains(translation);
+  }
+
+  public static boolean isInNeutralZone(Pose2d pose) {
+    return isInNeutralZone(pose.getTranslation());
+  }
+
+  public static boolean isInAllianceZone(Translation2d translation) {
+    return ALLIANCE_ZONE.contains(translation);
+  }
+
+  public static boolean isInAllianceZone(Pose2d pose) {
+    return isInAllianceZone(pose.getTranslation());
+  }
+
+  public static boolean isInNeutralZoneDeadzone(Translation2d translation) {
+    return NEUTRAL_ZONE_DEADZONE.contains(translation);
+  }
+
+  public static boolean isInNeutralZoneDeadzone(Pose2d pose) {
+    return isInNeutralZoneDeadzone(pose.getTranslation());
+  }
+
+  public static boolean isUnderTower(Translation2d translation) {
+    return TOWER_ZONE.contains(translation);
+  }
+
+  public static boolean isUnderTower(Pose2d pose) {
+    return isUnderTower(pose.getTranslation());
   }
 }

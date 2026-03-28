@@ -2,6 +2,7 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Degrees;
 
+import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
@@ -20,6 +21,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Robot;
+import frc.robot.commands.AccelerationLimiter;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
@@ -30,6 +32,7 @@ import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -81,12 +84,14 @@ public class Superstructure {
 
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
+  private final TunableDouble swmPoseDelay = Tunables.value("SWM/PoseDelay", 0.02);
 
   // ==================== Targeting Data (calculated once per loop)
   // ====================
 
   private Translation2d targetPosition = FieldInfo.HUB_POSITION;
   private double distanceToHub = 0;
+  private Pose2d turretPose = Pose2d.kZero.transformBy(TURRET_TRANSFORM);
 
   // SWM state
   private Translation2d virtualTargetPosition = FieldInfo.HUB_POSITION;
@@ -96,11 +101,14 @@ public class Superstructure {
   // SWM feasibility
   private boolean swmSolutionFeasible = true;
   private boolean swmConverged = true;
+  private double swmDelay = 0;
 
-  // SWM tunable: advance pose to compensate for processing/communication latency
-  private final TunableDouble compDelay = Tunables.value("SWM/CompDelay", 0.03);
-
+  private boolean isHubShot = true;
   private boolean isShooting = false;
+  @Logged private boolean isAutoShootEnabled = false;
+
+  /** When non-null, overrides targetPosition in update(). Blue alliance coordinates. */
+  private Translation2d passTargetOverride = null;
 
   // ==================== Constructor ====================
 
@@ -119,21 +127,27 @@ public class Superstructure {
     SwerveDriveState state = driveState.get();
     Pose2d robotPose = state.Pose;
 
-    if (FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X) {
-      targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+    if (passTargetOverride != null) {
+      targetPosition = FieldInfo.flip(passTargetOverride);
+      isHubShot = false; // Use feed lookup tables (0-9.5m range)
     } else {
-      // Compute both feed positions in current-alliance coordinates, then pick the
-      // one
-      // on the same side of the field (upper vs. lower Y half) as the robot.
-      Translation2d feedA = FieldInfo.LEFT_FEED_POSITION.get();
-      Translation2d feedB = FieldInfo.RIGHT_FEED_POSITION.get();
-      Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
-      Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
-      targetPosition =
-          robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
+      isHubShot = FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X;
+      if (isHubShot) {
+        targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+      } else {
+        // Compute both feed positions in current-alliance coordinates, then pick the
+        // one
+        // on the same side of the field (upper vs. lower Y half) as the robot.
+        Translation2d feedA = FieldInfo.LEFT_FEED_POSITION.get();
+        Translation2d feedB = FieldInfo.RIGHT_FEED_POSITION.get();
+        Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
+        Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
+        targetPosition =
+            robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
+      }
     }
 
-    Pose2d turretPose = robotPose.transformBy(TURRET_TRANSFORM);
+    turretPose = robotPose.transformBy(TURRET_TRANSFORM);
     Translation2d toTarget = targetPosition.minus(turretPose.getTranslation());
 
     distanceToHub = toTarget.getNorm();
@@ -157,6 +171,14 @@ public class Superstructure {
     Robot.telemetry().log("SWM/VirtualTargetDist", distanceToVirtualTarget);
     Robot.telemetry().log("SWM/Feasible", swmSolutionFeasible);
     Robot.telemetry().log("SWM/Converged", swmConverged);
+    Robot.telemetry().log("SWM/Delay", swmDelay);
+    Robot.telemetry()
+        .log("SWM/OdometryAge_ms", (Utils.getCurrentTimeSeconds() - state.Timestamp) * 1000.0);
+    Robot.telemetry().log("SWM/TotalDelay_ms", swmDelay * 1000.0);
+
+    boolean shootReady = isShooting && (isHubShot ? isHubReady() : isFeedReady());
+    Robot.telemetry().log("SWM/ShootReady", shootReady);
+    Robot.telemetry().log("SWM/IsHubShot", isHubShot);
   }
 
   // ==================== Targeting Getters ====================
@@ -201,33 +223,80 @@ public class Superstructure {
                 Commands.waitUntil(() -> shooter.isAtTarget()), spindexer.forwardCommand()));
   }
 
-  /** Shooting sequence with SWM compensation (degrades to static when stationary). */
-  public Command shoot() {
+  /** Core shoot logic: runs shooter, then feeds when ready. */
+  private Command shootSequence(Command shooterCommand, BooleanSupplier readyToFeed) {
     return Commands.parallel(
-        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance),
+        shooterCommand,
         Commands.runOnce(() -> isShooting = true),
-        Commands.sequence(
-            Commands.waitUntil(() -> shooter.isAtTarget()),
-            Commands.either(
-                    spindexer.forwardCommand(),
-                    spindexer.prepFeed(),
-                    () -> turret.isAtTarget() && swmSolutionFeasible)
-                .repeatedly()));
+        Commands.either(spindexer.forwardCommand(), spindexer.prepFeed(), readyToFeed)
+            .repeatedly());
+  }
+
+  public Command spinUpShooter() {
+    return shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance);
   }
 
   /** Shooting sequence with SWM compensation (degrades to static when stationary). */
+  /** Hub shot with SWM compensation. */
+  public Command hubShoot() {
+    return shootSequence(
+        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance), this::isHubReady);
+  }
+
+  /** Feed shot — wider tolerance, uses feed lookup maps. */
+  public Command feedShoot() {
+    return shootSequence(
+        shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
+        this::isFeedReady);
+  }
+
+  /** Manual shooting at fixed distance — fallback when vision is unavailable. */
   public Command shootManual() {
     return Commands.parallel(
         Commands.run(() -> shooter.setForDistance(3.4)),
         turret.trackHubCommand(() -> 0.0),
-        Commands.runOnce(() -> isShooting = true),
-        Commands.sequence(
-            Commands.waitUntil(() -> shooter.isAtTarget()),
-            Commands.either(
-                    spindexer.forwardCommand(),
-                    spindexer.prepFeed(),
-                    () -> turret.isAtTarget() && swmSolutionFeasible)
-                .repeatedly()));
+        shootSequence(Commands.none(), this::isHubReady));
+  }
+
+  private boolean isHubReady() {
+    return turret.isAtTarget(distanceToVirtualTarget)
+        && shooter.isAtTarget(distanceToVirtualTarget)
+        && swmSolutionFeasible;
+  }
+
+  private boolean isFeedReady() {
+    return turret.isAtTargetFeed()
+        && shooter.isFeedAtTarget(distanceToVirtualTarget)
+        && swmSolutionFeasible;
+  }
+
+  /** Selects hub shot or feed shot based on field position. */
+  public Command shoot() {
+    return Commands.either(
+        hubShoot(),
+        feedShoot(),
+        () -> FieldInfo.flipX(driveState.get().Pose.getX()) < FieldInfo.ALLIANCE_ZONE_X);
+  }
+
+  /**
+   * Long-running auto-shoot mode toggled by the driver. Shooting activates only in valid zones and
+   * stops when leaving them. Run alongside TurretDrive in RobotContainer.
+   */
+  public Command autoShootMode() {
+    return Commands.sequence(
+            Commands.runOnce(() -> isAutoShootEnabled = true),
+            Commands.sequence(
+                    Commands.waitUntil(this::shouldShoot),
+                    shoot().until(() -> !shouldShoot()),
+                    stopShoot())
+                .repeatedly())
+        .finallyDo(
+            () -> {
+              isAutoShootEnabled = false;
+              isShooting = false;
+              shooter.stopMotors();
+              spindexer.stop();
+            });
   }
 
   public Command stopShoot() {
@@ -235,11 +304,47 @@ public class Superstructure {
         Commands.runOnce(() -> isShooting = false), spindexer.stopCommand(), shooter.stopCommand());
   }
 
-  public Command spinSpinDexerBack() {
+  /**
+   * ONLY USE THIS IN AUTO. FORCES BALLS TO BE SHOT AND BYPASSES ALL CHECKS
+   *
+   * @return
+   */
+  public Command autoForceFeed() {
+    return Commands.parallel(
+        shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
+        Commands.runOnce(() -> isShooting = true),
+        spindexer.forwardCommand());
+  }
+
+  /**
+   * Autonomous pass to a specific field location. Bypasses ALL checks (zone, convergence, speed
+   * readiness) and fires immediately. Uses feed lookup tables for long-range passes. SWM
+   * compensation still applies so the ball reaches the target while the robot moves.
+   *
+   * @param blueAllianceTarget Target position in blue alliance coordinates (auto-flipped)
+   * @return Command that aims and fires at the target, cleaning up on end/interrupt
+   */
+  public Command passToLocation(Translation2d blueAllianceTarget) {
+    return Commands.parallel(
+            shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
+            Commands.runOnce(
+                () -> {
+                  passTargetOverride = blueAllianceTarget;
+                  isShooting = true;
+                }),
+            spindexer.forwardCommand())
+        .finallyDo(
+            () -> {
+              passTargetOverride = null;
+              isShooting = false;
+            });
+  }
+
+  public Command reverseSpindexer() {
     return spindexer.backCommand();
   }
 
-  public Command spinSpinDexerStop() {
+  public Command stopSpindexer() {
     return spindexer.stopCommand();
   }
 
@@ -248,7 +353,8 @@ public class Superstructure {
     // Our sensor data is slightly old by the time we use it. Predict where the
     // robot will actually be when the ball leaves the shooter by advancing the
     // pose forward in time by "delay" seconds using the current velocity.
-    double delay = compDelay.get();
+    double delay = (Utils.getCurrentTimeSeconds() - state.Timestamp) + swmPoseDelay.get();
+    swmDelay = delay;
     Pose2d advancedPose =
         state.Pose.exp(
             new Twist2d(
@@ -263,30 +369,31 @@ public class Superstructure {
     Translation2d realTarget = getTargetPosition().getTranslation();
     // The turret isn't at robot center -- apply the offset to get its real position
     Pose2d turretPose = advancedPose.transformBy(TURRET_TRANSFORM);
+    Robot.telemetry().log("SWM/TurretPose", turretPose, Pose2d.struct);
     Translation2d robotPosition = turretPose.getTranslation();
 
-    // --- Step 2: Calculate the turret's total velocity on the field ---
-    // The turret moves because (a) the whole robot is translating and (b) the
-    // turret is off-center, so robot rotation swings it in a circle (like
-    // sitting on a merry-go-round). We need both parts.
-    //
-    // Predict velocity at ball-release time: v_predicted = v_now + a * delay.
-    // The pose is already advanced by "delay", so advancing velocity by the
-    // same amount keeps the two predictions consistent.
-    // ChassisSpeeds accel = AccelerationLimiter.getLastAcceleration();
-    double omega = fieldSpeeds.omegaRadiansPerSecond;
-
-    // Rotate the turret offset from robot frame into field frame
-    Translation2d fieldOffset =
+    // --- Step 2: Turret velocity on the field ---
+    // The ball exits from the turret, not the robot center. state.Speeds reports
+    // robot-center velocity, so apply the rigid-body correction: v_turret =
+    // v_center + omega x r_{center->turret}.
+    Translation2d turretOffsetField =
         TURRET_TRANSFORM.getTranslation().rotateBy(advancedPose.getRotation());
-
-    // Total velocity = robot translation + omega × r
-    // rotateBy(kCCW_90deg) turns (x,y) into (-y,x), which is the 2D cross product
-    // with omega
-    Translation2d robotVelocity =
-        new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    double omega = fieldSpeeds.omegaRadiansPerSecond;
     Translation2d velocity =
-        robotVelocity.plus(fieldOffset.rotateBy(Rotation2d.kCCW_90deg).times(omega));
+        new Translation2d(
+            fieldSpeeds.vxMetersPerSecond - omega * turretOffsetField.getY(),
+            fieldSpeeds.vyMetersPerSecond + omega * turretOffsetField.getX());
+    Robot.telemetry().log("SWM/TurretVelocity", velocity.getNorm());
+
+    // --- Step 2b: Predict velocity at ball-release time ---
+    // v_predicted = v_now + a * delay
+    // The pose is already advanced by "delay"; advance velocity by the same amount
+    // so the virtual target accounts for acceleration, not just constant velocity.
+    ChassisSpeeds lastAccel = AccelerationLimiter.getLastAcceleration();
+    velocity =
+        velocity.plus(
+            new Translation2d(lastAccel.vxMetersPerSecond, lastAccel.vyMetersPerSecond)
+                .times(delay));
 
     // --- Step 3: Find the virtual target (where to actually aim) ---
     // Think of it like throwing a ball on a moving train: you aim behind your
@@ -298,6 +405,7 @@ public class Superstructure {
     // We iterate because time-of-flight depends on distance to virtualTarget,
     // but virtualTarget depends on time-of-flight. The loop finds the answer
     // where both agree (usually converges in 2-3 iterations).
+    double maxRange = isHubShot ? 5.5 : 9.5;
     Translation2d virtualTarget = realTarget;
     Translation2d prev = virtualTarget;
     swmConverged = false;
@@ -310,8 +418,11 @@ public class Superstructure {
       }
 
       // Clamp distance to lookup table range to prevent extrapolation
-      double lookupDist = Math.min(dist, 5.5);
-      double tof = ShooterLookup.getToFMap().get(lookupDist);
+      double lookupDist = Math.min(dist, maxRange);
+      double tof =
+          isHubShot
+              ? ShooterLookup.getToFMap().get(lookupDist)
+              : ShooterLookup.getFeedTimeMap().get(lookupDist);
 
       // Decompose velocity into radial (along aim) and tangential (perpendicular)
       Translation2d aim = virtualTarget.minus(robotPosition).div(dist);
@@ -351,7 +462,7 @@ public class Superstructure {
     // Reject if the virtual target is unreasonably close (shooter can't contribute)
     // or beyond our lookup table range (extrapolated values are unreliable).
     double virtDist = robotPosition.getDistance(virtualTarget);
-    swmSolutionFeasible = swmConverged && virtDist > 1 && virtDist <= 5.5;
+    swmSolutionFeasible = swmConverged && virtDist > 1 && virtDist <= maxRange;
 
     return virtualTarget;
   }
@@ -374,5 +485,40 @@ public class Superstructure {
   @Logged
   public boolean isShooting() {
     return isShooting;
+  }
+
+  @Logged
+  public boolean isInNeutralZone() {
+    return FieldInfo.isInNeutralZone(turretPose);
+  }
+
+  @Logged
+  public boolean isInAllianceZone() {
+    return FieldInfo.isInAllianceZone(turretPose);
+  }
+
+  @Logged
+  public boolean isInNeutralZoneDeadzone() {
+    return FieldInfo.isInNeutralZoneDeadzone(turretPose);
+  }
+
+  @Logged
+  public boolean isUnderTower() {
+    return FieldInfo.isUnderTower(turretPose);
+  }
+
+  @Logged
+  public boolean shouldShoot() {
+    if (isInAllianceZone() && !isUnderTower()) {
+      return true;
+    }
+    if (isInNeutralZone() && !isInNeutralZoneDeadzone()) {
+      return true;
+    }
+    return false;
+  }
+
+  public boolean isAutoShootEnabled() {
+    return isAutoShootEnabled;
   }
 }

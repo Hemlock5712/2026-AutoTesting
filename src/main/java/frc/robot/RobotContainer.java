@@ -6,7 +6,6 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -18,6 +17,7 @@ import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
 import frc.robot.commands.OrbitDrive;
+import frc.robot.commands.TurretDrive;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.BallPhysicsSimulation;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
@@ -25,7 +25,6 @@ import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.geometry.ExtPose;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -58,6 +57,9 @@ public class RobotContainer {
       RotationsPerSecond.of(1)
           .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
 
+  private double maxShootSpeed = 1.5;
+  private double maxShootAngularRate = maxAngularRate * 0.75;
+
   private final CommandXboxController joystick = new CommandXboxController(0);
 
   public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
@@ -74,7 +76,7 @@ public class RobotContainer {
   public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain);
   public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
-  // public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
+  public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -82,10 +84,6 @@ public class RobotContainer {
 
   /* Autonomous mode selector */
   private final SendableChooser<Command> autoChooser;
-
-  /* Starting position selector */
-  private final SendableChooser<StartingPosition> startPositionChooser;
-  private StartingPosition lastStartingPosition = null;
 
   private final AutoRoutines autoRoutines;
 
@@ -99,20 +97,13 @@ public class RobotContainer {
     autoChooser.addOption("None", Commands.none());
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
+    autoChooser.addOption("Right Auto Pass", autoRoutines.rightAutoPass());
     autoChooser.addOption("Short Right Auto", autoRoutines.rightShortAuto());
     autoChooser.addOption("Short Right Extend Auto", autoRoutines.rightShortExtendedAuto());
-    autoChooser.addOption("Pizza Auto Feed Back", autoRoutines.pizzaAutoFeedBack());
-    autoChooser.addOption("Left Side Auto", autoRoutines.leftSideAuto());
     autoChooser.addOption("Left Short Side Auto", autoRoutines.leftShortSideAuto());
+    autoChooser.addOption("Left Side Auto", autoRoutines.leftAutoFeed(8.1));
 
     SmartDashboard.putData("Auto Mode", autoChooser);
-
-    // Set up starting position chooser
-    startPositionChooser = new SendableChooser<>();
-    startPositionChooser.setDefaultOption("Right", StartingPosition.RIGHT);
-    startPositionChooser.addOption("Left", StartingPosition.LEFT);
-    startPositionChooser.addOption("Middle", StartingPosition.MIDDLE);
-    SmartDashboard.putData("Starting Position", startPositionChooser);
 
     configureBindings();
   }
@@ -125,7 +116,7 @@ public class RobotContainer {
         new OrbitDrive(
             drivetrain,
             () -> {
-              // Not the cleanest but claculate scaled joystick values
+              // Not the cleanest but calculate scaled joystick values
               Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
               translationVel[0] = -scaled.get(0) * maxSpeed;
               translationVel[1] = -scaled.get(1) * maxSpeed;
@@ -146,7 +137,6 @@ public class RobotContainer {
                 () ->
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
-    // rotation)
 
     joystick
         .rightBumper()
@@ -160,26 +150,41 @@ public class RobotContainer {
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
 
-    joystick.rightTrigger(0.5).onTrue(superstructure.shoot()).onFalse(superstructure.stopShoot());
+    // Right trigger toggles auto-shoot mode on/off.
+    // Debounce prevents analog trigger noise from causing multiple toggles.
+    joystick
+        .rightTrigger()
+        .debounce(0.1)
+        .toggleOnTrue(
+            Commands.parallel(
+                superstructure.autoShootMode(),
+                new TurretDrive(
+                    drivetrain,
+                    () -> {
+                      Vector<N2> scaled =
+                          rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+                      translationVel[0] = -scaled.get(0) * maxShootSpeed;
+                      translationVel[1] = -scaled.get(1) * maxShootSpeed;
+                      return translationVel[0];
+                    },
+                    () -> translationVel[1],
+                    () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate)));
 
     joystick
         .leftTrigger(0.5)
         .onTrue(
             Commands.either(
                 intakeCoordinator.deployAndRun(),
-                intakeCoordinator.stopAndRetract(),
+                intakeCoordinator.upAndRun(),
                 () -> intakeCoordinator.getTargetPositionRotations() != 0));
-
-    // joystick.y().whileTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
-
-    joystick
-        .x()
-        .onTrue(superstructure.spinSpinDexerBack())
-        .onFalse(superstructure.spinSpinDexerStop());
 
     joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
-    joystick.b().onTrue(intakeCoordinator.stopWheel());
+    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+
+    joystick.x().onTrue(intakeCoordinator.straightUp());
+
+    joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }
 
   public Command getAutonomousCommand() {
@@ -207,27 +212,6 @@ public class RobotContainer {
 
   public Command stopCommand() {
     return Commands.parallel(intakeCoordinator.stopBoth(), superstructure.stopShoot());
-  }
-
-  public enum StartingPosition {
-    LEFT(new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.kZero)),
-    MIDDLE(new ExtPose(4.378, FieldInfo.width().in(Meters) / 2.0, Rotation2d.kZero)),
-    RIGHT(new ExtPose(4.378, 0.639445, Rotation2d.kZero));
-
-    public final ExtPose pose;
-
-    StartingPosition(ExtPose pose) {
-      this.pose = pose;
-    }
-  }
-
-  /** Checks if starting position changed and resets drivetrain pose. Call from disabledPeriodic. */
-  public void checkStartingPosition() {
-    StartingPosition selected = startPositionChooser.getSelected();
-    if (selected != null && selected != lastStartingPosition) {
-      drivetrain.resetPose(selected.pose.get());
-      lastStartingPosition = selected;
-    }
   }
 
   /** Sets the rumble intensity on the driver controller (0.0 = off, 1.0 = full). */

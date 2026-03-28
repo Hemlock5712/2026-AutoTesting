@@ -10,6 +10,7 @@ import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.BallTrajectorySimulator;
@@ -41,7 +42,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
   // Ball properties (game-specific, passed to simulator)
   public static final double BALL_MASS_KG = 0.2268; // 0.5 lbs
   public static final double BALL_DIAMETER_M = 0.15; // 150 mm
-  public static final double DRAG_COEFFICIENT = 0.35; // Smooth foam sphere
+  public static final double DRAG_COEFFICIENT = 0.5; // Smooth foam sphere
 
   // Launch geometry defaults
   private static final double LAUNCH_HEIGHT_M = 0.4826; // 19 inches
@@ -285,7 +286,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
     double sinYaw = Math.sin(turretAngleRad);
 
     // Then apply hood pitch (rotation around Y)
-    double hoodAngleRad = Degrees.of(85).minus(superstructure.getTargetHoodAngle()).in(Radians);
+    double hoodAngleRad = Degrees.of(75).minus(superstructure.getTargetHoodAngle()).in(Radians);
     // This tilts the velocity up/down
     double cosPitch = Math.cos(hoodAngleRad);
     double sinPitch = Math.sin(hoodAngleRad);
@@ -298,11 +299,15 @@ public class BallPhysicsSimulation extends SubsystemBase {
     double robotVelY = flywheelLinearVel * sinYaw * cosPitch;
     double robotVelZ = flywheelLinearVel * sinPitch;
 
-    // Get robot velocity and add it to launch velocity
+    // Get turret velocity (not robot center) and add it to launch velocity.
+    // The ball exits from the turret, which has additional tangential velocity
+    // when the robot rotates: v_turret = v_center + omega x r_{center->turret}.
     var robotSpeeds = drivetrain.getRobotSpeeds();
-    robotVelX += robotSpeeds.vxMetersPerSecond;
-    robotVelY += robotSpeeds.vyMetersPerSecond;
-    // Robot Z velocity is always 0 (ground robot)
+    Translation2d turretOffset =
+        Superstructure.TURRET_TRANSFORM.getTranslation().rotateBy(drivetrain.getRotation());
+    double omega = robotSpeeds.omegaRadiansPerSecond;
+    robotVelX += robotSpeeds.vxMetersPerSecond - omega * turretOffset.getY();
+    robotVelY += robotSpeeds.vyMetersPerSecond + omega * turretOffset.getX();
 
     // Transform to field coordinates
     Rotation2d robotRotation = drivetrain.getRotation();
