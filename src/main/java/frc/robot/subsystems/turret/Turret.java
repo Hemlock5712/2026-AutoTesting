@@ -28,6 +28,8 @@ public class Turret extends SubsystemBase {
   // Motor
   protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
 
+  private static final double MAX_LATERAL_MISS_M = 0.2; // 20cm — 50% of goal radius
+
   // Dual absolute encoders for CRT positioning
   protected final CANcoder encoder1 =
       new CANcoder(DualEncoderCRT.ENCODER_1_ID, TunerConstants.kCANBus);
@@ -40,7 +42,6 @@ public class Turret extends SubsystemBase {
   private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
 
   // Shooting gate: distance-dependent position tolerance (~half the effective scoring radius)
-  private static final double MAX_LATERAL_MISS_M = 0.2; // 20cm — 50% of goal radius
 
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
@@ -147,8 +148,9 @@ public class Turret extends SubsystemBase {
     return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
   }
 
-  public boolean isAtTargetFeed() {
-    return getAngle().isNear(getTargetAngle(), Degrees.of(3));
+  /** Loose check: turret is not way off target (e.g. mid-slew). */
+  public boolean isNotFlipping() {
+    return getAngle().isNear(getTargetAngle(), Degrees.of(10));
   }
 
   /** Command that continuously tracks the hub using a supplied angle. */

@@ -58,8 +58,6 @@ public class Shooter extends SubsystemBase {
 
   private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
 
-  private final Debouncer atTargetDebouncer = new Debouncer(0.1, DebounceType.kFalling);
-
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
 
@@ -73,6 +71,8 @@ public class Shooter extends SubsystemBase {
   private final StatusSignal<AngularVelocity> hoodVelocitySignal;
 
   Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
+
+  private final Debouncer atTargetDebouncer = new Debouncer(0.1, DebounceType.kFalling);
 
   public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled
@@ -233,6 +233,13 @@ public class Shooter extends SubsystemBase {
     return debouncedTrue;
   }
 
+  /** Loose readiness: flywheel and hood roughly at target. */
+  public boolean isInBallpark() {
+    boolean flywheelClose = getVelocity().isNear(getTargetVelocity(), RotationsPerSecond.of(3));
+    boolean hoodClose = getPosition().isNear(getTargetPosition(), Degree.of(5));
+    return flywheelClose && hoodClose;
+  }
+
   /**
    * Get how fast the flywheel is currently spinning.
    *
@@ -317,20 +324,6 @@ public class Shooter extends SubsystemBase {
   public void setForFeedDistance(double flywheelDist, double hoodDist) {
     setVelocity(ShooterLookup.getFeedFlywheelMap().get(flywheelDist));
     setPosition(Degrees.of(ShooterLookup.getFeedHoodMap().get(hoodDist)));
-  }
-
-  /** Check if flywheel is at target for a feed shot (wider tolerance). */
-  public boolean isFeedAtTarget(double distance) {
-    double margin = 0.5;
-    double minDist = Math.max(0.0, distance - margin);
-    double maxDist = Math.min(9.5, distance + margin);
-
-    double actualRPS = getVelocity().in(RotationsPerSecond);
-    boolean flywheelOk =
-        actualRPS >= ShooterLookup.getFeedFlywheelMap().get(minDist)
-            && actualRPS <= ShooterLookup.getFeedFlywheelMap().get(maxDist);
-
-    return flywheelOk;
   }
 
   /** Command that continuously sets the hood position based on distance lookup. */
