@@ -116,10 +116,10 @@ public class AutoRoutines {
                 () -> new ExtPose(5.965, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(90)).get())
             .withWaypoint(5),
         // Drive to midline, right of balls (wide approach)
-        intakeCoordinator.deployAndRunAUTO(),
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
-            .withWaypoint(0.5),
+            .withWaypoint(0.5)
+            .deadlineFor(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRunAUTO())),
 
         // Drive left through balls at midline, at a slight backwards angle
         Commands.sequence(
@@ -162,7 +162,7 @@ public class AutoRoutines {
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 1.036, Rotation2d.fromDegrees(90)).get())
             .withWaypoint(1.5)
-            .alongWith(intakeCoordinator.deployAndRun()),
+            .deadlineFor(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRun())),
         // Drive left through balls at midline, at a slight backwards angle
         autoCommands
             .driveTo(() -> new ExtPose(8.1, 2.766, Rotation2d.fromDegrees(110)).get())
@@ -271,7 +271,7 @@ public class AutoRoutines {
         autoCommands
             .driveTo(() -> new ExtPose(midlineX, 7.20, Rotation2d.fromDegrees(-90)).get())
             .withWaypoint(0.5)
-            .alongWith(intakeCoordinator.deployAndRun()),
+            .deadlineFor(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRun())),
         // Drive right through balls at midline, at a slight backwards angle
         autoCommands
             .driveTo(() -> new ExtPose(8.481, 5.263, Rotation2d.fromDegrees(-110)).get())
@@ -391,9 +391,9 @@ public class AutoRoutines {
             .driveTo(
                 () -> new ExtPose(midlineX, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)).get())
             .withWaypoint(1)
-            .withMaxSpeed(5),
+            .withMaxSpeed(5)
+            .deadlineFor(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRunAUTO())),
         // Drive right through balls at midline, at a slight backwards angle
-        intakeCoordinator.deployAndRunAUTO(),
         autoCommands
             .driveTo(
                 () ->
