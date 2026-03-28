@@ -8,7 +8,6 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.Logged.Strategy;
-import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -87,7 +86,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
   private final Translation3d goalPosition;
 
   // Trajectory visualization - all points visited by any ball
-  @NotLogged private final List<Pose3d> ballTrajectory = new ArrayList<>();
+  @Logged private final List<Pose3d> ballTrajectory = new ArrayList<>();
 
   public BallPhysicsSimulation(CommandSwerveDrivetrain drivetrain, Superstructure superstructure) {
     this.drivetrain = drivetrain;
