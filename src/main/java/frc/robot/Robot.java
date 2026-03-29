@@ -8,7 +8,6 @@ import edu.wpi.first.epilogue.Epilogue;
 import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.epilogue.NotLogged;
 import edu.wpi.first.epilogue.logging.EpilogueBackend;
-import edu.wpi.first.epilogue.logging.FileBackend;
 import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.DataLogManager;
@@ -37,13 +36,17 @@ public class Robot extends TimedRobot {
   public Robot() {
     m_robotContainer = new RobotContainer();
     RobotController.setBrownoutVoltage(MIN_OCV);
+    // DataLogManager.start("", "", 0.02);
     DataLogManager.start();
+
     Epilogue.configure(
-        config ->
-            config.backend =
-                EpilogueBackend.multi(
-                    new NTEpilogueBackend(NetworkTableInstance.getDefault()),
-                    new FileBackend(DataLogManager.getLog())));
+        config -> {
+          config.backend =
+              EpilogueBackend.multi(new NTEpilogueBackend(NetworkTableInstance.getDefault()));
+          // config.loggingPeriod = Milliseconds.of(10);
+          // config.loggingPeriodOffset = Milliseconds.of(0);
+
+        });
     Epilogue.bind(this);
 
     HubShiftUtil.setupNTValues();

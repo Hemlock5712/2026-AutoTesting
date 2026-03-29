@@ -45,7 +45,7 @@ public class ShooterLookup {
     flywheelMap.put(4.0, 37.0);
     flywheelMap.put(4.5, 40.0);
     flywheelMap.put(5.0, 41.0);
-    flywheelMap.put(5.5, 45.0);
+    flywheelMap.put(5.5, 46.0);
   }
 
   private static void buildHood() {
@@ -78,7 +78,7 @@ public class ShooterLookup {
 
   private static void buildFeedFlywheel() {
     feedShootMap.put(0.0, 20.0);
-    feedShootMap.put(9.5, 50.0);
+    feedShootMap.put(9.5, 52.0);
   }
 
   private static void buildFeedHood() {

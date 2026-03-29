@@ -202,12 +202,12 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     return getPose().getRotation();
   }
 
-  @Logged
+  // @Logged
   public SwerveModuleState[] getModuleStates() {
     return getState().ModuleStates;
   }
 
-  @Logged
+  // @Logged
   public SwerveModuleState[] getModuleTargets() {
     return getState().ModuleTargets;
   }
