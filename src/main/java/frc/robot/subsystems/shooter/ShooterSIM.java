@@ -9,9 +9,9 @@ import edu.wpi.first.wpilibj.simulation.BatterySim;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj.simulation.RoboRioSim;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.Robot;
 import frc.robot.utils.MechanismUtil;
 import frc.robot.utils.TalonFXUtil;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Simulation implementation of the flywheel subsystem.
@@ -125,7 +125,7 @@ public class ShooterSIM extends Shooter {
     updateVisualization(velocityRadPerSec);
 
     // Publish sim-specific telemetry (other values are auto-logged from base class)
-    Robot.telemetry().log("Flywheel Sim/Current (A)", shooterSim.getCurrentDrawAmps());
+    Logger.recordOutput("Flywheel Sim/Current (A)", shooterSim.getCurrentDrawAmps());
   }
 
   /**

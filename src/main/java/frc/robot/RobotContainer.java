@@ -2,7 +2,6 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
 
-import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
@@ -47,7 +46,6 @@ import frc.robot.utils.FieldInfo;
  *
  * The code automatically picks the right version.
  */
-@Logged
 public class RobotContainer {
   private static final double JOYSTICK_DEADBAND = 0.05;
 

@@ -2,11 +2,10 @@ package frc.robot.subsystems.intake;
 
 import static edu.wpi.first.units.Units.Rotations;
 
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import org.littletonrobotics.junction.AutoLogOutput;
 
 /**
  * Coordinates IntakeArm and IntakeWheels together.
@@ -15,7 +14,6 @@ import edu.wpi.first.wpilibj2.command.Commands;
  * composed commands when the arm and wheels need to move together, and delegates to individual
  * subsystems for independent control.
  */
-@Logged(strategy = Strategy.OPT_IN)
 public class IntakeCoordinator {
 
   private final IntakeArm arm;
@@ -92,37 +90,37 @@ public class IntakeCoordinator {
 
   // ==================== State Queries ====================
 
-  @Logged
+  @AutoLogOutput
   public boolean isAtTarget() {
     return arm.isAtTarget();
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isAtBumpHeight() {
     return arm.isAtBumpHeight();
   }
 
-  @Logged
+  @AutoLogOutput
   public double getTargetPositionRotations() {
     return arm.getTargetPosition();
   }
 
-  @Logged
+  @AutoLogOutput
   public double getPositionRotations() {
     return arm.getPosition().in(Rotations);
   }
 
-  @Logged
+  @AutoLogOutput
   public double getVelocity() {
     return wheels.getVelocity();
   }
 
-  @Logged
+  @AutoLogOutput
   public double getVelocityTarget() {
     return wheels.getVelocityTarget();
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isIntakeFast() {
     return wheels.getVelocity() > 35;
   }

@@ -4,25 +4,22 @@
 
 package frc.robot;
 
-import edu.wpi.first.epilogue.Epilogue;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.NotLogged;
-import edu.wpi.first.epilogue.logging.EpilogueBackend;
-import edu.wpi.first.epilogue.logging.NTEpilogueBackend;
-import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.utils.HubShiftUtil;
 import frc.robot.utils.Tunables;
+import org.littletonrobotics.junction.LogFileUtil;
+import org.littletonrobotics.junction.LoggedRobot;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGReader;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 
-@Logged
-public class Robot extends TimedRobot {
+public class Robot extends LoggedRobot {
 
-  @NotLogged private Command m_autonomousCommand;
+  private Command m_autonomousCommand;
 
   private final RobotContainer m_robotContainer;
 
@@ -34,20 +31,20 @@ public class Robot extends TimedRobot {
   private static final double RUMBLE_END_THRESHOLD = 0.5;
 
   public Robot() {
+    Logger.recordMetadata("ProjectName", "2026-AutoTesting");
+    if (isReal()) {
+      Logger.addDataReceiver(new WPILOGWriter());
+      Logger.addDataReceiver(new NT4Publisher());
+    } else {
+      setUseTiming(false);
+      String logPath = LogFileUtil.findReplayLog();
+      Logger.setReplaySource(new WPILOGReader(logPath));
+      Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
+    }
+    Logger.start();
+
     m_robotContainer = new RobotContainer();
     RobotController.setBrownoutVoltage(MIN_OCV);
-    // DataLogManager.start("", "", 0.02);
-    DataLogManager.start();
-
-    Epilogue.configure(
-        config -> {
-          config.backend =
-              EpilogueBackend.multi(new NTEpilogueBackend(NetworkTableInstance.getDefault()));
-          // config.loggingPeriod = Milliseconds.of(10);
-          // config.loggingPeriodOffset = Milliseconds.of(0);
-
-        });
-    Epilogue.bind(this);
 
     HubShiftUtil.setupNTValues();
   }
@@ -127,10 +124,6 @@ public class Robot extends TimedRobot {
 
   @Override
   public void testExit() {}
-
-  public static EpilogueBackend telemetry() {
-    return Epilogue.getConfig().backend;
-  }
 
   public static boolean isHubActive() {
     return HubShiftUtil.isHubActive();

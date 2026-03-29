@@ -3,7 +3,7 @@ package frc.robot.utils;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
-import frc.robot.Robot;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Tracks whether our alliance's hub is currently active based on the shift schedule. Call {@link
@@ -24,9 +24,9 @@ public class HubShiftUtil {
   private static boolean hubActive = false;
 
   public static void setupNTValues() {
-    Robot.telemetry().log("Hub/HubActive", true);
-    Robot.telemetry().log("Hub/TimeUntilShift", 10.0);
-    Robot.telemetry().log("Hub/TimeUntilShiftHumanDisplay", "10.0");
+    Logger.recordOutput("Hub/HubActive", true);
+    Logger.recordOutput("Hub/TimeUntilShift", 10.0);
+    Logger.recordOutput("Hub/TimeUntilShiftHumanDisplay", "10.0");
   }
 
   /** Starts the timer. Call at the beginning of teleop. */
@@ -44,10 +44,10 @@ public class HubShiftUtil {
     boolean[] schedule = getSchedule();
     int shiftIndex = getShiftIndex(timer.get());
     hubActive = schedule[shiftIndex];
-    Robot.telemetry().log("Hub/HubActive", hubActive);
-    Robot.telemetry().log("Hub/TimeUntilShift", getSecondsUntilNextShift());
-    Robot.telemetry()
-        .log("Hub/TimeUntilShiftHumanDisplay", String.format("%02.1f", getSecondsUntilNextShift()));
+    Logger.recordOutput("Hub/HubActive", hubActive);
+    Logger.recordOutput("Hub/TimeUntilShift", getSecondsUntilNextShift());
+    Logger.recordOutput(
+        "Hub/TimeUntilShiftHumanDisplay", String.format("%02.1f", getSecondsUntilNextShift()));
   }
 
   /** Returns whether our hub is currently active. */

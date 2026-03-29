@@ -1,7 +1,5 @@
 package frc.robot.subsystems.spindexer;
 
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.system.LinearSystem;
@@ -11,9 +9,9 @@ import edu.wpi.first.wpilibj.simulation.BatterySim;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj.simulation.RoboRioSim;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.Robot;
 import frc.robot.utils.MechanismUtil;
 import frc.robot.utils.TalonFXUtil;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Simulation implementation of the spindexer subsystem.
@@ -22,7 +20,6 @@ import frc.robot.utils.TalonFXUtil;
  * provides visual feedback through SmartDashboard. It uses WPILib's SpindexerSim for physics
  * simulation and Mechanism2d for visualization.
  */
-@Logged(strategy = Strategy.OPT_IN)
 public class SpindexerSIM extends Spindexer {
 
   // ==================== Physical Constants ====================
@@ -128,7 +125,7 @@ public class SpindexerSIM extends Spindexer {
     updateVisualization(velocityRadPerSec);
 
     // Publish sim-specific telemetry (other values are auto-logged from base class)
-    Robot.telemetry().log("Spindexer Sim/Current (A)", spindexerSim.getCurrentDrawAmps());
+    Logger.recordOutput("Spindexer Sim/Current (A)", spindexerSim.getCurrentDrawAmps());
   }
 
   /**

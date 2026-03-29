@@ -24,8 +24,6 @@ import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.units.measure.Angle;
@@ -34,12 +32,12 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Robot;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
-@Logged(strategy = Strategy.OPT_IN)
 public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(1);
@@ -193,7 +191,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return true if close enough to target speed, false otherwise
    */
-  @Logged
+  @AutoLogOutput
   public boolean flywheelIsAtTarget() {
     return getVelocity().isNear(getTargetVelocity(), TOLERANCE);
   }
@@ -203,12 +201,12 @@ public class Shooter extends SubsystemBase {
    *
    * @return true if close enough to target position, false otherwise
    */
-  @Logged
+  @AutoLogOutput
   public boolean hoodIsAtTarget() {
     return getPosition().isNear(getTargetPosition(), HOOD_TOLERANCE);
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isAtTarget() {
     return flywheelIsAtTarget() && hoodIsAtTarget();
   }
@@ -229,7 +227,7 @@ public class Shooter extends SubsystemBase {
         actualHoodDeg >= ShooterLookup.getHoodMap().get(minDist)
             && actualHoodDeg <= ShooterLookup.getHoodMap().get(maxDist);
     boolean debouncedTrue = atTargetDebouncer.calculate(flywheelOk);
-    Robot.telemetry().log("SWM/DebounceAtTarget", debouncedTrue);
+    Logger.recordOutput("SWM/DebounceAtTarget", debouncedTrue);
     return debouncedTrue;
   }
 
@@ -245,7 +243,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Current flywheel speed
    */
-  @Logged
+  @AutoLogOutput
   public AngularVelocity getVelocity() {
     return flywheelVelocitySignal.getValue();
   }
@@ -255,7 +253,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Current hood position (latency-compensated)
    */
-  @Logged
+  @AutoLogOutput
   public Angle getPosition() {
     return Rotations.of(
         BaseStatusSignal.getLatencyCompensatedValueAsDouble(
@@ -267,7 +265,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Target flywheel speed
    */
-  @Logged
+  @AutoLogOutput
   public AngularVelocity getTargetVelocity() {
     return velocityOut.getVelocityMeasure();
   }
@@ -277,7 +275,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Target hood position
    */
-  @Logged
+  @AutoLogOutput
   public Angle getTargetPosition() {
     return rotationOut.getPositionMeasure();
   }
@@ -287,7 +285,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Speed tolerance
    */
-  @Logged
+  @AutoLogOutput
   public AngularVelocity getTolerance() {
     return TOLERANCE;
   }
@@ -297,7 +295,7 @@ public class Shooter extends SubsystemBase {
    *
    * @return Position tolerance
    */
-  @Logged
+  @AutoLogOutput
   public Angle getHoodTolerance() {
     return HOOD_TOLERANCE;
   }

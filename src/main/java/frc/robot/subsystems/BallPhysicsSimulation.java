@@ -6,8 +6,6 @@ import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -20,6 +18,7 @@ import frc.robot.utils.Tunables.TunableDouble;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Simulates multiple ball trajectories in flight and publishes to NetworkTables for visualization.
@@ -37,7 +36,6 @@ import java.util.List;
  *   <li>Removes balls when they hit the ground
  * </ul>
  */
-@Logged(strategy = Strategy.OPT_IN)
 public class BallPhysicsSimulation extends SubsystemBase {
   // Ball properties (game-specific, passed to simulator)
   public static final double BALL_MASS_KG = 0.2268; // 0.5 lbs
@@ -86,7 +84,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
   private final Translation3d goalPosition;
 
   // Trajectory visualization - all points visited by any ball
-  @Logged private final List<Pose3d> ballTrajectory = new ArrayList<>();
+  private final List<Pose3d> ballTrajectory = new ArrayList<>();
 
   public BallPhysicsSimulation(CommandSwerveDrivetrain drivetrain, Superstructure superstructure) {
     this.drivetrain = drivetrain;
@@ -189,6 +187,9 @@ public class BallPhysicsSimulation extends SubsystemBase {
         ballTrajectory.add(ball.trajectory.get(ball.currentIndex));
       }
     }
+
+    Logger.recordOutput(
+        "BallPhysicsSimulation/BallTrajectory", ballTrajectory.toArray(new Pose3d[0]));
   }
 
   /**

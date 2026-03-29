@@ -4,8 +4,6 @@ import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -21,12 +19,12 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.AutoLogOutput;
 
 /**
  * Class that extends the Phoenix 6 SwerveDrivetrain class and implements Subsystem so it can easily
  * be used in command-based projects.
  */
-@Logged(strategy = Strategy.OPT_IN)
 public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Subsystem {
   private static final double kSimLoopPeriod = 0.005; // 5 ms
   private Notifier m_simNotifier = null;
@@ -192,49 +190,49 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds), visionMeasurementStdDevs);
   }
 
-  @Logged
+  @AutoLogOutput
   public Pose2d getPose() {
     return getState().Pose;
   }
 
-  @Logged
+  @AutoLogOutput
   public Rotation2d getRotation() {
     return getPose().getRotation();
   }
 
-  // @Logged
+  @AutoLogOutput
   public SwerveModuleState[] getModuleStates() {
     return getState().ModuleStates;
   }
 
-  // @Logged
+  @AutoLogOutput
   public SwerveModuleState[] getModuleTargets() {
     return getState().ModuleTargets;
   }
 
-  @Logged
+  @AutoLogOutput
   public ChassisSpeeds getRobotSpeeds() {
     return getState().Speeds;
   }
 
-  @Logged
+  @AutoLogOutput
   public double translationSpeed() {
     ChassisSpeeds robotSpeeds = getRobotSpeeds();
     return Math.hypot(robotSpeeds.vxMetersPerSecond, robotSpeeds.vyMetersPerSecond);
   }
 
-  @Logged
+  @AutoLogOutput
   public double rotationSpeed() {
 
     return getRobotSpeeds().omegaRadiansPerSecond;
   }
 
-  @Logged
+  @AutoLogOutput
   public ChassisSpeeds getFieldSpeeds() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(getRobotSpeeds(), getRotation());
   }
 
-  @Logged
+  @AutoLogOutput
   public ChassisSpeeds getTargetFieldSpeeds() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(
         getKinematics().toChassisSpeeds(getModuleTargets()), getRotation());

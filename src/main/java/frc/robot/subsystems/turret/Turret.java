@@ -11,8 +11,6 @@ import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
@@ -22,8 +20,8 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.AutoLogOutput;
 
-@Logged(strategy = Strategy.OPT_IN)
 public class Turret extends SubsystemBase {
   // Motor
   protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
@@ -126,18 +124,18 @@ public class Turret extends SubsystemBase {
     leader.setControl(angleOut.withPosition(angle));
   }
 
-  @Logged
+  @AutoLogOutput
   public Angle getAngle() {
     return Rotations.of(
         BaseStatusSignal.getLatencyCompensatedValueAsDouble(positionSignal, velocitySignal));
   }
 
-  @Logged
+  @AutoLogOutput
   public Angle getTargetAngle() {
     return angleOut.getPositionMeasure();
   }
 
-  @Logged
+  @AutoLogOutput
   public double getVelocityRPS() {
     return velocitySignal.getValueAsDouble();
   }

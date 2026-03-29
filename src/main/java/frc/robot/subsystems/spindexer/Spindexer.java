@@ -5,8 +5,6 @@ import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.wpilibj.Alert;
@@ -15,8 +13,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
+import org.littletonrobotics.junction.AutoLogOutput;
 
-@Logged(strategy = Strategy.OPT_IN)
 public class Spindexer extends SubsystemBase {
   private static final double VELOCITY_TOLERANCE = 0.2;
 
@@ -74,7 +72,7 @@ public class Spindexer extends SubsystemBase {
     return runOnce(this::stop);
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isAtTarget() {
     return spindexer.getVelocity().isNear(spindexerVelocityOut.Velocity, VELOCITY_TOLERANCE);
   }
@@ -117,17 +115,17 @@ public class Spindexer extends SubsystemBase {
     kicker.optimizeBusUtilization();
   }
 
-  @Logged
+  @AutoLogOutput
   public AngularVelocity getTargetKickerVelocity() {
     return kickerVelocityOut.getVelocityMeasure();
   }
 
-  @Logged
+  @AutoLogOutput
   public AngularVelocity getKickerVelocity() {
     return kickerVelocity.getValue();
   }
 
-  @Logged
+  @AutoLogOutput
   public Current getSpindexerCurrentDraw() {
     return spindexerCurrentDraw.getValue();
   }

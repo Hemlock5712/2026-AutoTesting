@@ -12,9 +12,9 @@ import edu.wpi.first.wpilibj.simulation.BatterySim;
 import edu.wpi.first.wpilibj.simulation.RoboRioSim;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.Robot;
 import frc.robot.utils.MechanismUtil;
 import frc.robot.utils.TalonFXUtil;
+import org.littletonrobotics.junction.Logger;
 
 public class IntakeArmSIM extends IntakeArm {
 
@@ -80,7 +80,7 @@ public class IntakeArmSIM extends IntakeArm {
 
     updateVisualization();
 
-    Robot.telemetry().log("Arm Sim Current (A)", armSim.getCurrentDrawAmps());
+    Logger.recordOutput("Arm Sim Current (A)", armSim.getCurrentDrawAmps());
   }
 
   private void updateVisualization() {

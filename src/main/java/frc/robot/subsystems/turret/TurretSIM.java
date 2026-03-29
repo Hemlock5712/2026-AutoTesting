@@ -7,7 +7,6 @@ import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.signals.InvertedValue;
-import edu.wpi.first.epilogue.Logged;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
@@ -17,9 +16,10 @@ import edu.wpi.first.wpilibj.simulation.BatterySim;
 import edu.wpi.first.wpilibj.simulation.RoboRioSim;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.Robot;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.utils.MechanismUtil;
+import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Simulation implementation of the turret subsystem.
@@ -76,7 +76,7 @@ public class TurretSIM extends Turret {
   /** Mechanism visualization helper */
   private final MechanismUtil.TurretMechanism turretMechanism;
 
-  @Logged(name = "Turret Mechanism3D")
+  @AutoLogOutput(key = "TurretSIM/TurretMechanism3D")
   public Pose3d[] turretPose = new Pose3d[] {Superstructure.TURRET_HOLE_CENTER, new Pose3d()};
 
   /**
@@ -155,10 +155,10 @@ public class TurretSIM extends Turret {
     encoder2.getSimState().setRawPosition(encoder2Position);
 
     // Publish telemetry
-    Robot.telemetry().log("Turret Sim/Current (A)", turretSim.getCurrentDrawAmps());
-    Robot.telemetry().log("Turret Sim/Position (deg)", Math.toDegrees(turretSim.getAngleRads()));
-    Robot.telemetry()
-        .log("Turret Sim/Velocity (deg/s)", Math.toDegrees(turretSim.getVelocityRadPerSec()));
+    Logger.recordOutput("Turret Sim/Current (A)", turretSim.getCurrentDrawAmps());
+    Logger.recordOutput("Turret Sim/Position (deg)", Math.toDegrees(turretSim.getAngleRads()));
+    Logger.recordOutput(
+        "Turret Sim/Velocity (deg/s)", Math.toDegrees(turretSim.getVelocityRadPerSec()));
 
     // Turret base - rotates around Z-axis
     turretPose[0] =

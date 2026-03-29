@@ -6,11 +6,10 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.hardware.CANcoder;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import org.littletonrobotics.junction.AutoLogOutput;
 
 /**
  * Calculates absolute turret position using Chinese Remainder Theorem from two encoders driven by a
@@ -24,7 +23,6 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
  * used to seed encoder 1's continuous position via {@link #seedEncoderPosition()}, after which
  * FusedCANcoder handles high-bandwidth tracking for the remainder of the match.
  */
-@Logged(strategy = Strategy.OPT_IN)
 public class DualEncoderCRT {
 
   // ==================== Constants ====================
@@ -90,7 +88,7 @@ public class DualEncoderCRT {
    *
    * @return mechanism position in rotations (centered around 0), or NaN if failed
    */
-  @Logged
+  @AutoLogOutput
   public double calculateMechanismPosition() {
     StatusSignal<Angle> e1Signal = encoder1.getAbsolutePosition();
     StatusSignal<Angle> e2Signal = encoder2.getAbsolutePosition();

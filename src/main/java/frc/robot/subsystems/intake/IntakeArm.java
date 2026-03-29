@@ -10,8 +10,6 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
@@ -19,8 +17,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
+import org.littletonrobotics.junction.AutoLogOutput;
 
-@Logged(strategy = Strategy.OPT_IN)
 public class IntakeArm extends SubsystemBase {
 
   protected final TalonFX arm = new TalonFX(22, TunerConstants.kCANBus);
@@ -95,7 +93,7 @@ public class IntakeArm extends SubsystemBase {
     return runOnce(() -> setPositionSlow(Rotations.of(.17)));
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isAtBumpHeight() {
     return getPosition().in(Rotations) >= .1;
   }
@@ -104,22 +102,22 @@ public class IntakeArm extends SubsystemBase {
     return runOnce(() -> arm.stopMotor());
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isAtTarget() {
     return getPosition().isNear(Rotations.of(getTargetPosition()), TOLERANCE);
   }
 
-  @Logged
+  @AutoLogOutput
   public Angle getPosition() {
     return armEncoder.getPosition().getValue();
   }
 
-  @Logged
+  @AutoLogOutput
   public double getTargetPosition() {
     return positionOut.Position;
   }
 
-  @Logged
+  @AutoLogOutput
   public Angle getTolerance() {
     return TOLERANCE;
   }

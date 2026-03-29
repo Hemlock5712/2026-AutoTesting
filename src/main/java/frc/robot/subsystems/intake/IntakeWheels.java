@@ -5,16 +5,14 @@ import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
+import org.littletonrobotics.junction.AutoLogOutput;
 
-@Logged(strategy = Strategy.OPT_IN)
 public class IntakeWheels extends SubsystemBase {
 
   private final TalonFX wheel = new TalonFX(23, TunerConstants.kCANBus);
@@ -59,12 +57,12 @@ public class IntakeWheels extends SubsystemBase {
     return runOnce(() -> wheel.stopMotor());
   }
 
-  @Logged
+  @AutoLogOutput
   public double getVelocity() {
     return wheel.getVelocity().getValueAsDouble();
   }
 
-  @Logged
+  @AutoLogOutput
   public double getVelocityTarget() {
     return voltageOut.Velocity;
   }

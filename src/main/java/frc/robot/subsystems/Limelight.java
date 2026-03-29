@@ -6,8 +6,6 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Meter;
 
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -15,8 +13,8 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
+import org.littletonrobotics.junction.AutoLogOutput;
 
-@Logged(strategy = Strategy.OPT_IN)
 public class Limelight extends SubsystemBase {
 
   // --- Standard Deviation Formula ---
@@ -165,22 +163,22 @@ public class Limelight extends SubsystemBase {
         VecBuilder.fill(xyStdDev, xyStdDev, rotationStdDev));
   }
 
-  @Logged
+  @AutoLogOutput
   public Pose2d getPose() {
     return lastPoseEstimate.pose;
   }
 
-  @Logged
+  @AutoLogOutput
   public double getTimestampSeconds() {
     return lastPoseEstimate.timestampSeconds;
   }
 
-  @Logged
+  @AutoLogOutput
   public double getAvgTagDist() {
     return lastPoseEstimate.avgTagDist;
   }
 
-  @Logged
+  @AutoLogOutput
   public int getTagCount() {
     return lastPoseEstimate.tagCount;
   }

@@ -4,8 +4,6 @@ import static edu.wpi.first.units.Units.Degrees;
 
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
-import edu.wpi.first.epilogue.Logged;
-import edu.wpi.first.epilogue.Logged.Strategy;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -20,7 +18,6 @@ import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.Robot;
 import frc.robot.commands.AccelerationLimiter;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
@@ -34,6 +31,8 @@ import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Superstructure - Controls the Arm and Flywheel together.
@@ -49,7 +48,6 @@ import java.util.function.Supplier;
  * "score low" or "prepare for shooting" that move both parts together. This makes driving easier
  * and ensures everything moves in sync.
  */
-@Logged(strategy = Strategy.OPT_IN)
 public class Superstructure {
 
   // ==================== Constants ====================
@@ -71,12 +69,10 @@ public class Superstructure {
       0.5 * AIR_DENSITY * BallPhysicsSimulation.DRAG_COEFFICIENT * CROSS_SECTION;
 
   // ==================== Subsystems ====================
-  @Logged
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
 
-  @Logged private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
+  private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
 
-  @Logged
   private final Spindexer spindexer =
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
@@ -105,7 +101,7 @@ public class Superstructure {
 
   private boolean isHubShot = true;
   private boolean isShooting = false;
-  @Logged private boolean isAutoShootEnabled = false;
+  @AutoLogOutput private boolean isAutoShootEnabled = false;
 
   /** When non-null, overrides targetPosition in update(). Blue alliance coordinates. */
   private Translation2d passTargetOverride = null;
@@ -162,51 +158,47 @@ public class Superstructure {
             angleToVirtualTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
 
     // Telemetry
-    Robot.telemetry()
-        .log(
-            "SWM/VirtualTarget",
-            new Pose2d(virtualTargetPosition, Rotation2d.kZero),
-            Pose2d.struct);
-    Robot.telemetry().log("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
-    Robot.telemetry().log("SWM/VirtualTargetDist", distanceToVirtualTarget);
-    Robot.telemetry().log("SWM/Feasible", swmSolutionFeasible);
-    Robot.telemetry().log("SWM/Converged", swmConverged);
-    Robot.telemetry().log("SWM/Delay", swmDelay);
-    Robot.telemetry()
-        .log("SWM/OdometryAge_ms", (Utils.getCurrentTimeSeconds() - state.Timestamp) * 1000.0);
-    Robot.telemetry().log("SWM/TotalDelay_ms", swmDelay * 1000.0);
+    Logger.recordOutput("SWM/VirtualTarget", new Pose2d(virtualTargetPosition, Rotation2d.kZero));
+    Logger.recordOutput("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
+    Logger.recordOutput("SWM/VirtualTargetDist", distanceToVirtualTarget);
+    Logger.recordOutput("SWM/Feasible", swmSolutionFeasible);
+    Logger.recordOutput("SWM/Converged", swmConverged);
+    Logger.recordOutput("SWM/Delay", swmDelay);
+    Logger.recordOutput(
+        "SWM/OdometryAge_ms", (Utils.getCurrentTimeSeconds() - state.Timestamp) * 1000.0);
+    Logger.recordOutput("SWM/TotalDelay_ms", swmDelay * 1000.0);
 
     boolean shootReady = isShooting && (isHubShot ? isHubReady() : isFeedReady());
-    Robot.telemetry().log("SWM/ShootReady", shootReady);
-    Robot.telemetry().log("SWM/IsHubShot", isHubShot);
-    Robot.telemetry().log("SWM/IsHubShot", turret.isAtTarget(distanceToHub));
+    Logger.recordOutput("SWM/ShootReady", shootReady);
+    Logger.recordOutput("SWM/IsHubShot", isHubShot);
+    Logger.recordOutput("SWM/IsHubShot", turret.isAtTarget(distanceToHub));
   }
 
   // ==================== Targeting Getters ====================
 
-  @Logged
+  @AutoLogOutput
   public double getDistanceToHub() {
     return distanceToHub;
   }
 
-  @Logged
+  @AutoLogOutput
   public Pose2d getTargetPosition() {
     return new Pose2d(targetPosition, new Rotation2d());
   }
 
   // ==================== SWM-Aware Getters ====================
 
-  @Logged
+  @AutoLogOutput
   public double getHoodDistance() {
     return distanceToVirtualTarget;
   }
 
-  @Logged
+  @AutoLogOutput
   public double getTurretAngle() {
     return angleToVirtualTarget;
   }
 
-  @Logged
+  @AutoLogOutput
   public double getFlywheelDistance() {
     return distanceToVirtualTarget;
   }
@@ -266,8 +258,8 @@ public class Superstructure {
     boolean turretTarget = turret.isAtTarget(distanceToVirtualTarget);
     boolean shootTarget = shooter.isAtTarget(distanceToVirtualTarget);
 
-    Robot.telemetry().log("SWM/IsTurretTarget", turretTarget);
-    Robot.telemetry().log("SWM/IsshootTarget", shootTarget);
+    Logger.recordOutput("SWM/IsTurretTarget", turretTarget);
+    Logger.recordOutput("SWM/IsshootTarget", shootTarget);
 
     return shootTarget && turretTarget && swmSolutionFeasible;
   }
@@ -363,7 +355,7 @@ public class Superstructure {
     Translation2d realTarget = getTargetPosition().getTranslation();
     // The turret isn't at robot center -- apply the offset to get its real position
     Pose2d turretPose = advancedPose.transformBy(TURRET_TRANSFORM);
-    Robot.telemetry().log("SWM/TurretPose", turretPose, Pose2d.struct);
+    Logger.recordOutput("SWM/TurretPose", turretPose);
     Translation2d robotPosition = turretPose.getTranslation();
 
     // --- Step 2: Turret velocity on the field ---
@@ -377,7 +369,7 @@ public class Superstructure {
         new Translation2d(
             fieldSpeeds.vxMetersPerSecond - omega * turretOffsetField.getY(),
             fieldSpeeds.vyMetersPerSecond + omega * turretOffsetField.getX());
-    Robot.telemetry().log("SWM/TurretVelocity", velocity.getNorm());
+    Logger.recordOutput("SWM/TurretVelocity", velocity.getNorm());
 
     // --- Step 2b: Predict velocity at ball-release time ---
     // v_predicted = v_now + a * delay
@@ -461,47 +453,47 @@ public class Superstructure {
     return virtualTarget;
   }
 
-  @Logged
+  @AutoLogOutput
   public Angle getTargetTurretAngle() {
     return turret.getTargetAngle();
   }
 
-  @Logged
+  @AutoLogOutput
   public Angle getTargetHoodAngle() {
     return shooter.getTargetPosition();
   }
 
-  @Logged
+  @AutoLogOutput
   public AngularVelocity getTargetFlywheel() {
     return shooter.getTargetVelocity();
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isShooting() {
     return isShooting;
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isInNeutralZone() {
     return FieldInfo.isInNeutralZone(turretPose);
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isInAllianceZone() {
     return FieldInfo.isInAllianceZone(turretPose);
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isInNeutralZoneDeadzone() {
     return FieldInfo.isInNeutralZoneDeadzone(turretPose);
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean isUnderTower() {
     return FieldInfo.isUnderTower(turretPose);
   }
 
-  @Logged
+  @AutoLogOutput
   public boolean shouldShoot() {
     if (isInAllianceZone() && !isUnderTower()) {
       return true;
