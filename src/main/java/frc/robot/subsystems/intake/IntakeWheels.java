@@ -52,7 +52,7 @@ public class IntakeWheels extends SubsystemBase {
   }
 
   public Command runFast() {
-    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(30)));
+    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(37)));
   }
 
   public Command stopWheel() {
@@ -62,5 +62,10 @@ public class IntakeWheels extends SubsystemBase {
   @Logged
   public double getVelocity() {
     return wheel.getVelocity().getValueAsDouble();
+  }
+
+  @Logged
+  public double getVelocityTarget() {
+    return voltageOut.Velocity;
   }
 }

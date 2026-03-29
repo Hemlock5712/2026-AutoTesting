@@ -170,13 +170,23 @@ public class RobotContainer {
                     () -> translationVel[1],
                     () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate)));
 
+    // joystick
+    //     .leftTrigger(0.5)
+    //     .onTrue(
+    //         Commands.either(
+    //             intakeCoordinator.deployAndRun(),
+    //             intakeCoordinator.upAndRun(),
+    //             () -> intakeCoordinator.getTargetPositionRotations() != 0));
+
     joystick
         .leftTrigger(0.5)
         .onTrue(
             Commands.either(
                 intakeCoordinator.deployAndRun(),
-                intakeCoordinator.upAndRun(),
-                () -> intakeCoordinator.getTargetPositionRotations() != 0));
+                intakeCoordinator.downAndRunFast(),
+                () ->
+                    (intakeCoordinator.getVelocityTarget() < 20
+                        || intakeCoordinator.getVelocityTarget() > 30)));
 
     joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 

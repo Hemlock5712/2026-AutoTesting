@@ -77,6 +77,10 @@ public class IntakeCoordinator {
     return Commands.parallel(arm.intakeUp(), wheels.runFast());
   }
 
+  public Command downAndRunFast() {
+    return Commands.parallel(arm.intakeDown(), wheels.runFast());
+  }
+
   public Command slowUpAndRun() {
     return Commands.parallel(arm.intakeUpSlow(), wheels.runFast());
   }
@@ -111,6 +115,16 @@ public class IntakeCoordinator {
   @Logged
   public double getVelocity() {
     return wheels.getVelocity();
+  }
+
+  @Logged
+  public double getVelocityTarget() {
+    return wheels.getVelocityTarget();
+  }
+
+  @Logged
+  public boolean isIntakeFast() {
+    return wheels.getVelocity() > 35;
   }
 
   // ==================== Direct Access ====================
