@@ -9,7 +9,6 @@ import com.ctre.phoenix6.hardware.CANcoder;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
-import org.littletonrobotics.junction.AutoLogOutput;
 
 /**
  * Calculates absolute turret position using Chinese Remainder Theorem from two encoders driven by a
@@ -88,7 +87,6 @@ public class DualEncoderCRT {
    *
    * @return mechanism position in rotations (centered around 0), or NaN if failed
    */
-  @AutoLogOutput
   public double calculateMechanismPosition() {
     StatusSignal<Angle> e1Signal = encoder1.getAbsolutePosition();
     StatusSignal<Angle> e2Signal = encoder2.getAbsolutePosition();
