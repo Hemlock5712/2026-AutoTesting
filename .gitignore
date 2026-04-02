@@ -185,3 +185,7 @@ compile_commands.json
 
 # Eclipse generated file for annotation processors
 .factorypath
+
+# Path editor build artifacts
+path-editor/node_modules/
+path-editor/dist/

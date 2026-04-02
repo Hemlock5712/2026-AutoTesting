@@ -7,9 +7,16 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
+import frc.robot.commands.FollowPath;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
+import frc.robot.utils.path.PathData;
+import frc.robot.utils.path.PathJsonLoader;
+import frc.robot.utils.path.RotationSupplier;
+import frc.robot.utils.path.RotationSuppliers;
+import frc.robot.utils.path.SplinePath;
+import frc.robot.utils.path.VelocityConstraints;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
@@ -46,6 +53,77 @@ public class AutoCommands {
 
   public DriveToPoint driveTo(Supplier<Pose2d> pose) {
     return new DriveToPoint(drivetrain, pose);
+  }
+
+  /**
+   * Follow a spline path with specified constraints.
+   *
+   * @param path The spline path to follow
+   * @param constraints Velocity and acceleration limits
+   * @return A FollowPath command
+   */
+  public FollowPath followPath(SplinePath path, VelocityConstraints constraints) {
+    return new FollowPath(drivetrain, path, constraints);
+  }
+
+  /**
+   * Follow a spline path with default constraints.
+   *
+   * @param path The spline path to follow
+   * @return A FollowPath command
+   */
+  public FollowPath followPath(SplinePath path) {
+    return new FollowPath(drivetrain, path);
+  }
+
+  /**
+   * Load and follow a path from the deploy/paths/ directory.
+   *
+   * <p>If the path data contains heading waypoints, they are automatically wired as an {@link
+   * RotationSuppliers#interpolateAlongPath interpolating rotation supplier}.
+   *
+   * @param filename Path JSON file name (e.g., "myPath.json")
+   * @return A FollowPath command
+   */
+  public FollowPath followPath(String filename) {
+    try {
+      PathData data = PathJsonLoader.fromFile(filename);
+      SplinePath path = new SplinePath(data.controlPoints());
+      FollowPath cmd = new FollowPath(drivetrain, path, data.globalConstraints());
+
+      if (!data.headingWaypoints().isEmpty()) {
+        cmd.withRotationSupplier(
+            RotationSuppliers.interpolateAlongPath(path, data.headingWaypoints()));
+      }
+
+      return cmd;
+    } catch (java.io.IOException e) {
+      throw new RuntimeException("Failed to load path: " + filename, e);
+    }
+  }
+
+  /**
+   * Follow a spline path with a rotation supplier.
+   *
+   * @param path The spline path to follow
+   * @param rotation Rotation strategy to use during path following
+   * @return A FollowPath command
+   */
+  public FollowPath followPath(SplinePath path, RotationSupplier rotation) {
+    return new FollowPath(drivetrain, path).withRotationSupplier(rotation);
+  }
+
+  /**
+   * Follow a spline path with constraints and a rotation supplier.
+   *
+   * @param path The spline path to follow
+   * @param constraints Velocity and acceleration limits
+   * @param rotation Rotation strategy to use during path following
+   * @return A FollowPath command
+   */
+  public FollowPath followPath(
+      SplinePath path, VelocityConstraints constraints, RotationSupplier rotation) {
+    return new FollowPath(drivetrain, path, constraints).withRotationSupplier(rotation);
   }
 
   public Command resetPose(Supplier<Pose2d> pose) {

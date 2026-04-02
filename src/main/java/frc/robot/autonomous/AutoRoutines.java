@@ -16,6 +16,8 @@ import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
+import frc.robot.utils.path.SplinePath;
+import frc.robot.utils.path.VelocityConstraints;
 
 public class AutoRoutines {
 
@@ -38,18 +40,6 @@ public class AutoRoutines {
   }
 
   /**
-   * Snaps a rotation angle to the nearest 90 degree increment.
-   *
-   * @param rotation The rotation to snap
-   * @return The rotation snapped to the nearest 90 degrees (0, 90, 180, or 270)
-   */
-  public static Rotation2d snapToNearest90Degrees(Rotation2d rotation) {
-    double degrees = rotation.getDegrees();
-    double snapped = Math.round(degrees / 90.0) * 90.0;
-    return Rotation2d.fromDegrees(snapped);
-  }
-
-  /**
    * Snaps a rotation angle to the nearest 180 degree increment.
    *
    * @param rotation The rotation to snap
@@ -59,6 +49,28 @@ public class AutoRoutines {
     double degrees = rotation.getDegrees();
     double snapped = Math.round(degrees / 180.0) * 180.0;
     return Rotation2d.fromDegrees(snapped);
+  }
+
+  /**
+   * Test autonomous using the spline path following system.
+   *
+   * <p>Drives a simple S-curve path to verify FollowPath works in simulation. Start at (1, 4),
+   * curve to the right, then back to center, ending at (7, 4).
+   */
+  public Command pathFollowTestAuto() {
+    SplinePath testPath =
+        new SplinePath(
+            new Translation2d(1, 4),
+            new Translation2d(3, 2),
+            new Translation2d(5, 6),
+            new Translation2d(7, 4));
+
+    return Commands.sequence(
+        autoCommands.resetPose(
+            () -> new Pose2d(new Translation2d(1, 4), Rotation2d.fromDegrees(0))),
+        autoCommands
+            .followPath(testPath, VelocityConstraints.defaults().withMaxVelocity(4.9))
+            .withCrossTrackGains(3.0, 0.5));
   }
 
   /**
@@ -381,6 +393,13 @@ public class AutoRoutines {
                 .withMaxSpeed(3)
                 .deadlineFor(superstructure.stopShoot())),
         () -> (centerToZone));
+  }
+
+  public Command leftCenterAuto() {
+    return Commands.sequence(
+        autoCommands.resetPose(
+            () -> new Pose2d(new Translation2d(3.973, 7.586), Rotation2d.fromDegrees(0))),
+        autoCommands.followPath("leftCenter.json"));
   }
 
   public Command leftAutoFeed(double midlineX) {

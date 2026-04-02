@@ -93,6 +93,7 @@ public class RobotContainer {
 
     // Add autonomous mode options to dashboard
     autoChooser.addOption("None", Commands.none());
+    autoChooser.addOption("Path Follow Test", autoRoutines.pathFollowTestAuto());
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
     autoChooser.addOption("Right Auto Pass", autoRoutines.rightAutoPass());
@@ -100,6 +101,7 @@ public class RobotContainer {
     autoChooser.addOption("Short Right Extend Auto", autoRoutines.rightShortExtendedAuto());
     autoChooser.addOption("Left Short Side Auto", autoRoutines.leftShortSideAuto());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftAutoFeed(8.1));
+    autoChooser.addOption("Left Center Path", autoRoutines.leftCenterAuto());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
