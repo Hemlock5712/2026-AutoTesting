@@ -16,6 +16,8 @@ import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
+import frc.robot.utils.path.PathData;
+import frc.robot.utils.path.Paths;
 import frc.robot.utils.path.SplinePath;
 import frc.robot.utils.path.VelocityConstraints;
 
@@ -71,6 +73,29 @@ public class AutoRoutines {
         autoCommands
             .followPath(testPath, VelocityConstraints.defaults().withMaxVelocity(4.9))
             .withCrossTrackGains(3.0, 0.5));
+  }
+
+  /**
+   * Test autonomous using the LEFT path from the path editor.
+   *
+   * <p>Follows the LEFT path with heading waypoints and constraint zones. Automatically mirrors for
+   * red alliance. Start pose is set to the first control point of the path.
+   */
+  public Command pathEditorTestAuto() {
+    PathData pathData = Paths.forAlliance(Paths.LEFT);
+    Translation2d start = pathData.controlPoints().get(0);
+    Rotation2d startHeading =
+        pathData.headingWaypoints().isEmpty()
+            ? Rotation2d.kZero
+            : pathData.headingWaypoints().stream()
+                .filter(hw -> hw.waypointIndex() == 0)
+                .findFirst()
+                .map(PathData.HeadingWaypoint::heading)
+                .orElse(Rotation2d.kZero);
+
+    return Commands.sequence(
+        autoCommands.resetPose(() -> new Pose2d(start, startHeading)),
+        autoCommands.followPath(pathData));
   }
 
   /**
@@ -396,10 +421,11 @@ public class AutoRoutines {
   }
 
   public Command leftCenterAuto() {
+    PathData pathData = Paths.forAlliance(Paths.LEFT);
+    Translation2d start = pathData.controlPoints().get(0);
     return Commands.sequence(
-        autoCommands.resetPose(
-            () -> new Pose2d(new Translation2d(3.973, 7.586), Rotation2d.fromDegrees(0))),
-        autoCommands.followPath("leftCenter.json"));
+        autoCommands.resetPose(() -> new Pose2d(start, Rotation2d.fromDegrees(0))),
+        autoCommands.followPath(pathData));
   }
 
   public Command leftAutoFeed(double midlineX) {

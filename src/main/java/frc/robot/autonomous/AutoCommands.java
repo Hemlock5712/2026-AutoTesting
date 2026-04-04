@@ -12,13 +12,14 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
-import frc.robot.utils.path.PathJsonLoader;
 import frc.robot.utils.path.RotationSupplier;
 import frc.robot.utils.path.RotationSuppliers;
 import frc.robot.utils.path.SplinePath;
 import frc.robot.utils.path.VelocityConstraints;
+import edu.wpi.first.wpilibj.Timer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Utility class containing reusable command patterns for autonomous routines.
@@ -77,29 +78,33 @@ public class AutoCommands {
   }
 
   /**
-   * Load and follow a path from the deploy/paths/ directory.
+   * Follow a path from a PathData object (e.g., from Paths.java constants).
    *
-   * <p>If the path data contains heading waypoints, they are automatically wired as an {@link
-   * RotationSuppliers#interpolateAlongPath interpolating rotation supplier}.
+   * <p>Automatically wires heading waypoints and constraint zones.
    *
-   * @param filename Path JSON file name (e.g., "myPath.json")
+   * @param data The path data
    * @return A FollowPath command
    */
-  public FollowPath followPath(String filename) {
-    try {
-      PathData data = PathJsonLoader.fromFile(filename);
-      SplinePath path = new SplinePath(data.controlPoints());
-      FollowPath cmd = new FollowPath(drivetrain, path, data.globalConstraints());
+  public FollowPath followPath(PathData data) {
+    double t0 = Timer.getFPGATimestamp();
+    SplinePath path = new SplinePath(data.controlPoints());
+    double t1 = Timer.getFPGATimestamp();
+    FollowPath cmd =
+        new FollowPath(drivetrain, path, data.globalConstraints(), data.constraintZones());
+    double t2 = Timer.getFPGATimestamp();
 
-      if (!data.headingWaypoints().isEmpty()) {
-        cmd.withRotationSupplier(
-            RotationSuppliers.interpolateAlongPath(path, data.headingWaypoints()));
-      }
+    Logger.recordOutput("PathBench/SplinePathMs", (t1 - t0) * 1000);
+    Logger.recordOutput("PathBench/VelocityProfileMs", (t2 - t1) * 1000);
+    Logger.recordOutput("PathBench/TotalMs", (t2 - t0) * 1000);
+    Logger.recordOutput("PathBench/ControlPoints", data.controlPoints().size());
+    Logger.recordOutput("PathBench/PathLengthM", path.getTotalLength());
 
-      return cmd;
-    } catch (java.io.IOException e) {
-      throw new RuntimeException("Failed to load path: " + filename, e);
+    if (!data.headingWaypoints().isEmpty()) {
+      cmd.withRotationSupplier(
+          RotationSuppliers.interpolateAlongPath(path, data.headingWaypoints()));
     }
+
+    return cmd;
   }
 
   /**

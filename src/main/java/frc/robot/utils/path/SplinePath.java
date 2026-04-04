@@ -25,9 +25,6 @@ public final class SplinePath {
   /** Coarse search step size in meters for closest-point projection. */
   private static final double COARSE_SEARCH_STEP = 0.05;
 
-  /** Window size around cached projection for fast re-projection (meters). */
-  private static final double PROJECTION_CACHE_WINDOW = 1.5;
-
   /** Maximum Newton-Raphson iterations for closest-point refinement. */
   private static final int MAX_NEWTON_ITERATIONS = 8;
 
@@ -52,9 +49,6 @@ public final class SplinePath {
   private final int[] segIndexTable;
   private final double[] tTable;
   private final double totalLength;
-
-  // Cached last projection for fast re-projection
-  private double lastProjectedS = 0;
 
   /**
    * Creates a spline path through the given control points using Catmull-Rom interpolation.
@@ -171,35 +165,61 @@ public final class SplinePath {
   }
 
   /**
-   * Projects a point onto the path, finding the closest point.
+   * Returns the arc length at the given waypoint index.
    *
-   * <p>Uses a coarse-then-fine approach with caching for amortized O(1) performance when the robot
-   * is tracking the path. First does a coarse search (sampling every ~0.05m) in a window around the
-   * last projected point, then refines with Newton-Raphson.
+   * <p>Waypoint index i corresponds to control point i. The globalT for waypoint i is just i
+   * (segment i spans globalT i to i+1).
+   *
+   * @param waypointIndex The waypoint index (0-based)
+   * @return Arc length in meters at that waypoint
+   */
+  public double getArcLengthAtWaypointIndex(int waypointIndex) {
+    if (waypointIndex <= 0) return 0;
+    if (waypointIndex >= segments.length) return totalLength;
+    int numSamples = sTable.length - 1;
+    int tableIndex = (int) Math.round((double) waypointIndex * numSamples / segments.length);
+    return sTable[Math.min(tableIndex, numSamples)];
+  }
+
+  /**
+   * Projects a point onto the path, searching the entire path.
+   *
+   * <p>Use this for initial projection when no prior position is known (e.g., at command start).
+   * For per-cycle tracking, use {@link #getClosestPointInRange} instead to prevent the projection
+   * from jumping across crossings or to distant segments.
    *
    * @param robotPosition The point to project onto the path
    * @return Projection result with arc length, closest point, cross-track error, and tangent
    */
   public ProjectionResult getClosestPoint(Translation2d robotPosition) {
-    // Coarse search: find approximate closest s
-    double bestS = coarseSearch(robotPosition);
+    double bestS = searchRange(robotPosition, 0, totalLength);
+    bestS = refineProjection(bestS, robotPosition, 0, totalLength);
+    return buildProjectionResult(bestS, robotPosition);
+  }
 
-    // Fine search: Newton-Raphson refinement
-    bestS = refineProjection(bestS, robotPosition);
-
-    // Cache for next call
-    lastProjectedS = bestS;
-
-    // Compute result
-    Translation2d point = getPoint(bestS);
-    Translation2d tangent = getTangent(bestS);
-    Translation2d toRobot = robotPosition.minus(point);
-
-    // Cross-track error: signed distance, positive = left of path direction
-    // Cross product of tangent x toRobot gives signed perpendicular distance
-    double crossTrack = tangent.getX() * toRobot.getY() - tangent.getY() * toRobot.getX();
-
-    return new ProjectionResult(bestS, point, crossTrack, tangent);
+  /**
+   * Projects a point onto the path within a bounded arc-length range.
+   *
+   * <p>Use this for per-cycle tracking. By bounding the search to a small window around the last
+   * known position, the projection cannot jump to a distant segment when the robot is hit, and
+   * cannot cross to the wrong segment on a self-intersecting path.
+   *
+   * @param robotPosition The point to project onto the path
+   * @param sMin Minimum arc length to search (clamped to 0)
+   * @param sMax Maximum arc length to search (clamped to totalLength)
+   * @return Projection result with arc length, closest point, cross-track error, and tangent
+   */
+  public ProjectionResult getClosestPointInRange(
+      Translation2d robotPosition, double sMin, double sMax) {
+    sMin = Math.max(0, sMin);
+    sMax = Math.min(totalLength, sMax);
+    if (sMin >= sMax) {
+      // Degenerate range: return the clamped endpoint
+      return buildProjectionResult(sMin, robotPosition);
+    }
+    double bestS = searchRange(robotPosition, sMin, sMax);
+    bestS = refineProjection(bestS, robotPosition, sMin, sMax);
+    return buildProjectionResult(bestS, robotPosition);
   }
 
   /** Returns the number of cubic segments. */
@@ -338,40 +358,23 @@ public final class SplinePath {
 
   // ---- Closest-point projection ----
 
-  /**
-   * Coarse search for the closest point on the path. Searches in a window around the last projected
-   * point first, then falls back to full path search.
-   */
-  private double coarseSearch(Translation2d robotPosition) {
-    double bestS = lastProjectedS;
-    double bestDistSq = Double.MAX_VALUE;
+  /** Builds a ProjectionResult from an arc-length and robot position. */
+  private ProjectionResult buildProjectionResult(double s, Translation2d robotPosition) {
+    Translation2d point = getPoint(s);
+    Translation2d tangent = getTangent(s);
+    Translation2d toRobot = robotPosition.minus(point);
 
-    // First search in cached window
-    double windowStart = Math.max(0, lastProjectedS - PROJECTION_CACHE_WINDOW);
-    double windowEnd = Math.min(totalLength, lastProjectedS + PROJECTION_CACHE_WINDOW);
+    // Cross-track error: signed distance, positive = left of path direction
+    // Cross product of tangent x toRobot gives signed perpendicular distance
+    double crossTrack = tangent.getX() * toRobot.getY() - tangent.getY() * toRobot.getX();
 
-    bestS = searchRange(robotPosition, windowStart, windowEnd, bestDistSq);
-    Translation2d bestPoint = getPoint(bestS);
-    bestDistSq = robotPosition.minus(bestPoint).getNorm();
-    bestDistSq *= bestDistSq;
-
-    // If the cached window result is far, do a full search
-    if (bestDistSq > PROJECTION_CACHE_WINDOW * PROJECTION_CACHE_WINDOW) {
-      double fullBestS = searchRange(robotPosition, 0, totalLength, bestDistSq);
-      Translation2d fullPoint = getPoint(fullBestS);
-      double fullDistSq = squaredDist(robotPosition, fullPoint);
-      if (fullDistSq < bestDistSq) {
-        bestS = fullBestS;
-      }
-    }
-
-    return bestS;
+    return new ProjectionResult(s, point, crossTrack, tangent);
   }
 
   /** Searches a range of arc lengths for the closest point to the query. */
-  private double searchRange(Translation2d query, double sStart, double sEnd, double bestDistSq) {
+  private double searchRange(Translation2d query, double sStart, double sEnd) {
     double bestS = sStart;
-    bestDistSq = Double.MAX_VALUE;
+    double bestDistSq = Double.MAX_VALUE;
 
     int numSteps = Math.max(1, (int) ((sEnd - sStart) / COARSE_SEARCH_STEP));
     double step = (sEnd - sStart) / numSteps;
@@ -389,12 +392,12 @@ public final class SplinePath {
   }
 
   /**
-   * Refines a coarse projection using Newton-Raphson iteration.
+   * Refines a coarse projection using Newton-Raphson iteration, clamped to [sMin, sMax].
    *
    * <p>Minimizes f(s) = dot(path(s) - robot, tangent(s)). When f(s) = 0, the vector from the path
    * to the robot is perpendicular to the tangent, meaning we've found the closest point.
    */
-  private double refineProjection(double s, Translation2d robotPosition) {
+  private double refineProjection(double s, Translation2d robotPosition, double sMin, double sMax) {
     for (int iter = 0; iter < MAX_NEWTON_ITERATIONS; iter++) {
       Translation2d point = getPoint(s);
       Translation2d tangent = getTangent(s);
@@ -415,7 +418,7 @@ public final class SplinePath {
       }
 
       double ds = -f / fPrime;
-      s = clampS(s + ds);
+      s = Math.max(sMin, Math.min(sMax, s + ds));
 
       if (Math.abs(ds) < 1e-6) {
         break; // Converged
