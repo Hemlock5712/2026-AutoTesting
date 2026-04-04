@@ -5,6 +5,7 @@ import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.wpilibj.Alert;
@@ -19,7 +20,7 @@ public class Spindexer extends SubsystemBase {
   private static final double VELOCITY_TOLERANCE = 0.2;
 
   private static final double BACK_VELOCITY = -12;
-  private static final double FORWARD_SPINDEXER_VEL = 12;
+  private static final double FORWARD_SPINDEXER_VEL = 20;
   private static final double FORWARD_KICKER_VEL = 10;
   private static final double PREP_FEED_KICKER_VEL =
       0; // Old value: 10. Test to see if this makes less balls fly everywhere
@@ -59,6 +60,10 @@ public class Spindexer extends SubsystemBase {
     return runOnce(() -> setVelocity(FORWARD_SPINDEXER_VEL, FORWARD_KICKER_VEL));
   }
 
+  public Command slowFeed() {
+    return runOnce(() -> setVelocity(FORWARD_SPINDEXER_VEL / 2, PREP_FEED_KICKER_VEL));
+  }
+
   public Command prepFeed() {
     return runOnce(() -> setVelocity(0, PREP_FEED_KICKER_VEL));
   }
@@ -77,6 +82,11 @@ public class Spindexer extends SubsystemBase {
     return spindexer.getVelocity().isNear(spindexerVelocityOut.Velocity, VELOCITY_TOLERANCE);
   }
 
+  @AutoLogOutput
+  public AngularVelocity getSpindexerVelocity() {
+    return spindexer.getVelocity().getValue();
+  }
+
   public void applyConfigs() {
     spindexerConfig.Slot0.kS = 5; // Static friction compensation
     spindexerConfig.Slot0.kP = 20; // Proportional gain
@@ -90,7 +100,9 @@ public class Spindexer extends SubsystemBase {
     spindexerConfig.MotionMagic.MotionMagicAcceleration = 0; // RPS²
 
     spindexerConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
-    spindexerConfig.Feedback.SensorToMechanismRatio = 9.0;
+    spindexerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+
+    spindexerConfig.Feedback.SensorToMechanismRatio = 5.0;
 
     kickerConfig.Slot0.kS = 1.5; // Static friction compensation
     kickerConfig.Slot0.kP = 20; // Proportional gain
