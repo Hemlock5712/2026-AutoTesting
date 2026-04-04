@@ -4,6 +4,7 @@ import static edu.wpi.first.units.Units.Meters;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
@@ -16,7 +17,6 @@ import frc.robot.utils.path.RotationSupplier;
 import frc.robot.utils.path.RotationSuppliers;
 import frc.robot.utils.path.SplinePath;
 import frc.robot.utils.path.VelocityConstraints;
-import edu.wpi.first.wpilibj.Timer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
