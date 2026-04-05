@@ -102,6 +102,7 @@ public class RobotContainer {
     autoChooser.addOption("Left Short Side Auto", autoRoutines.leftShortSideAuto());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftAutoFeed(8.1));
     autoChooser.addOption("Left Side Feed", autoRoutines.leftAutoFeedActual(8.22));
+    autoChooser.addOption("Right Side Support Auto", autoRoutines.rightAutoJustFeed());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

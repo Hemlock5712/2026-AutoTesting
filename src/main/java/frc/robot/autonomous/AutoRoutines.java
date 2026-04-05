@@ -540,4 +540,61 @@ public class AutoRoutines {
             .deadlineFor(superstructure.shoot()),
         intakeCoordinator.slowUpAndRun());
   }
+
+  public Command rightAutoJustFeed() {
+    return Commands.sequence(
+        autoCommands.rightAutoSetupFaceForward(),
+        autoCommands
+            .driveTo(() -> new ExtPose(6, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(5)
+            .deadlineFor(superstructure.spinUpShooter()),
+        intakeCoordinator.deployAndRun(),
+        Commands.deadline(
+            Commands.sequence(
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    6.3,
+                                    FieldInfo.width().div(2).in(Meters),
+                                    Rotation2d.fromDegrees(30))
+                                .get())
+                    .withWaypoint(1),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    8,
+                                    FieldInfo.width().div(2).in(Meters),
+                                    Rotation2d.fromDegrees(-45))
+                                .get())
+                    .withWaypoint(1),
+                neutralZoneLoop().repeatedly()),
+            superstructure.feedShoot()));
+  }
+
+  private Command neutralZoneLoop() {
+    return Commands.sequence(
+        autoCommands
+            .driveTo(() -> new ExtPose(8.3, 1.68, Rotation2d.fromDegrees(-95)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(1.5),
+        autoCommands
+            .driveTo(
+                () ->
+                    new ExtPose(8 - Feet.of(3).in(Meters), 1.68, Rotation2d.fromDegrees(95)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(1.5),
+        autoCommands
+            .driveTo(
+                () ->
+                    new ExtPose(8 - Feet.of(3).in(Meters), 6.41, Rotation2d.fromDegrees(85)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(1.5),
+        autoCommands
+            .driveTo(() -> new ExtPose(8.3, 6.41, Rotation2d.fromDegrees(-85)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(1.5));
+  }
 }

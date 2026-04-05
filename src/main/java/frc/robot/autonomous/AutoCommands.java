@@ -203,6 +203,10 @@ public class AutoCommands {
     return resetPose(() -> new ExtPose(4.378, 0.639445, Rotation2d.fromDegrees(90)).get());
   }
 
+  public Command rightAutoSetupFaceForward() {
+    return resetPose(() -> new ExtPose(4.378, 0.639445, Rotation2d.fromDegrees(00)).get());
+  }
+
   public Command leftAutoSetup() {
     return resetPose(
         () ->
