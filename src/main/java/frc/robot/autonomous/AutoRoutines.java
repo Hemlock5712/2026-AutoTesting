@@ -278,7 +278,6 @@ public class AutoRoutines {
             .pathPlan()
             .from(new ExtPose(BUMPERS_ON_LINE, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)))
             .through(new ExtPose(midlineX, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)))
-            .withMaxSpeed(5)
             .through(new ExtPose(midlineX, fieldHalfY, Rotation2d.fromDegrees(-100)))
             .withMaxSpeed(1.5)
             .through(
@@ -292,8 +291,6 @@ public class AutoRoutines {
                     Rotation2d.fromDegrees(-180)))
             .withMaxSpeed(2)
             .through(new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
-            .withMaxSpeed(4)
-            .withPositionTolerance(Inches.of(4))
             .withCommand(superstructure::spinUpShooter)
             .through(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
             .withMaxSpeed(1.25)
@@ -343,9 +340,9 @@ public class AutoRoutines {
         autoCommands
             .pathPlan()
             .through(new ExtPose(6.15, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
-            .withMaxSpeed(4)
+            // .withMaxSpeed(4)
             .through(new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
-            .withMaxSpeed(4)
+            // .withMaxSpeed(4)
             .withPositionTolerance(Inches.of(4))
             .withCommand(superstructure::spinUpShooter)
             .through(new ExtPose(2.2, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
@@ -365,23 +362,19 @@ public class AutoRoutines {
   public Command rightAutoJustFeed() {
     return Commands.sequence(
         autoCommands.rightAutoSetupFaceForward(),
-        // Drive to midline with spinUpShooter
+        // To midline, into neutral zone: spin up, deploy, feed — all on-path (no sequential block)
         autoCommands
             .pathPlan()
             .from(new ExtPose(BUMPERS_ON_LINE, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)))
             .through(new ExtPose(6, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)))
-            .withMaxSpeed(5)
+            // .withMaxSpeed(5)
             .withCommand(superstructure::spinUpShooter)
-            .build(),
-        intakeCoordinator.deployAndRun(),
-        // Drive through neutral zone while feeding, then loop
-        superstructure.feedShoot(),
-        autoCommands
-            .pathPlan()
             .through(
                 new ExtPose(6.3, FieldInfo.width().div(2).in(Meters), Rotation2d.fromDegrees(30)))
+            .withCommand(intakeCoordinator::deployAndRun)
             .through(
                 new ExtPose(8, FieldInfo.width().div(2).in(Meters), Rotation2d.fromDegrees(-45)))
+            .withCommand(superstructure::feedShoot)
             .build(),
         neutralZoneLoop().repeatedly());
   }
@@ -394,6 +387,7 @@ public class AutoRoutines {
         .through(new ExtPose(8 - Feet.of(3).in(Meters), 6.41, Rotation2d.fromDegrees(85)))
         .through(new ExtPose(8.3, 6.41, Rotation2d.fromDegrees(-85)))
         .withGlobalMaxSpeed(1.5)
+        .whileFollowingPath(superstructure::feedShoot)
         .build();
   }
 }

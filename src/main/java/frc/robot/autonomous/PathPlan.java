@@ -38,6 +38,7 @@ import java.util.function.Supplier;
  *     .to(endPose)
  *     .withGlobalMaxSpeed(5.0)
  *     .onPassingX(6.0, coordinator::deployIntake)
+ *     .whileFollowingPath(superstructure::feedShoot)
  *     .build()
  * }</pre>
  */
@@ -50,12 +51,20 @@ public class PathPlan {
 
   // Safety margin on the physics-based corner speed calculation. Accounts for control latency,
   // jerk limits, and the fact that the robot can't instantly apply full lateral acceleration.
-  private static final double CORNER_SPEED_SAFETY = 0.8;
+  private static final double CORNER_SPEED_SAFETY = 0.68;
+
+  // Extra scale on sharp turns: 1 at straight, ~0.79 at 90°, ~0.70 at 180°. Swerve needs more
+  // margin than the point-mass redirect model at large heading changes.
+  private static final double SHARP_TURN_BLEND = 0.72;
 
   private final CommandSwerveDrivetrain drivetrain;
   private Supplier<Pose2d> fromPose;
   private final List<WaypointConfig> waypoints = new ArrayList<>();
   private final List<XTrigger> xTriggers = new ArrayList<>();
+
+  /** Commands that run for the full path (until the last segment finishes). */
+  private final List<Supplier<Command>> pathParallelSuppliers = new ArrayList<>();
+
   private double globalMaxSpeed = Double.POSITIVE_INFINITY;
 
   private static class WaypointConfig {
@@ -235,6 +244,23 @@ public class PathPlan {
     return this;
   }
 
+  /**
+   * Runs a command in parallel with the <em>entire</em> path (all {@code through}/{@code to}
+   * segments). The command is cancelled when the final segment completes. Use for long-running
+   * modes (e.g. feed shooting) that should last the whole drive.
+   *
+   * <p>Unlike {@link #withCommand}, this is not scoped to a single segment. Call multiple times to
+   * run several commands in parallel for the full path.
+   *
+   * @param command Invoked once per path build; prefer a method reference ({@code
+   *     superstructure::feedShoot}) so each schedule gets a new command instance.
+   * @return This builder for chaining
+   */
+  public PathPlan whileFollowingPath(Supplier<Command> command) {
+    pathParallelSuppliers.add(command);
+    return this;
+  }
+
   // ==================== Build ====================
 
   /**
@@ -252,11 +278,18 @@ public class PathPlan {
 
     final List<WaypointConfig> capturedWaypoints = new ArrayList<>(waypoints);
     final List<XTrigger> capturedTriggers = new ArrayList<>(xTriggers);
+    final List<Supplier<Command>> capturedPathParallel = new ArrayList<>(pathParallelSuppliers);
     final Supplier<Pose2d> capturedFrom = fromPose;
     final double capturedGlobalMax = globalMaxSpeed;
 
     return Commands.defer(
-        () -> buildPath(capturedWaypoints, capturedTriggers, capturedFrom, capturedGlobalMax),
+        () ->
+            buildPath(
+                capturedWaypoints,
+                capturedTriggers,
+                capturedPathParallel,
+                capturedFrom,
+                capturedGlobalMax),
         Set.of(drivetrain));
   }
 
@@ -265,6 +298,7 @@ public class PathPlan {
   private Command buildPath(
       List<WaypointConfig> wpConfigs,
       List<XTrigger> triggers,
+      List<Supplier<Command>> pathParallelSuppliers,
       Supplier<Pose2d> from,
       double globalMax) {
 
@@ -345,6 +379,9 @@ public class PathPlan {
         } else {
           cornerSpeed =
               CORNER_SPEED_SAFETY * Math.sqrt(maxDecel * wp.positionTolerance / (2.0 * sinHalf));
+          double sharpScale =
+              SHARP_TURN_BLEND + (1.0 - SHARP_TURN_BLEND) * Math.cos(turnAngle / 2.0);
+          cornerSpeed *= sharpScale;
         }
 
         wpSpeeds[i] = Math.min(cornerSpeed, Math.min(wp.maxSpeed, speedCeiling));
@@ -399,18 +436,22 @@ public class PathPlan {
       return Commands.none();
     }
 
-    // --- 8. Attach X-position triggers ---
-    if (!triggers.isEmpty()) {
-      Command[] triggerCmds = new Command[triggers.size()];
-      for (int i = 0; i < triggers.size(); i++) {
-        XTrigger t = triggers.get(i);
-        triggerCmds[i] =
+    // --- 8. Full-path parallels: X-position triggers + whileFollowingPath ---
+    int parallelCount = triggers.size() + pathParallelSuppliers.size();
+    if (parallelCount > 0) {
+      Command[] parallel = new Command[parallelCount];
+      int p = 0;
+      for (XTrigger t : triggers) {
+        parallel[p++] =
             Commands.sequence(
                 Commands.waitUntil(
                     () -> FieldInfo.flipX(drivetrain.getPose().getX()) > t.blueAllianceX),
                 t.command.get());
       }
-      chain = chain.deadlineFor(triggerCmds);
+      for (Supplier<Command> supplier : pathParallelSuppliers) {
+        parallel[p++] = supplier.get();
+      }
+      chain = chain.deadlineFor(parallel);
     }
 
     return chain;

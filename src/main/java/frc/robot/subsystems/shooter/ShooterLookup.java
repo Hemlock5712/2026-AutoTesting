@@ -2,6 +2,7 @@ package frc.robot.subsystems.shooter;
 
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 
+/** Distance → flywheel RPS, hood deg, and related lookup tables for the real robot. */
 public class ShooterLookup {
   private static final InterpolatingDoubleTreeMap flywheelMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap hoodMap = new InterpolatingDoubleTreeMap();
@@ -18,21 +19,6 @@ public class ShooterLookup {
     buildFeedHood();
     buildFeedTime();
   }
-
-  // Home
-  // private static void buildFlywheel() {
-  //   flywheelMap.put(0.0, 20.0);
-  //   flywheelMap.put(1.0, 20.0);
-  //   flywheelMap.put(1.5, 22.0);
-  //   flywheelMap.put(2.0, 26.0);
-  //   flywheelMap.put(2.5, 27.0);
-  //   flywheelMap.put(3.0, 29.0);
-  //   flywheelMap.put(3.5, 32.0);
-  //   flywheelMap.put(4.0, 35.0);
-  //   flywheelMap.put(4.5, 38.0);
-  //   flywheelMap.put(5.0, 39.0);
-  //   flywheelMap.put(5.5, 43.0);
-  // }
 
   private static void buildFlywheel() {
     flywheelMap.put(0.0, 22.0);

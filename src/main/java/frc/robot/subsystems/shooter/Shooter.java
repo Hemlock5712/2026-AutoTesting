@@ -26,6 +26,7 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.filter.Debouncer.DebounceType;
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
@@ -219,8 +220,8 @@ public class Shooter extends SubsystemBase {
 
     double actualRPS = getVelocity().in(RotationsPerSecond);
     boolean flywheelOk =
-        actualRPS >= ShooterLookup.getFlywheelMap().get(minDist)
-            && actualRPS <= ShooterLookup.getFlywheelMap().get(maxDist);
+        actualRPS >= flywheelDistanceToRpsMap().get(minDist)
+            && actualRPS <= flywheelDistanceToRpsMap().get(maxDist);
 
     double actualHoodDeg = getPosition().in(Degrees);
     boolean hoodOk =
@@ -306,21 +307,37 @@ public class Shooter extends SubsystemBase {
   }
 
   /**
+   * Hub / SWM distance → flywheel RPS. Default is {@link ShooterLookup}; {@link ShooterSIM}
+   * overrides with sim-tuned tables.
+   */
+  protected InterpolatingDoubleTreeMap flywheelDistanceToRpsMap() {
+    return ShooterLookup.getFlywheelMap();
+  }
+
+  /**
+   * Feed shot distance → flywheel RPS. Default is {@link ShooterLookup}; {@link ShooterSIM}
+   * overrides with sim-tuned tables.
+   */
+  protected InterpolatingDoubleTreeMap feedFlywheelDistanceToRpsMap() {
+    return ShooterLookup.getFeedFlywheelMap();
+  }
+
+  /**
    * Set flywheel and hood using separate distances — flywheel uses effective (radial-compensated)
    * distance while hood uses geometric distance.
    */
   private void setForDistanceSWM(double flywheelDist, double hoodDist) {
-    setVelocity(ShooterLookup.getFlywheelMap().get(flywheelDist));
+    setVelocity(flywheelDistanceToRpsMap().get(flywheelDist));
     setPosition(Degrees.of(ShooterLookup.getHoodMap().get(hoodDist)));
   }
 
   public void setForDistance(double distanceMeters) {
-    setVelocity(ShooterLookup.getFlywheelMap().get(distanceMeters));
+    setVelocity(flywheelDistanceToRpsMap().get(distanceMeters));
     setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
   }
 
   public void setForFeedDistance(double flywheelDist, double hoodDist) {
-    setVelocity(ShooterLookup.getFeedFlywheelMap().get(flywheelDist));
+    setVelocity(feedFlywheelDistanceToRpsMap().get(flywheelDist));
     setPosition(Degrees.of(ShooterLookup.getFeedHoodMap().get(hoodDist)));
   }
 

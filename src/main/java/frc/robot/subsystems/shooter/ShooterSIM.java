@@ -1,5 +1,6 @@
 package frc.robot.subsystems.shooter;
 
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.system.LinearSystem;
@@ -21,6 +22,25 @@ import org.littletonrobotics.junction.Logger;
  * simulation and Mechanism2d for visualization.
  */
 public class ShooterSIM extends Shooter {
+
+  /**
+   * Sim-only hub/SWM: linear distance → RPS (two points). Tuned softer than {@link ShooterLookup}
+   * at range so sim trajectories match {@link frc.robot.subsystems.BallPhysicsSimulation}.
+   */
+  private static final InterpolatingDoubleTreeMap SIM_FLYWHEEL_MAP =
+      new InterpolatingDoubleTreeMap();
+
+  /** Sim-only feed shot: linear 0 m → 9.5 m. */
+  private static final InterpolatingDoubleTreeMap SIM_FEED_FLYWHEEL_MAP =
+      new InterpolatingDoubleTreeMap();
+
+  static {
+    SIM_FLYWHEEL_MAP.put(0.0, 18.0);
+    SIM_FLYWHEEL_MAP.put(5.5, 30.0);
+
+    SIM_FEED_FLYWHEEL_MAP.put(0.0, 20.0);
+    SIM_FEED_FLYWHEEL_MAP.put(9.5, 44.0);
+  }
 
   // ==================== Physical Constants ====================
 
@@ -79,6 +99,16 @@ public class ShooterSIM extends Shooter {
 
     // Publish the mechanism visualization to SmartDashboard
     SmartDashboard.putData("Flywheel Sim", flywheelMechanism.getMechanism());
+  }
+
+  @Override
+  protected InterpolatingDoubleTreeMap flywheelDistanceToRpsMap() {
+    return SIM_FLYWHEEL_MAP;
+  }
+
+  @Override
+  protected InterpolatingDoubleTreeMap feedFlywheelDistanceToRpsMap() {
+    return SIM_FEED_FLYWHEEL_MAP;
   }
 
   /**
