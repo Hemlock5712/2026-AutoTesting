@@ -48,6 +48,15 @@ public class AutoCommands {
     return new DriveToPoint(drivetrain, pose);
   }
 
+  /**
+   * Creates a new {@link PathPlan} builder for this drivetrain.
+   *
+   * @return A PathPlan builder with lookahead speed planning
+   */
+  public PathPlan pathPlan() {
+    return PathPlan.create(drivetrain);
+  }
+
   public Command resetPose(Supplier<Pose2d> pose) {
     return drivetrain.runOnce(() -> drivetrain.resetPose(pose.get()));
   }
