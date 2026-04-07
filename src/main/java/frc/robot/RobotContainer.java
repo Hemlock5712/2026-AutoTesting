@@ -154,7 +154,7 @@ public class RobotContainer {
                         drivetrain.getRotation()))); // Lock to closest 180
 
     joystick
-        .povLeft()
+        .x()
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
@@ -178,7 +178,7 @@ public class RobotContainer {
     // 180
 
     joystick
-        .povRight()
+        .b()
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
@@ -243,7 +243,7 @@ public class RobotContainer {
 
     // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
-    joystick.x().onTrue(intakeCoordinator.straightUp());
+    joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }
