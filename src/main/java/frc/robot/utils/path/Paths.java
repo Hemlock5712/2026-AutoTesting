@@ -1,6 +1,5 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -10,25 +9,6 @@ import java.util.List;
 public final class Paths {
   private Paths() {}
 
-  // Named field positions
-  public static final Pose2d CENTER_BEFORE_BALLS =
-      new Pose2d(
-          new Translation2d(7.982812808403318, 7.114796939376104), Rotation2d.fromDegrees(-100));
-  public static final Pose2d CENTER_BEFORE_BALLS_MIRROR =
-      new Pose2d(
-          new Translation2d(7.982812808403318, 1.0952030606238967), Rotation2d.fromDegrees(100));
-  public static final Pose2d CENTER_CENTER =
-      new Pose2d(
-          new Translation2d(8.654537305316397, 4.61773396115362), Rotation2d.fromDegrees(-100));
-  public static final Pose2d CENTER_CENTER_MIRROR =
-      new Pose2d(
-          new Translation2d(8.654537305316397, 3.5922660388463807), Rotation2d.fromDegrees(100));
-  public static final Pose2d START =
-      new Pose2d(
-          new Translation2d(4.448957846382339, 7.5820835785756335), Rotation2d.fromDegrees(-90));
-  public static final Pose2d START_MIRROR =
-      new Pose2d(
-          new Translation2d(4.448957846382339, 0.6279164214243673), Rotation2d.fromDegrees(90));
   public static final PathData LEFT =
       new PathData(
           List.of(
@@ -36,9 +16,8 @@ public final class Paths {
               new Translation2d(7.982812808403318, 7.114796939376104),
               new Translation2d(8.654537305316397, 4.61773396115362)),
           List.of(
-              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-100)),
-              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(-100)),
-              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90))),
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-100))),
           VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
           List.of(new PathData.ConstraintZone(1, 2, 2, 10.791)),
           List.of());
