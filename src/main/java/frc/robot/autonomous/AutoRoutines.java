@@ -423,8 +423,16 @@ public class AutoRoutines {
   public Command leftCenterAuto() {
     PathData pathData = Paths.forAlliance(Paths.LEFT);
     Translation2d start = pathData.controlPoints().get(0);
+    Rotation2d startHeading =
+        pathData.headingWaypoints().isEmpty()
+            ? Rotation2d.kZero
+            : pathData.headingWaypoints().stream()
+                .filter(hw -> hw.waypointIndex() == 0)
+                .findFirst()
+                .map(PathData.HeadingWaypoint::heading)
+                .orElse(Rotation2d.kZero);
     return Commands.sequence(
-        autoCommands.resetPose(() -> new Pose2d(start, Rotation2d.fromDegrees(0))),
+        autoCommands.resetPose(() -> new Pose2d(start, startHeading)),
         autoCommands.followPath(pathData));
   }
 
