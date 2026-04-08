@@ -16,8 +16,8 @@ public final class Paths {
               new Translation2d(7.982812808403318, 7.114796939376104),
               new Translation2d(8.654537305316397, 4.61773396115362)),
           List.of(
-              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-100)),
-              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90))),
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-100))),
           VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
           List.of(new PathData.ConstraintZone(1, 2, 2, 10.791)),
           List.of());
