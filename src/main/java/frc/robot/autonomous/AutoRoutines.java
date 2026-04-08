@@ -297,8 +297,10 @@ public class AutoRoutines {
             .withCommand(superstructure::shoot)
             .through(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
             .withMaxSpeed(1)
+            .withCommand(superstructure::shoot)
             .through(new ExtPose(3.5, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)))
             .withMaxSpeed(1)
+            .withCommand(superstructure::shoot)
             .onPassingX(6.0, intakeCoordinator::deployAndRunAUTO)
             .build(),
         intakeCoordinator.slowUpAndRun());
@@ -339,7 +341,7 @@ public class AutoRoutines {
         // Return through trench with shooting at each segment
         autoCommands
             .pathPlan()
-            .through(new ExtPose(6.15, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
+            .through(new ExtPose(6.35, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
             // .withMaxSpeed(4)
             .through(new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
             // .withMaxSpeed(4)

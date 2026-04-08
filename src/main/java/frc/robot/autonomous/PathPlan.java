@@ -46,7 +46,7 @@ public class PathPlan {
 
   private static final double EPSILON = 1e-6;
   private static final double STATIONARY_SPEED_THRESHOLD = 0.1; // m/s
-  private static final double DEFAULT_WAYPOINT_TOLERANCE = 0.25; // meters
+  private static final double DEFAULT_WAYPOINT_TOLERANCE = 0.35; // meters
   private static final double DEFAULT_FINAL_TOLERANCE = 0.02; // meters
 
   // Safety margin on the physics-based corner speed calculation. Accounts for control latency,
@@ -55,7 +55,7 @@ public class PathPlan {
 
   // Extra scale on sharp turns: 1 at straight, ~0.79 at 90°, ~0.70 at 180°. Swerve needs more
   // margin than the point-mass redirect model at large heading changes.
-  private static final double SHARP_TURN_BLEND = 0.72;
+  private static final double SHARP_TURN_BLEND = 0.5;
 
   private final CommandSwerveDrivetrain drivetrain;
   private Supplier<Pose2d> fromPose;
