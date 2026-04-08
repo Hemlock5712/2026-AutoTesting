@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.*;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -103,11 +104,15 @@ public class RobotContainer {
     autoChooser.addOption("Left Short Side Auto", autoRoutines.leftShortSideAuto());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftAutoFeed(8.1));
     autoChooser.addOption("Left Center Path", autoRoutines.leftCenterAuto());
+    autoChooser.addOption("Left Side Feed", autoRoutines.leftAutoFeedActual(8.22));
+    autoChooser.addOption("Right Side Support Auto", autoRoutines.rightAutoJustFeed());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();
   }
+
+  private static boolean bumpIsInAllianceZone = true;
 
   private void configureBindings() {
     // Cached translation velocities - computed once per cycle in velocityX supplier
@@ -151,6 +156,54 @@ public class RobotContainer {
                     AutoRoutines.snapToNearest180Degrees(
                         drivetrain.getRotation()))); // Lock to closest 180
 
+    joystick
+        .x()
+        .whileTrue(
+            AxisLockDrive.lockY(
+                drivetrain,
+                () ->
+                    bumpIsInAllianceZone
+                        ? (Math.abs(rescaleInputs(joystick.getLeftY())) > 0.2 ? maxSpeed / 3 : 0)
+                        : (Math.abs(rescaleInputs(joystick.getLeftY())) > 0.2
+                            ? -maxSpeed / 3
+                            : 0), // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
+                () -> FieldInfo.flipY(FieldInfo.axisLockYTrenchLeft()),
+                () -> Rotation2d.fromDegrees(bumpIsInAllianceZone ? 135 : 45)
+                /* AutoRoutines.snapToNearest180Degrees(drivetrain.getRotation()) */ ))
+        .onTrue(
+            Commands.runOnce(
+                () ->
+                    bumpIsInAllianceZone =
+                        FieldInfo.flipX(drivetrain.getPose().getX())
+                            < FieldInfo.ALLIANCE_ZONE_X)); // Lock to
+    // closest
+    // 180
+
+    joystick
+        .b()
+        .whileTrue(
+            AxisLockDrive.lockY(
+                drivetrain,
+                () ->
+                    bumpIsInAllianceZone
+                        ? (Math.abs(rescaleInputs(joystick.getLeftY())) > 0.2 ? maxSpeed / 3 : 0)
+                        : (Math.abs(rescaleInputs(joystick.getLeftY())) > 0.2
+                            ? -maxSpeed / 3
+                            : 0), // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
+                () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_TRENCH_RIGHT),
+                () -> Rotation2d.fromDegrees(bumpIsInAllianceZone ? -135 : -45)
+                /* AutoRoutines.snapToNearest180Degrees(drivetrain.getRotation()) */ ))
+        .onTrue(
+            Commands.runOnce(
+                () ->
+                    bumpIsInAllianceZone =
+                        FieldInfo.flipX(drivetrain.getPose().getX())
+                            < FieldInfo.ALLIANCE_ZONE_X)); // Lock to
+    // closest
+    // 180
+
     // Right trigger toggles auto-shoot mode on/off.
     // Debounce prevents analog trigger noise from causing multiple toggles.
     joystick
@@ -193,7 +246,7 @@ public class RobotContainer {
 
     // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
-    joystick.x().onTrue(intakeCoordinator.straightUp());
+    joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }

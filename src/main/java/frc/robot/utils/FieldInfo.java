@@ -102,17 +102,27 @@ public final class FieldInfo {
 
   public static final Distance HUB_HEIGHT = Meters.of(1.828);
 
-  public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1.5, 2.25);
+  public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1.5, 1.625);
   public static final ExtTranslation LEFT_FEED_POSITION = FieldFlip.overWidth(RIGHT_FEED_POSITION);
+
+  public static final ExtTranslation RIGHT_FEED_POSITION_AUTO = new ExtTranslation(1.5, 1.75);
+  public static final ExtTranslation LEFT_FEED_POSITION_AUTO =
+      FieldFlip.overWidth(RIGHT_FEED_POSITION_AUTO);
 
   public static final double ALLIANCE_ZONE_X = 5.4;
 
   /** Y-axis lock position on the right side (blue alliance coordinates). */
   public static final double AXIS_LOCK_Y_RIGHT = 0.639445;
 
+  public static final double AXIS_LOCK_Y_TRENCH_RIGHT = 2.6924;
+
   /** Y-axis lock position on the left side (blue alliance coordinates). */
   public static double axisLockYLeft() {
-    return width().in(Meters) - 0.639445;
+    return width().in(Meters) - AXIS_LOCK_Y_RIGHT;
+  }
+
+  public static double axisLockYTrenchLeft() {
+    return width().in(Meters) - AXIS_LOCK_Y_TRENCH_RIGHT;
   }
 
   /** Rotation preset: facing toward opponent alliance wall (blue alliance coordinates). */
@@ -236,7 +246,7 @@ public final class FieldInfo {
           new Translation2d(0, 0), new Translation2d(Meters.of(4.5), FieldInfo.width()));
 
   private static final Distance NEUTRAL_ZONE_DEADZONE_DEPTH = Meters.of(3);
-  private static final Distance NEUTRAL_ZONE_DEADZONE_WIDTH = Meters.of(1);
+  private static final Distance NEUTRAL_ZONE_DEADZONE_WIDTH = Meters.of(1.25);
 
   private static final Rectangle2d NEUTRAL_ZONE_DEADZONE =
       new Rectangle2d(

@@ -15,6 +15,7 @@ import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -134,8 +135,15 @@ public class Superstructure {
         // Compute both feed positions in current-alliance coordinates, then pick the
         // one
         // on the same side of the field (upper vs. lower Y half) as the robot.
-        Translation2d feedA = FieldInfo.LEFT_FEED_POSITION.get();
-        Translation2d feedB = FieldInfo.RIGHT_FEED_POSITION.get();
+        Translation2d feedA =
+            DriverStation.isAutonomous()
+                ? FieldInfo.LEFT_FEED_POSITION_AUTO.get()
+                : FieldInfo.LEFT_FEED_POSITION.get();
+        Translation2d feedB =
+            DriverStation.isAutonomous()
+                ? FieldInfo.RIGHT_FEED_POSITION_AUTO.get()
+                : FieldInfo.RIGHT_FEED_POSITION.get();
+        ;
         Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
         Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
         targetPosition =
@@ -221,7 +229,11 @@ public class Superstructure {
     return Commands.parallel(
         shooterCommand,
         Commands.runOnce(() -> isShooting = true),
-        Commands.either(spindexer.forwardCommand(), spindexer.prepFeed(), readyToFeed)
+        Commands.either(
+                spindexer.forwardCommand(),
+                Commands.either(
+                    spindexer.slowFeed(), spindexer.prepFeed(), () -> turret.isNotFlipping()),
+                readyToFeed)
             .repeatedly());
   }
 
@@ -255,6 +267,7 @@ public class Superstructure {
   }
 
   private boolean isHubReady() {
+    // return true;
     boolean turretTarget = turret.isAtTarget(distanceToVirtualTarget);
     boolean shootTarget = shooter.isAtTarget(distanceToVirtualTarget);
 
@@ -495,6 +508,7 @@ public class Superstructure {
 
   @AutoLogOutput
   public boolean shouldShoot() {
+    // return true;
     if (isInAllianceZone() && !isUnderTower()) {
       return true;
     }

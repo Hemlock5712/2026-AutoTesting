@@ -19,33 +19,18 @@ public class ShooterLookup {
     buildFeedTime();
   }
 
-  // Home
-  // private static void buildFlywheel() {
-  //   flywheelMap.put(0.0, 20.0);
-  //   flywheelMap.put(1.0, 20.0);
-  //   flywheelMap.put(1.5, 22.0);
-  //   flywheelMap.put(2.0, 26.0);
-  //   flywheelMap.put(2.5, 27.0);
-  //   flywheelMap.put(3.0, 29.0);
-  //   flywheelMap.put(3.5, 32.0);
-  //   flywheelMap.put(4.0, 35.0);
-  //   flywheelMap.put(4.5, 38.0);
-  //   flywheelMap.put(5.0, 39.0);
-  //   flywheelMap.put(5.5, 43.0);
-  // }
-
   private static void buildFlywheel() {
-    flywheelMap.put(0.0, 22.0);
-    flywheelMap.put(1.0, 22.0);
-    flywheelMap.put(1.5, 24.0);
-    flywheelMap.put(2.0, 28.0);
-    flywheelMap.put(2.5, 29.0);
-    flywheelMap.put(3.0, 31.0);
-    flywheelMap.put(3.5, 34.0);
-    flywheelMap.put(4.0, 37.0);
-    flywheelMap.put(4.5, 40.0);
-    flywheelMap.put(5.0, 41.0);
-    flywheelMap.put(5.5, 45.0);
+    flywheelMap.put(0.0, 20.0);
+    flywheelMap.put(1.0, 20.0);
+    flywheelMap.put(1.5, 22.0);
+    flywheelMap.put(2.0, 25.0);
+    flywheelMap.put(2.5, 26.0);
+    flywheelMap.put(3.0, 28.0);
+    flywheelMap.put(3.5, 32.0);
+    flywheelMap.put(4.0, 34.0);
+    flywheelMap.put(4.5, 36.5);
+    flywheelMap.put(5.0, 38.0);
+    flywheelMap.put(5.5, 41.0);
   }
 
   private static void buildHood() {
@@ -78,7 +63,7 @@ public class ShooterLookup {
 
   private static void buildFeedFlywheel() {
     feedShootMap.put(0.0, 20.0);
-    feedShootMap.put(9.5, 52.0);
+    feedShootMap.put(9.5, 50.0);
   }
 
   private static void buildFeedHood() {

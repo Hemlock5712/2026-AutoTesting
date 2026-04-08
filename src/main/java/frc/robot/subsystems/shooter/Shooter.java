@@ -213,7 +213,7 @@ public class Shooter extends SubsystemBase {
 
   /** Distance-dependent check: would this flywheel/hood produce a scoring shot at this range? */
   public boolean isAtTarget(double distance) {
-    double margin = 0.2; // ~50% of goal radius
+    double margin = 0.4; // ~50% of goal radius
     double minDist = Math.max(1.5, distance - margin);
     double maxDist = Math.min(5.5, distance + margin);
 

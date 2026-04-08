@@ -307,7 +307,7 @@ public class AutoRoutines {
         // Drive to midline, left of balls
         autoCommands
             .driveTo(() -> new ExtPose(midlineX, 7.20, Rotation2d.fromDegrees(-90)).get())
-            .withWaypoint(0.5)
+            .withWaypoint(2)
             .deadlineFor(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRun())),
         // Drive right through balls at midline, at a slight backwards angle
         autoCommands
@@ -442,9 +442,15 @@ public class AutoRoutines {
         // Drive to midline, left of balls
         autoCommands
             .driveTo(
-                () -> new ExtPose(midlineX, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)).get())
-            .withWaypoint(1)
+                () ->
+                    new ExtPose(
+                            midlineX - Feet.of(1).in(Meters),
+                            LEFT_TRENCH_CENTER,
+                            Rotation2d.fromDegrees(-90))
+                        .get())
+            .withWaypoint(3)
             .withMaxSpeed(5)
+            .withTolerance(Feet.of(2.5).in(Meters))
             .deadlineFor(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRunAUTO())),
         // Drive right through balls at midline, at a slight backwards angle
         autoCommands
@@ -456,7 +462,7 @@ public class AutoRoutines {
                             Rotation2d.fromDegrees(-100))
                         .get())
             .withWaypoint(1.5)
-            .withMaxSpeed(1.5),
+            .withMaxSpeed(2.0),
         autoCommands
             .driveTo(
                 () ->
@@ -499,5 +505,155 @@ public class AutoRoutines {
                     .withWaypoint(1)),
             superstructure.shoot()),
         intakeCoordinator.slowUpAndRun());
+  }
+
+  public Command leftAutoFeedActual(double midlineX) {
+    return Commands.sequence(
+        autoCommands.leftAutoSetup(),
+        // Drive to midline, left of balls
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(midlineX, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(5)
+            .deadlineFor(
+                Commands.parallel(
+                    superstructure.spinUpShooter(),
+                    autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRunAUTO()))),
+        // Drive right through balls at midline, at a slight backwards angle
+        Commands.deadline(
+            Commands.sequence(
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    midlineX,
+                                    FieldInfo.width().div(2).plus(Feet.of(0)).in(Meters),
+                                    Rotation2d.fromDegrees(-90))
+                                .get())
+                    .withWaypoint(1.25)
+                    .withMaxSpeed(1.25),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    midlineX - Feet.of(2).in(Meters),
+                                    FieldInfo.width().div(2).plus(Feet.of(0)).in(Meters),
+                                    Rotation2d.fromDegrees(-260))
+                                .get())
+                    .withWaypoint(1.25)
+                    .withMaxSpeed(1.25),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    midlineX - Feet.of(2).in(Meters),
+                                    6.8,
+                                    Rotation2d.fromDegrees(-260))
+                                .get())
+                    .withWaypoint(1.25)
+                    .withMaxSpeed(1.25),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    midlineX - Feet.of(3.5).in(Meters),
+                                    6.8,
+                                    Rotation2d.fromDegrees(-100))
+                                .get())
+                    .withWaypoint(1.25)
+                    .withMaxSpeed(1.25),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    midlineX - Feet.of(4).in(Meters),
+                                    FieldInfo.width().div(2).plus(Feet.of(0)).in(Meters),
+                                    Rotation2d.fromDegrees(-90))
+                                .get())
+                    .withWaypoint(1.25)
+                    .withMaxSpeed(1.25)),
+            superstructure.feedShoot()),
+        superstructure.stopShoot(),
+        autoCommands
+            .driveTo(
+                () -> new ExtPose(6.15, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+            .withMaxSpeed(4)
+            .withWaypointTolerance(),
+        autoCommands
+            .driveTo(() -> new ExtPose(3.8, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+            .withPositionTolerance(Inches.of(4))
+            .withMaxSpeed(4)
+            .withWaypoint(1)
+            .deadlineFor(superstructure.spinUpShooter()),
+        autoCommands
+            .driveTo(() -> new ExtPose(2.2, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+            .withPositionTolerance(Inches.of(4))
+            .withMaxSpeed(2)
+            .withWaypoint(2)
+            .deadlineFor(superstructure.shoot()),
+        autoCommands
+            .driveTo(() -> new ExtPose(0.9, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)).get())
+            .withPositionTolerance(Inches.of(4))
+            .withMaxSpeed(0.5)
+            .deadlineFor(superstructure.shoot()),
+        intakeCoordinator.slowUpAndRun());
+  }
+
+  public Command rightAutoJustFeed() {
+    return Commands.sequence(
+        autoCommands.rightAutoSetupFaceForward(),
+        autoCommands
+            .driveTo(() -> new ExtPose(6, RIGHT_TRENCH_CENTER, Rotation2d.fromDegrees(0)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(5)
+            .deadlineFor(superstructure.spinUpShooter()),
+        intakeCoordinator.deployAndRun(),
+        Commands.deadline(
+            Commands.sequence(
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    6.3,
+                                    FieldInfo.width().div(2).in(Meters),
+                                    Rotation2d.fromDegrees(30))
+                                .get())
+                    .withWaypoint(1),
+                autoCommands
+                    .driveTo(
+                        () ->
+                            new ExtPose(
+                                    8,
+                                    FieldInfo.width().div(2).in(Meters),
+                                    Rotation2d.fromDegrees(-45))
+                                .get())
+                    .withWaypoint(1),
+                neutralZoneLoop().repeatedly()),
+            superstructure.feedShoot()));
+  }
+
+  private Command neutralZoneLoop() {
+    return Commands.sequence(
+        autoCommands
+            .driveTo(() -> new ExtPose(8.3, 1.68, Rotation2d.fromDegrees(-95)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(1.5),
+        autoCommands
+            .driveTo(
+                () ->
+                    new ExtPose(8 - Feet.of(3).in(Meters), 1.68, Rotation2d.fromDegrees(95)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(1.5),
+        autoCommands
+            .driveTo(
+                () ->
+                    new ExtPose(8 - Feet.of(3).in(Meters), 6.41, Rotation2d.fromDegrees(85)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(1.5),
+        autoCommands
+            .driveTo(() -> new ExtPose(8.3, 6.41, Rotation2d.fromDegrees(-85)).get())
+            .withWaypoint(1)
+            .withMaxSpeed(1.5));
   }
 }
