@@ -436,6 +436,22 @@ public class AutoRoutines {
         autoCommands.followPath(pathData));
   }
 
+  public Command quickGrabbing() {
+    PathData pathData = Paths.forAlliance(Paths.TEST);
+    return Commands.sequence(
+        autoCommands.resetPose(() -> pathData.getStartingPose()),
+        autoCommands
+            .followPath(pathData)
+            .deadlineFor(
+                Commands.sequence(
+                    autoCommands.driveToWithDistanceTrigger(
+                        pathData.controlPoints().get(1), 0.5, superstructure.feedShoot()),
+                    autoCommands.driveToWithDistanceTrigger(
+                        pathData.controlPoints().get(3), 0.5, superstructure.stopShoot()),
+                    autoCommands.driveToWithDistanceTrigger(
+                        pathData.controlPoints().get(4), 0.5, superstructure.hubShoot()))));
+  }
+
   public Command leftAutoFeed(double midlineX) {
     return Commands.sequence(
         autoCommands.leftAutoSetup(),
