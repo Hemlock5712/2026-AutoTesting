@@ -25,6 +25,7 @@ import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.path.Paths;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -109,7 +110,12 @@ public class RobotContainer {
     autoChooser.addOption(
         "Left Side Feed But Take From Their Side at the End",
         autoRoutines.leftAutoFeedActualTakeFromTheirSideAtEnd(8.22));
-    autoChooser.addOption("zoom zoom", autoRoutines.quickGrabbing());
+    autoChooser.addOption(
+        Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT.toString(),
+        autoRoutines.stealBuilder(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT));
+    autoChooser.addOption(
+        Paths.START_LEFT_TO_RIGHT_BUMP.toString(),
+        autoRoutines.stealBuilder(Paths.START_LEFT_TO_RIGHT_BUMP));
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

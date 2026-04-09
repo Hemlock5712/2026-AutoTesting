@@ -428,8 +428,8 @@ public class AutoRoutines {
         autoCommands.followPath(pathData));
   }
 
-  public Command quickGrabbing() {
-    PathData pathData = Paths.forAlliance(Paths.TEST);
+  public Command stealBuilder(PathData path) {
+    PathData pathData = Paths.forAlliance(path);
     return Commands.sequence(
         autoCommands.resetPose(() -> pathData.getStartingPose()),
         intakeCoordinator.deployAndRun(),

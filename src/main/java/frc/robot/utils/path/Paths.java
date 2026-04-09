@@ -35,12 +35,12 @@ public final class Paths {
           List.of(new PathData.ConstraintZone(1, 2, 2, 10.791)),
           List.of());
 
-  public static final PathData TEST =
+  public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
               new Translation2d(4.450453608247423, 7.694),
               new Translation2d(7.954546391752578, 7.024917525773197),
-              new Translation2d(8.79859793814433, 4.040896907216496),
+              new Translation2d(8.61529381443299, 4.040896907216496),
               new Translation2d(7.9097992761301565, 1.1568922895821077),
               new Translation2d(2.7696466040996435, 1.1860977045320782),
               new Translation2d(2.310484536082474, 6.598628865979382)),
@@ -54,6 +54,28 @@ public final class Paths {
           List.of(
               new PathData.ConstraintZone(1, 2, 2, 10.791),
               new PathData.ConstraintZone(4, 5, 2, 10.791)),
+          List.of());
+
+  public static final PathData START_LEFT_TO_RIGHT_BUMP =
+      new PathData(
+          List.of(
+              new Translation2d(4.450453608247423, 7.694),
+              new Translation2d(7.954546391752578, 7.024917525773197),
+              new Translation2d(8.555613402061855, 4.066474226804124),
+              new Translation2d(5.81031443298969, 2.6924),
+              new Translation2d(3.0650154639175256, 3.162742268041238),
+              new Translation2d(2.310484536082474, 6.598628865979382)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(-45)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(-45))),
+          VelocityConstraints.defaults().withMaxVelocity(4).withMaxAcceleration(10.791),
+          List.of(
+              new PathData.ConstraintZone(1, 2, 2, 10.791),
+              new PathData.ConstraintZone(4, 5, 2, 10.791),
+              new PathData.ConstraintZone(3, 4, 1.67, 10.791)),
           List.of());
 
   /**
