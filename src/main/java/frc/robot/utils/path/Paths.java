@@ -52,7 +52,7 @@ public final class Paths {
               new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(180))),
           VelocityConstraints.defaults().withMaxVelocity(4).withMaxAcceleration(10.791),
           List.of(
-              new PathData.ConstraintZone(1, 4, 2, 10.791),
+              new PathData.ConstraintZone(1, 2, 2, 10.791),
               new PathData.ConstraintZone(4, 5, 2, 10.791)),
           List.of());
 

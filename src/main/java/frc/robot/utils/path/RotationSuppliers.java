@@ -185,7 +185,7 @@ public final class RotationSuppliers {
    */
   static double angleErrorToOmega(double angleError) {
     double absError = Math.abs(angleError);
-    if (absError < 0.005) {
+    if (absError < 0.05) {
       return 0.0;
     }
     double stoppingOmega = Math.sqrt(2.0 * MAX_ANGULAR_DECEL * DECEL_BUDGET_FACTOR * absError);
