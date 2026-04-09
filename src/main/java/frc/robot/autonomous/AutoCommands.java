@@ -18,6 +18,8 @@ import frc.robot.utils.path.RotationSupplier;
 import frc.robot.utils.path.RotationSuppliers;
 import frc.robot.utils.path.SplinePath;
 import frc.robot.utils.path.VelocityConstraints;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
@@ -206,6 +208,60 @@ public class AutoCommands {
         Commands.waitUntil(
             () -> drivetrain.getPose().getTranslation().getDistance(targetPose) < triggerDistance),
         commandToRun);
+  }
+
+  // ==================== Path Actions ====================
+
+  /** An action to trigger at a specific control point along a path. */
+  public record PathAction(int pointIndex, double triggerDistance, Command command) {}
+
+  /**
+   * Follow a path with distance-triggered actions and optional alongside commands.
+   *
+   * <p>Each action fires when the robot is within {@code triggerDistance} of the control point at
+   * {@code pointIndex}. Continuous commands are automatically bounded — they end when the next
+   * action's trigger fires. The last action runs until the path completes. Alongside commands run
+   * for the entire path duration.
+   *
+   * @param pathData The path to follow
+   * @param actions Ordered list of actions to trigger along the path
+   * @param alongside Commands that run for the entire path (e.g., intake)
+   * @return A command that follows the path with all actions wired
+   */
+  public Command followPathWithActions(
+      PathData pathData, List<PathAction> actions, Command... alongside) {
+    FollowPath pathCmd = followPath(pathData);
+    if (actions.isEmpty()) return pathCmd;
+
+    List<Command> actionSequence = new ArrayList<>();
+    for (int i = 0; i < actions.size(); i++) {
+      PathAction current = actions.get(i);
+      Translation2d triggerPoint = pathData.controlPoints().get(current.pointIndex());
+
+      Command waitForTrigger =
+          Commands.waitUntil(
+              () ->
+                  drivetrain.getPose().getTranslation().getDistance(triggerPoint)
+                      < current.triggerDistance());
+
+      Command action = current.command();
+      if (i + 1 < actions.size()) {
+        PathAction next = actions.get(i + 1);
+        Translation2d nextPoint = pathData.controlPoints().get(next.pointIndex());
+        action =
+            action.until(
+                () ->
+                    drivetrain.getPose().getTranslation().getDistance(nextPoint)
+                        < next.triggerDistance());
+      }
+      actionSequence.add(Commands.sequence(waitForTrigger, action));
+    }
+
+    Command[] deadlineCommands = new Command[alongside.length + 1];
+    deadlineCommands[0] = Commands.sequence(actionSequence.toArray(Command[]::new));
+    System.arraycopy(alongside, 0, deadlineCommands, 1, alongside.length);
+
+    return pathCmd.deadlineFor(deadlineCommands);
   }
 
   // ==================== Time-Triggered Actions ====================

@@ -20,6 +20,7 @@ import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 import frc.robot.utils.path.SplinePath;
 import frc.robot.utils.path.VelocityConstraints;
+import java.util.List;
 
 public class AutoRoutines {
 
@@ -422,17 +423,8 @@ public class AutoRoutines {
 
   public Command leftCenterAuto() {
     PathData pathData = Paths.forAlliance(Paths.LEFT);
-    Translation2d start = pathData.controlPoints().get(0);
-    Rotation2d startHeading =
-        pathData.headingWaypoints().isEmpty()
-            ? Rotation2d.kZero
-            : pathData.headingWaypoints().stream()
-                .filter(hw -> hw.waypointIndex() == 0)
-                .findFirst()
-                .map(PathData.HeadingWaypoint::heading)
-                .orElse(Rotation2d.kZero);
     return Commands.sequence(
-        autoCommands.resetPose(() -> new Pose2d(start, startHeading)),
+        autoCommands.resetPose(() -> pathData.getStartingPose()),
         autoCommands.followPath(pathData));
   }
 
@@ -440,16 +432,13 @@ public class AutoRoutines {
     PathData pathData = Paths.forAlliance(Paths.TEST);
     return Commands.sequence(
         autoCommands.resetPose(() -> pathData.getStartingPose()),
-        autoCommands
-            .followPath(pathData)
-            .deadlineFor(
-                Commands.sequence(
-                    autoCommands.driveToWithDistanceTrigger(
-                        pathData.controlPoints().get(1), 0.5, superstructure.feedShoot()),
-                    autoCommands.driveToWithDistanceTrigger(
-                        pathData.controlPoints().get(3), 0.5, superstructure.stopShoot()),
-                    autoCommands.driveToWithDistanceTrigger(
-                        pathData.controlPoints().get(4), 0.5, superstructure.hubShoot()))));
+        intakeCoordinator.deployAndRun(),
+        autoCommands.followPathWithActions(
+            pathData,
+            List.of(
+                new AutoCommands.PathAction(1, 0.5, superstructure.feedShoot()),
+                new AutoCommands.PathAction(3, 0.5, superstructure.stopShoot()),
+                new AutoCommands.PathAction(4, 0.5, superstructure.hubShoot()))));
   }
 
   public Command leftAutoFeed(double midlineX) {
