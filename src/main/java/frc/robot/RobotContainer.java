@@ -25,6 +25,7 @@ import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 
 /**
@@ -111,18 +112,17 @@ public class RobotContainer {
     autoChooser.addOption(
         "Left Side Feed But Take From Their Side at the End",
         autoRoutines.leftAutoFeedActualTakeFromTheirSideAtEnd(8.22));
-    autoChooser.addOption(
-        "START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT",
-        autoRoutines.autoBuilder(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT));
-    autoChooser.addOption(
-        "START_LEFT_TO_RIGHT_BUMP", autoRoutines.autoBuilder(Paths.START_LEFT_TO_RIGHT_BUMP));
-    autoChooser.addOption(
-        "START_LEFT_TO_RIGHT_BUMP_LONG",
-        autoRoutines.autoBuilder(Paths.START_LEFT_TO_RIGHT_BUMP_LONG));
+    addPathAutoOption(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT);
+    addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP);
+    addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP_LONG);
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();
+  }
+
+  private void addPathAutoOption(PathData path) {
+    autoChooser.addOption(Paths.nameOf(path), autoRoutines.autoBuilder(path));
   }
 
   private static boolean bumpIsInAllianceZone = true;
