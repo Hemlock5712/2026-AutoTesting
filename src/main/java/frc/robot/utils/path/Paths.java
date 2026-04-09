@@ -20,6 +20,7 @@ public final class Paths {
               new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-100))),
           VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
           List.of(new PathData.ConstraintZone(1, 2, 2, 10.791)),
+          List.of(),
           List.of());
 
   public static final PathData RIGHT =
@@ -33,6 +34,7 @@ public final class Paths {
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90))),
           VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
           List.of(new PathData.ConstraintZone(1, 2, 2, 10.791)),
+          List.of(),
           List.of());
 
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
@@ -54,7 +56,11 @@ public final class Paths {
           List.of(
               new PathData.ConstraintZone(1, 2, 2, 10.791),
               new PathData.ConstraintZone(4, 5, 2, 10.791)),
-          List.of());
+          List.of(),
+          List.of(
+              new PathData.WaypointFlag("6804dfbe-520e-4ae6-929e-5df99023be6b", 1, "FeedShoot"),
+              new PathData.WaypointFlag("0d5153d7-6868-4e5d-bdef-ed807b39e583", 3, "StopShoot"),
+              new PathData.WaypointFlag("4dd5030e-828a-446d-b7b6-066c65094aaf", 4, "HubShoot")));
 
   public static final PathData START_LEFT_TO_RIGHT_BUMP =
       new PathData(
@@ -76,7 +82,9 @@ public final class Paths {
               new PathData.ConstraintZone(1, 2, 2, 10.791),
               new PathData.ConstraintZone(4, 5, 2, 10.791),
               new PathData.ConstraintZone(3, 4, 1.67, 10.791)),
-          List.of());
+          List.of(),
+          List.of(
+              new PathData.WaypointFlag("cc4fa754-7892-4f4f-ba07-6097317818fa", 4, "HubShoot")));
 
   public static final PathData START_LEFT_TO_RIGHT_BUMP_LONG =
       new PathData(
@@ -88,10 +96,10 @@ public final class Paths {
               new Translation2d(3.0650154639175256, 3.162742268041238),
               new Translation2d(2.391649007792475, 6.50002975271738),
               new Translation2d(3.5673191806064035, 7.524542344106494),
-              new Translation2d(6.187384137163159, 7.541337632489922),
-              new Translation2d(7.833322379102659, 6.785549655235657),
-              new Translation2d(7.950889396384053, 3.8295788997523106),
-              new Translation2d(6.422518171725945, 2.586727559378631),
+              new Translation2d(5.604065748531518, 7.556426011520488),
+              new Translation2d(6.411051218398677, 6.605336071020213),
+              new Translation2d(6.612797585865467, 3.4062153620647404),
+              new Translation2d(5.906685299731702, 2.4118940606326342),
               new Translation2d(3.013074670565551, 2.4355699639277777)),
           List.of(
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
@@ -104,7 +112,7 @@ public final class Paths {
               new PathData.HeadingWaypoint(10, Rotation2d.fromDegrees(45)),
               new PathData.HeadingWaypoint(11, Rotation2d.fromDegrees(45)),
               new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(0)),
-              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(-75))),
+              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(-35))),
           VelocityConstraints.defaults().withMaxVelocity(4).withMaxAcceleration(10.791),
           List.of(
               new PathData.ConstraintZone(1, 2, 2, 10.791),
@@ -112,7 +120,12 @@ public final class Paths {
               new PathData.ConstraintZone(3, 4, 1.67, 10.791),
               new PathData.ConstraintZone(10, 11, 1.67, 10.791),
               new PathData.ConstraintZone(8, 9, 2, 10.791)),
-          List.of());
+          List.of(),
+          List.of(
+              new PathData.WaypointFlag("0516a82a-73bc-4a6e-badb-5d448b866a7b", 1, "FeedShoot"),
+              new PathData.WaypointFlag("cd1e38a2-db5d-44e2-97f6-07fee6e2fbe2", 2, "StopShoot"),
+              new PathData.WaypointFlag("f6962919-e67d-4439-8f19-7aee94866e01", 4, "HubShoot"),
+              new PathData.WaypointFlag("18825215-69a7-4de5-bd9b-bcf723a65c9a", 6, "StopShoot")));
 
   /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later

@@ -77,7 +77,8 @@ public class FollowPath extends Command {
   private boolean limitOverrideVy = true;
   private boolean limitOverrideOmega = true;
 
-  // State tracking between execute cycles (same pattern as DriveToPoint/OrbitDrive)
+  // State tracking between execute cycles (same pattern as
+  // DriveToPoint/OrbitDrive)
   private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
   private double lastTime;
   private double lastCrossTrackError;
@@ -95,7 +96,7 @@ public class FollowPath extends Command {
    * @param path The spline path to follow
    */
   public FollowPath(CommandSwerveDrivetrain swerve, SplinePath path) {
-    this(swerve, path, VelocityConstraints.defaults());
+    this(swerve, path, VelocityConstraints.defaults(), List.of());
   }
 
   /**
@@ -128,6 +129,17 @@ public class FollowPath extends Command {
     this.velocityProfile = new VelocityProfile(path, constraints, constraintZones);
     this.endVelocity = constraints.getEndVelocity();
     addRequirements(swerve);
+  }
+
+  /**
+   * Creates a FollowPath command directly from exported path data.
+   *
+   * @param swerve The swerve drivetrain
+   * @param path The spline path to follow
+   * @param pathData Exported path metadata including constraints and waypoint flags
+   */
+  public FollowPath(CommandSwerveDrivetrain swerve, SplinePath path, PathData pathData) {
+    this(swerve, path, pathData.globalConstraints(), pathData.constraintZones());
   }
 
   // ---- Builder methods (same pattern as DriveToPoint) ----
@@ -321,12 +333,14 @@ public class FollowPath extends Command {
 
   @Override
   public void initialize() {
-    // Start from current velocity for smooth transitions (same as OrbitDrive/DriveToPoint)
+    // Start from current velocity for smooth transitions (same as
+    // OrbitDrive/DriveToPoint)
     lastCommandedVelocity = swerve.getFieldSpeeds();
     lastTime = Utils.getCurrentTimeSeconds();
     lastCrossTrackError = 0;
 
-    // Default: hold the robot's current heading (swerve should not rotate unless told to)
+    // Default: hold the robot's current heading (swerve should not rotate unless
+    // told to)
     if (rotationSupplier == null) {
       Rotation2d currentHeading = swerve.getPose().getRotation();
       rotationSupplier = frc.robot.utils.path.RotationSuppliers.holdHeading(currentHeading);
@@ -337,7 +351,8 @@ public class FollowPath extends Command {
     ProjectionResult proj = path.getClosestPoint(pose.getTranslation());
     lastProjectedS = proj.s();
 
-    // Log the reference path as a Pose2d array (shows as trajectory in AdvantageScope)
+    // Log the reference path as a Pose2d array (shows as trajectory in
+    // AdvantageScope)
     logReferencePath();
   }
 
@@ -351,7 +366,8 @@ public class FollowPath extends Command {
     Translation2d robotPos = robotPose.getTranslation();
 
     // Step 1: Project robot onto path — bounded search around last known position.
-    // The bounded window prevents jumping to distant segments when hit or at crossings.
+    // The bounded window prevents jumping to distant segments when hit or at
+    // crossings.
     ProjectionResult proj =
         path.getClosestPointInRange(
             robotPos, lastProjectedS - PROJECTION_MAX_DELTA, lastProjectedS + PROJECTION_MAX_DELTA);
@@ -394,11 +410,13 @@ public class FollowPath extends Command {
     double correction = crossTrackKp * crossTrackError + crossTrackKd * crossTrackRate;
     // Normal vector: 90 degrees CCW from tangent (points left of path direction)
     Translation2d normal = new Translation2d(-tangent.getY(), tangent.getX());
-    // Curvature feedforward: proactively push toward center of curvature before error builds.
+    // Curvature feedforward: proactively push toward center of curvature before
+    // error builds.
     // Signed curvature: positive = turning left = center is in +normal direction.
     double signedKappa = path.getCurvature(sRobot);
     double curvatureFf = curvatureFfGain * profiledSpeed * profiledSpeed * signedKappa;
-    // -correction pushes toward path, +curvatureFf pushes toward center of curvature
+    // -correction pushes toward path, +curvatureFf pushes toward center of
+    // curvature
     Translation2d correctionVec = normal.times(-correction + curvatureFf);
 
     // Step 6: Combine path velocity + correction
@@ -411,7 +429,8 @@ public class FollowPath extends Command {
     boolean vyUnlimited = (overrideVy != null && !limitOverrideVy);
     boolean omegaUnlimited = (overrideOmega != null && !limitOverrideOmega);
 
-    // Step 7: Determine omega (override > rotationSupplier > 0) and rotation budget allocation
+    // Step 7: Determine omega (override > rotationSupplier > 0) and rotation budget
+    // allocation
     double omega;
     if (overrideOmega != null) {
       omega = overrideOmega.getAsDouble();
@@ -440,7 +459,8 @@ public class FollowPath extends Command {
       if (!vyUnlimited) vy *= availableFraction;
     }
 
-    // Step 8: Build limiter inputs — zero out unlimited axes so they don't steal friction budget
+    // Step 8: Build limiter inputs — zero out unlimited axes so they don't steal
+    // friction budget
     double limitedVx = vxUnlimited ? 0 : vx;
     double limitedVy = vyUnlimited ? 0 : vy;
     double limitedOmega = omegaUnlimited ? 0 : omega;

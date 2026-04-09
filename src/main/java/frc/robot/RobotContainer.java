@@ -76,7 +76,8 @@ public class RobotContainer {
   public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain);
   public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
-  // public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
+  // public final Limelight limelightMM = new Limelight("limelight-mm",
+  // drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -112,13 +113,12 @@ public class RobotContainer {
         autoRoutines.leftAutoFeedActualTakeFromTheirSideAtEnd(8.22));
     autoChooser.addOption(
         "START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT",
-        autoRoutines.stealBuilder(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT));
+        autoRoutines.autoBuilder(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT));
     autoChooser.addOption(
-        "START_LEFT_TO_RIGHT_BUMP",
-        autoRoutines.stealBuilderNoFeed(Paths.START_LEFT_TO_RIGHT_BUMP));
+        "START_LEFT_TO_RIGHT_BUMP", autoRoutines.autoBuilder(Paths.START_LEFT_TO_RIGHT_BUMP));
     autoChooser.addOption(
         "START_LEFT_TO_RIGHT_BUMP_LONG",
-        autoRoutines.stealBuilderNoFeedLong(Paths.START_LEFT_TO_RIGHT_BUMP_LONG));
+        autoRoutines.autoBuilder(Paths.START_LEFT_TO_RIGHT_BUMP_LONG));
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
@@ -238,12 +238,12 @@ public class RobotContainer {
                     () -> -rescaleInputs(joystick.getRightX()) * maxShootAngularRate)));
 
     // joystick
-    //     .leftTrigger(0.5)
-    //     .onTrue(
-    //         Commands.either(
-    //             intakeCoordinator.deployAndRun(),
-    //             intakeCoordinator.upAndRun(),
-    //             () -> intakeCoordinator.getTargetPositionRotations() != 0));
+    // .leftTrigger(0.5)
+    // .onTrue(
+    // Commands.either(
+    // intakeCoordinator.deployAndRun(),
+    // intakeCoordinator.upAndRun(),
+    // () -> intakeCoordinator.getTargetPositionRotations() != 0));
 
     joystick
         .leftTrigger(0.5)

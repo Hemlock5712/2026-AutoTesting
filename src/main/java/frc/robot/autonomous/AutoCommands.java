@@ -19,6 +19,7 @@ import frc.robot.utils.path.RotationSuppliers;
 import frc.robot.utils.path.SplinePath;
 import frc.robot.utils.path.VelocityConstraints;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
@@ -212,8 +213,26 @@ public class AutoCommands {
 
   // ==================== Path Actions ====================
 
-  /** An action to trigger at a specific control point along a path. */
-  public record PathAction(int pointIndex, double triggerDistance, Command command) {}
+  /** An action to trigger at a specific control point or waypoint flag along a path. */
+  public record PathAction(
+      Integer pointIndex, String flagLabel, double triggerDistance, Supplier<Command> command) {
+    public PathAction(int pointIndex, double triggerDistance, Supplier<Command> command) {
+      this(pointIndex, null, triggerDistance, command);
+    }
+
+    public PathAction(String flagLabel, double triggerDistance, Supplier<Command> command) {
+      this(null, flagLabel, triggerDistance, command);
+    }
+  }
+
+  private record ResolvedPathAction(
+      int pointIndex, double triggerDistance, Supplier<Command> command, int insertionOrder) {}
+
+  private void validatePointIndex(PathData pathData, int pointIndex) {
+    if (pointIndex < 0 || pointIndex >= pathData.controlPoints().size()) {
+      throw new IllegalArgumentException("Invalid waypoint index: " + pointIndex);
+    }
+  }
 
   /**
    * Follow a path with distance-triggered actions and optional alongside commands.
@@ -231,11 +250,15 @@ public class AutoCommands {
   public Command followPathWithActions(
       PathData pathData, List<PathAction> actions, Command... alongside) {
     FollowPath pathCmd = followPath(pathData);
-    if (actions.isEmpty()) return pathCmd;
+    List<ResolvedPathAction> resolvedActions = resolvePathActions(pathData, actions);
+
+    if (resolvedActions.isEmpty()) {
+      return alongside.length == 0 ? pathCmd : pathCmd.deadlineFor(alongside);
+    }
 
     List<Command> actionSequence = new ArrayList<>();
-    for (int i = 0; i < actions.size(); i++) {
-      PathAction current = actions.get(i);
+    for (int i = 0; i < resolvedActions.size(); i++) {
+      ResolvedPathAction current = resolvedActions.get(i);
       Translation2d triggerPoint = pathData.controlPoints().get(current.pointIndex());
 
       Command waitForTrigger =
@@ -244,9 +267,9 @@ public class AutoCommands {
                   drivetrain.getPose().getTranslation().getDistance(triggerPoint)
                       < current.triggerDistance());
 
-      Command action = current.command();
-      if (i + 1 < actions.size()) {
-        PathAction next = actions.get(i + 1);
+      Command action = current.command().get();
+      if (i + 1 < resolvedActions.size()) {
+        ResolvedPathAction next = resolvedActions.get(i + 1);
         Translation2d nextPoint = pathData.controlPoints().get(next.pointIndex());
         action =
             action.until(
@@ -254,6 +277,7 @@ public class AutoCommands {
                     drivetrain.getPose().getTranslation().getDistance(nextPoint)
                         < next.triggerDistance());
       }
+
       actionSequence.add(Commands.sequence(waitForTrigger, action));
     }
 
@@ -262,6 +286,46 @@ public class AutoCommands {
     System.arraycopy(alongside, 0, deadlineCommands, 1, alongside.length);
 
     return pathCmd.deadlineFor(deadlineCommands);
+  }
+
+  private List<ResolvedPathAction> resolvePathActions(PathData pathData, List<PathAction> actions) {
+    List<ResolvedPathAction> resolved = new ArrayList<>();
+    int insertionOrder = 0;
+
+    for (PathAction action : actions) {
+      if (action.pointIndex() != null) {
+        validatePointIndex(pathData, action.pointIndex());
+        resolved.add(
+            new ResolvedPathAction(
+                action.pointIndex(), action.triggerDistance(), action.command(), insertionOrder++));
+        continue;
+      }
+
+      List<PathData.WaypointFlag> matches =
+          pathData.waypointFlags().stream()
+              .filter(flag -> action.flagLabel().equals(flag.label()))
+              .sorted(Comparator.comparingInt(PathData.WaypointFlag::waypointIndex))
+              .toList();
+
+      if (matches.isEmpty()) {
+        continue;
+      }
+
+      for (PathData.WaypointFlag match : matches) {
+        validatePointIndex(pathData, match.waypointIndex());
+        resolved.add(
+            new ResolvedPathAction(
+                match.waypointIndex(),
+                action.triggerDistance(),
+                action.command(),
+                insertionOrder++));
+      }
+    }
+
+    resolved.sort(
+        Comparator.comparingInt(ResolvedPathAction::pointIndex)
+            .thenComparingInt(ResolvedPathAction::insertionOrder));
+    return resolved;
   }
 
   // ==================== Time-Triggered Actions ====================
