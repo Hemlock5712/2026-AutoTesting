@@ -14,6 +14,7 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
+import frc.robot.utils.path.ProjectionResult;
 import frc.robot.utils.path.RotationSupplier;
 import frc.robot.utils.path.RotationSuppliers;
 import frc.robot.utils.path.SplinePath;
@@ -228,6 +229,8 @@ public class AutoCommands {
   private record ResolvedPathAction(
       int pointIndex, double triggerDistance, Supplier<Command> command, int insertionOrder) {}
 
+  private static final double ACTION_TRIGGER_PROJECTION_WINDOW = 0.75;
+
   private void validatePointIndex(PathData pathData, int pointIndex) {
     if (pointIndex < 0 || pointIndex >= pathData.controlPoints().size()) {
       throw new IllegalArgumentException("Invalid waypoint index: " + pointIndex);
@@ -249,33 +252,49 @@ public class AutoCommands {
    */
   public Command followPathWithActions(
       PathData pathData, List<PathAction> actions, Command... alongside) {
-    FollowPath pathCmd = followPath(pathData);
+    double t0 = Timer.getFPGATimestamp();
+    SplinePath path = new SplinePath(pathData.controlPoints());
+    double t1 = Timer.getFPGATimestamp();
+    FollowPath pathCmd =
+        new FollowPath(drivetrain, path, pathData.globalConstraints(), pathData.constraintZones());
+    double t2 = Timer.getFPGATimestamp();
+
+    Logger.recordOutput("PathBench/SplinePathMs", (t1 - t0) * 1000);
+    Logger.recordOutput("PathBench/VelocityProfileMs", (t2 - t1) * 1000);
+    Logger.recordOutput("PathBench/TotalMs", (t2 - t0) * 1000);
+    Logger.recordOutput("PathBench/ControlPoints", pathData.controlPoints().size());
+    Logger.recordOutput("PathBench/PathLengthM", path.getTotalLength());
+
+    if (!pathData.headingWaypoints().isEmpty()) {
+      pathCmd.withRotationSupplier(
+          RotationSuppliers.interpolateAlongPath(path, pathData.headingWaypoints()));
+    }
+
     List<ResolvedPathAction> resolvedActions = resolvePathActions(pathData, actions);
 
     if (resolvedActions.isEmpty()) {
       return alongside.length == 0 ? pathCmd : pathCmd.deadlineFor(alongside);
     }
 
+    double[] projectedS = {0.0};
     List<Command> actionSequence = new ArrayList<>();
     for (int i = 0; i < resolvedActions.size(); i++) {
       ResolvedPathAction current = resolvedActions.get(i);
-      Translation2d triggerPoint = pathData.controlPoints().get(current.pointIndex());
+      double triggerS =
+          Math.max(
+              0.0,
+              path.getArcLengthAtWaypointIndex(current.pointIndex()) - current.triggerDistance());
 
       Command waitForTrigger =
-          Commands.waitUntil(
-              () ->
-                  drivetrain.getPose().getTranslation().getDistance(triggerPoint)
-                      < current.triggerDistance());
+          Commands.waitUntil(() -> updateProjectedS(path, projectedS) >= triggerS);
 
       Command action = current.command().get();
       if (i + 1 < resolvedActions.size()) {
         ResolvedPathAction next = resolvedActions.get(i + 1);
-        Translation2d nextPoint = pathData.controlPoints().get(next.pointIndex());
-        action =
-            action.until(
-                () ->
-                    drivetrain.getPose().getTranslation().getDistance(nextPoint)
-                        < next.triggerDistance());
+        double nextTriggerS =
+            Math.max(
+                0.0, path.getArcLengthAtWaypointIndex(next.pointIndex()) - next.triggerDistance());
+        action = action.until(() -> updateProjectedS(path, projectedS) >= nextTriggerS);
       }
 
       actionSequence.add(Commands.sequence(waitForTrigger, action));
@@ -326,6 +345,17 @@ public class AutoCommands {
         Comparator.comparingInt(ResolvedPathAction::pointIndex)
             .thenComparingInt(ResolvedPathAction::insertionOrder));
     return resolved;
+  }
+
+  private double updateProjectedS(SplinePath path, double[] projectedS) {
+    double lastProjectedS = projectedS[0];
+    ProjectionResult projection =
+        path.getClosestPointInRange(
+            drivetrain.getPose().getTranslation(),
+            Math.max(0.0, lastProjectedS - ACTION_TRIGGER_PROJECTION_WINDOW),
+            Math.min(path.getTotalLength(), lastProjectedS + ACTION_TRIGGER_PROJECTION_WINDOW));
+    projectedS[0] = Math.max(lastProjectedS, projection.s());
+    return projectedS[0];
   }
 
   // ==================== Time-Triggered Actions ====================
