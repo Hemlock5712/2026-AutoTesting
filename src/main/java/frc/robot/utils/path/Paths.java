@@ -11,6 +11,22 @@ import java.util.List;
 public final class Paths {
   private Paths() {}
 
+  public enum WaypointFlag {
+    FEEDSHOOT("FeedShoot"),
+    STOPSHOOT("StopShoot"),
+    HUBSHOOT("HubShoot");
+
+    private final String label;
+
+    WaypointFlag(String label) {
+      this.label = label;
+    }
+
+    public String label() {
+      return label;
+    }
+  }
+
   public static final PathData LEFT =
       new PathData(
           List.of(
@@ -98,11 +114,11 @@ public final class Paths {
               new Translation2d(3.0650154639175256, 3.162742268041238),
               new Translation2d(2.391649007792475, 6.50002975271738),
               new Translation2d(3.5673191806064035, 7.524542344106494),
-              new Translation2d(5.604065748531518, 7.556426011520488),
+              new Translation2d(5.615748194014447, 7.53576883384933),
               new Translation2d(6.411051218398677, 6.605336071020213),
               new Translation2d(6.612797585865467, 3.4062153620647404),
-              new Translation2d(5.906685299731702, 2.4118940606326342),
-              new Translation2d(3.013074670565551, 2.4355699639277777)),
+              new Translation2d(5.991269349845201, 2.730804953560373),
+              new Translation2d(2.952961816305469, 2.696666666666668)),
           List.of(
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
               new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
@@ -114,7 +130,8 @@ public final class Paths {
               new PathData.HeadingWaypoint(10, Rotation2d.fromDegrees(45)),
               new PathData.HeadingWaypoint(11, Rotation2d.fromDegrees(45)),
               new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(0)),
-              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(-35))),
+              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(-35)),
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(-90))),
           VelocityConstraints.defaults().withMaxVelocity(4).withMaxAcceleration(10.791),
           List.of(
               new PathData.ConstraintZone(1, 2, 2, 10.791),
@@ -128,6 +145,92 @@ public final class Paths {
               new PathData.WaypointFlag("cd1e38a2-db5d-44e2-97f6-07fee6e2fbe2", 2, "StopShoot"),
               new PathData.WaypointFlag("f6962919-e67d-4439-8f19-7aee94866e01", 4, "HubShoot"),
               new PathData.WaypointFlag("18825215-69a7-4de5-bd9b-bcf723a65c9a", 6, "StopShoot")));
+
+  public static final PathData OP =
+      new PathData(
+          List.of(
+              new Translation2d(4.4474222222222215, 7.689296296296297),
+              new Translation2d(8.13522962962963, 7.11345925925926),
+              new Translation2d(8.576296296296295, 4.8223629629629645),
+              new Translation2d(5.795125925925926, 5.753503703703705),
+              new Translation2d(3.4060148148148146, 5.839266666666668),
+              new Translation2d(3.222237037037037, 7.5300222222222235),
+              new Translation2d(6.064666666666666, 7.395251851851853),
+              new Translation2d(6.113674074074074, 4.454807407407408),
+              new Translation2d(7.4858814814814805, 4.8223629629629645),
+              new Translation2d(6.848785185185185, 7.358496296296297),
+              new Translation2d(3.0752148148148146, 7.554525925925927),
+              new Translation2d(1.1149185185185184, 6.623385185185186),
+              new Translation2d(1.0659111111111108, 5.630985185185186),
+              new Translation2d(3.369259259259259, 7.566777777777778)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(270)),
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(270)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(315)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(270)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(315)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(10, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(270)),
+              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(85)),
+              new PathData.HeadingWaypoint(11, Rotation2d.fromDegrees(205)),
+              new PathData.HeadingWaypoint(13, Rotation2d.fromDegrees(180))),
+          VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
+          List.of(
+              new PathData.ConstraintZone(3, 4, 1.67, 10.791),
+              new PathData.ConstraintZone(1, 2, 3, 10.791),
+              new PathData.ConstraintZone(4, 5, 0.6, 10.791),
+              new PathData.ConstraintZone(10, 13, 1.3, 10.791)),
+          List.of(),
+          List.of(
+              new PathData.WaypointFlag("171ed5ba-6083-4aab-82bd-fd0e0e614390", 4, "HubShoot"),
+              new PathData.WaypointFlag("ec2f238b-6e43-4cdf-93f4-f2703ab80ae6", 5, "StopShoot"),
+              new PathData.WaypointFlag("7e5a241c-0a6f-4d8d-8e53-89f9b9e2be20", 10, "HubShoot")));
+
+  public static final PathData OP_RIGHT =
+      new PathData(
+          List.of(
+              new Translation2d(4.4474222222222215, 0.5207037037037034),
+              new Translation2d(8.13522962962963, 1.0965407407407408),
+              new Translation2d(8.576296296296295, 3.3876370370370363),
+              new Translation2d(5.795125925925926, 2.4564962962962955),
+              new Translation2d(3.4060148148148146, 2.370733333333333),
+              new Translation2d(3.222237037037037, 0.6799777777777773),
+              new Translation2d(6.064666666666666, 0.8147481481481478),
+              new Translation2d(6.113674074074074, 3.755192592592593),
+              new Translation2d(7.4858814814814805, 3.3876370370370363),
+              new Translation2d(6.848785185185185, 0.8515037037037034),
+              new Translation2d(3.0752148148148146, 0.6554740740740739),
+              new Translation2d(1.1149185185185184, 1.5866148148148147),
+              new Translation2d(1.0659111111111108, 2.5790148148148146),
+              new Translation2d(3.369259259259259, 0.6432222222222226)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(45)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(45)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(10, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(275)),
+              new PathData.HeadingWaypoint(11, Rotation2d.fromDegrees(155)),
+              new PathData.HeadingWaypoint(13, Rotation2d.fromDegrees(180))),
+          VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
+          List.of(
+              new PathData.ConstraintZone(3, 4, 1.67, 10.791),
+              new PathData.ConstraintZone(1, 2, 3, 10.791),
+              new PathData.ConstraintZone(4, 5, 0.6, 10.791),
+              new PathData.ConstraintZone(10, 13, 1.3, 10.791)),
+          List.of(),
+          List.of(
+              new PathData.WaypointFlag("a93d03e8-e085-4640-b510-ab1fbd36c6ee", 4, "HubShoot"),
+              new PathData.WaypointFlag("28221e58-5585-4c36-ba49-cd43d20e7d6e", 5, "StopShoot"),
+              new PathData.WaypointFlag("e7c2ec0b-6c29-4586-951c-2a32324bdd9d", 10, "HubShoot")));
 
   /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later
