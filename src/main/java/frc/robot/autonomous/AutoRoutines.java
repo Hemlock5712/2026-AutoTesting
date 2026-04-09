@@ -441,6 +441,29 @@ public class AutoRoutines {
                 new AutoCommands.PathAction(4, 0.5, superstructure.hubShoot()))));
   }
 
+  public Command stealBuilderNoFeed(PathData path) {
+    PathData pathData = Paths.forAlliance(path);
+    return Commands.sequence(
+        autoCommands.resetPose(() -> pathData.getStartingPose()),
+        intakeCoordinator.deployAndRun(),
+        autoCommands.followPathWithActions(
+            pathData, List.of(new AutoCommands.PathAction(4, 0.5, superstructure.hubShoot()))));
+  }
+
+  public Command stealBuilderNoFeedLong(PathData path) {
+    PathData pathData = Paths.forAlliance(path);
+    return Commands.sequence(
+        autoCommands.resetPose(() -> pathData.getStartingPose()),
+        intakeCoordinator.deployAndRun(),
+        autoCommands.followPathWithActions(
+            pathData,
+            List.of(
+                new AutoCommands.PathAction(4, 0.5, superstructure.hubShoot()),
+                new AutoCommands.PathAction(6, 0.5, superstructure.stopShoot()),
+                new AutoCommands.PathAction(11, 0.5, superstructure.hubShoot()))),
+        superstructure.hubShoot());
+  }
+
   public Command leftAutoFeed(double midlineX) {
     return Commands.sequence(
         autoCommands.leftAutoSetup(),

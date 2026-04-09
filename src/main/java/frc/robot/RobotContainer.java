@@ -111,11 +111,14 @@ public class RobotContainer {
         "Left Side Feed But Take From Their Side at the End",
         autoRoutines.leftAutoFeedActualTakeFromTheirSideAtEnd(8.22));
     autoChooser.addOption(
-        Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT.toString(),
+        "START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT",
         autoRoutines.stealBuilder(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT));
     autoChooser.addOption(
-        Paths.START_LEFT_TO_RIGHT_BUMP.toString(),
-        autoRoutines.stealBuilder(Paths.START_LEFT_TO_RIGHT_BUMP));
+        "START_LEFT_TO_RIGHT_BUMP",
+        autoRoutines.stealBuilderNoFeed(Paths.START_LEFT_TO_RIGHT_BUMP));
+    autoChooser.addOption(
+        "START_LEFT_TO_RIGHT_BUMP_LONG",
+        autoRoutines.stealBuilderNoFeedLong(Paths.START_LEFT_TO_RIGHT_BUMP_LONG));
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

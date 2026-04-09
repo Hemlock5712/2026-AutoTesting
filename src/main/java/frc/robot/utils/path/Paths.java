@@ -40,8 +40,8 @@ public final class Paths {
           List.of(
               new Translation2d(4.450453608247423, 7.694),
               new Translation2d(7.954546391752578, 7.024917525773197),
-              new Translation2d(8.61529381443299, 4.040896907216496),
-              new Translation2d(7.9097992761301565, 1.1568922895821077),
+              new Translation2d(8.538724482791018, 4.0815082255037325),
+              new Translation2d(7.732550650004322, 1.1087421816369574),
               new Translation2d(2.7696466040996435, 1.1860977045320782),
               new Translation2d(2.310484536082474, 6.598628865979382)),
           List.of(
@@ -61,7 +61,7 @@ public final class Paths {
           List.of(
               new Translation2d(4.450453608247423, 7.694),
               new Translation2d(7.954546391752578, 7.024917525773197),
-              new Translation2d(8.555613402061855, 4.066474226804124),
+              new Translation2d(8.421157465509625, 4.047917648736876),
               new Translation2d(5.81031443298969, 2.6924),
               new Translation2d(3.0650154639175256, 3.162742268041238),
               new Translation2d(2.310484536082474, 6.598628865979382)),
@@ -76,6 +76,42 @@ public final class Paths {
               new PathData.ConstraintZone(1, 2, 2, 10.791),
               new PathData.ConstraintZone(4, 5, 2, 10.791),
               new PathData.ConstraintZone(3, 4, 1.67, 10.791)),
+          List.of());
+
+  public static final PathData START_LEFT_TO_RIGHT_BUMP_LONG =
+      new PathData(
+          List.of(
+              new Translation2d(4.450453608247423, 7.694),
+              new Translation2d(7.954546391752578, 7.024917525773197),
+              new Translation2d(8.421157465509625, 4.047917648736876),
+              new Translation2d(5.81031443298969, 2.6924),
+              new Translation2d(3.0650154639175256, 3.162742268041238),
+              new Translation2d(2.391649007792475, 6.50002975271738),
+              new Translation2d(3.5673191806064035, 7.524542344106494),
+              new Translation2d(6.187384137163159, 7.541337632489922),
+              new Translation2d(7.833322379102659, 6.785549655235657),
+              new Translation2d(7.950889396384053, 3.8295788997523106),
+              new Translation2d(6.422518171725945, 2.586727559378631),
+              new Translation2d(3.013074670565551, 2.4355699639277777)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(-45)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(-45)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(10, Rotation2d.fromDegrees(45)),
+              new PathData.HeadingWaypoint(11, Rotation2d.fromDegrees(45)),
+              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(-75))),
+          VelocityConstraints.defaults().withMaxVelocity(4).withMaxAcceleration(10.791),
+          List.of(
+              new PathData.ConstraintZone(1, 2, 2, 10.791),
+              new PathData.ConstraintZone(4, 6, 1, 10.791),
+              new PathData.ConstraintZone(3, 4, 1.67, 10.791),
+              new PathData.ConstraintZone(10, 11, 1.67, 10.791),
+              new PathData.ConstraintZone(8, 9, 2, 10.791)),
           List.of());
 
   /**
