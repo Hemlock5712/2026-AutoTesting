@@ -267,19 +267,20 @@ public final class FieldInfo {
 
   // ==================== Hub Obstacle (for feed line-of-sight checks) ====================
 
-  /** Half-size of the hub square (41 inches = 1.0414m) in meters. */
-  private static final double HUB_HALF_SIZE = 0.5207;
+  /** Half-size of the hub square in meters (41 inches / 2). */
+  private static final double HUB_HALF_SIZE_M = 41.0 * 0.0254 / 2.0;
 
-  /** Padding for ball clearance: ball radius (0.075m) + safety margin (0.075m). */
-  private static final double HUB_PATH_PADDING = 0.15;
-
-  /** Padded half-extent used for line-of-sight intersection checks. */
-  private static final double HUB_OBSTACLE_HALF = HUB_HALF_SIZE + HUB_PATH_PADDING;
+  /** Padded hub obstacle rectangle for line-of-sight checks (41" hub + 0.15m padding per side). */
+  private static final Rectangle2d HUB_OBSTACLE =
+      new Rectangle2d(
+          new Pose2d(HUB_POSITION, Rotation2d.kZero),
+          Meters.of(41.0 * 0.0254 + 0.6),
+          Meters.of(41.0 * 0.0254 + 0.6));
 
   /** Feed point just past the hub's min-X, min-Y corner for feeding around the hub. */
   public static final ExtTranslation LEFT_FEED_HUB_CORNER =
       new ExtTranslation(
-          HUB_POSITION.getX() - HUB_HALF_SIZE - 0.3, HUB_POSITION.getY() - HUB_HALF_SIZE - 0.3);
+          HUB_POSITION.getX() - HUB_HALF_SIZE_M - 0.3, HUB_POSITION.getY() - HUB_HALF_SIZE_M - 0.3);
 
   public static boolean isInNeutralZone(Translation2d translation) {
     return NEUTRAL_ZONE.contains(translation);
@@ -325,10 +326,12 @@ public final class FieldInfo {
    */
   public static boolean isHubBlockingPath(Translation2d from, Translation2d to) {
     Translation2d hubCenter = flip(HUB_POSITION);
-    double minX = hubCenter.getX() - HUB_OBSTACLE_HALF;
-    double maxX = hubCenter.getX() + HUB_OBSTACLE_HALF;
-    double minY = hubCenter.getY() - HUB_OBSTACLE_HALF;
-    double maxY = hubCenter.getY() + HUB_OBSTACLE_HALF;
+    double halfX = HUB_OBSTACLE.getXWidth() / 2.0;
+    double halfY = HUB_OBSTACLE.getYWidth() / 2.0;
+    double minX = hubCenter.getX() - halfX;
+    double maxX = hubCenter.getX() + halfX;
+    double minY = hubCenter.getY() - halfY;
+    double maxY = hubCenter.getY() + halfY;
 
     double dx = to.getX() - from.getX();
     double dy = to.getY() - from.getY();
