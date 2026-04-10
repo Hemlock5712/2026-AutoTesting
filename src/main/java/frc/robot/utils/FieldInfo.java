@@ -280,7 +280,7 @@ public final class FieldInfo {
   /** Feed point just past the hub's min-X, min-Y corner for feeding around the hub. */
   public static final ExtTranslation LEFT_FEED_HUB_CORNER =
       new ExtTranslation(
-          HUB_POSITION.getX() - HUB_HALF_SIZE_M - 0.3, HUB_POSITION.getY() - HUB_HALF_SIZE_M - 0.3);
+          HUB_POSITION.getX() - HUB_HALF_SIZE_M - 0.5, HUB_POSITION.getY() - HUB_HALF_SIZE_M - 0.5);
 
   public static boolean isInNeutralZone(Translation2d translation) {
     return NEUTRAL_ZONE.contains(translation);
