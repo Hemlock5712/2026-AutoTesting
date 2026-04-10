@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -229,6 +230,75 @@ public class AutoCommands {
   private record ResolvedPathAction(
       int pointIndex, double triggerDistance, Supplier<Command> command, int insertionOrder) {}
 
+  static final class ActivePathActionRunner extends Command {
+    private final List<ScheduledPathAction> actions;
+    private final DoubleSupplier progressSupplier;
+    private int nextActionIndex = 0;
+    private Command activeCommand;
+    private boolean activeCommandInitialized = false;
+
+    ActivePathActionRunner(List<ScheduledPathAction> actions, DoubleSupplier progressSupplier) {
+      this.actions = List.copyOf(actions);
+      this.progressSupplier = progressSupplier;
+    }
+
+    @Override
+    public void execute() {
+      double progress = progressSupplier.getAsDouble();
+
+      while (nextActionIndex < actions.size()
+          && progress >= actions.get(nextActionIndex).triggerS()) {
+        scheduleReplacement(actions.get(nextActionIndex).commandSupplier().get());
+        nextActionIndex++;
+      }
+
+      runActiveCommand();
+    }
+
+    private void scheduleReplacement(Command nextCommand) {
+      if (activeCommand != null) {
+        activeCommand.end(true);
+      }
+
+      activeCommand = nextCommand;
+      activeCommandInitialized = false;
+    }
+
+    private void runActiveCommand() {
+      if (activeCommand == null) {
+        return;
+      }
+
+      if (!activeCommandInitialized) {
+        activeCommand.initialize();
+        activeCommandInitialized = true;
+      }
+
+      activeCommand.execute();
+      if (activeCommand.isFinished()) {
+        activeCommand.end(false);
+        activeCommand = null;
+        activeCommandInitialized = false;
+      }
+    }
+
+    @Override
+    public void end(boolean interrupted) {
+      if (activeCommand != null) {
+        activeCommand.end(true);
+        activeCommand = null;
+        activeCommandInitialized = false;
+      }
+    }
+
+    @Override
+    public boolean isFinished() {
+      return false;
+    }
+  }
+
+  record ScheduledPathAction(double triggerS, Supplier<Command> commandSupplier) {}
+
   private static final double ACTION_TRIGGER_PROJECTION_WINDOW = 0.75;
 
   private void validatePointIndex(PathData pathData, int pointIndex) {
@@ -241,9 +311,9 @@ public class AutoCommands {
    * Follow a path with distance-triggered actions and optional alongside commands.
    *
    * <p>Each action fires when the robot is within {@code triggerDistance} of the control point at
-   * {@code pointIndex}. Continuous commands are automatically bounded — they end when the next
-   * action's trigger fires. The last action runs until the path completes. Alongside commands run
-   * for the entire path duration.
+   * {@code pointIndex}. Once an action is triggered, it stays scheduled until a later action
+   * replaces it, the path completes, or the routine is interrupted. Alongside commands run for the
+   * entire path duration.
    *
    * @param pathData The path to follow
    * @param actions Ordered list of actions to trigger along the path
@@ -277,34 +347,63 @@ public class AutoCommands {
     }
 
     double[] projectedS = {0.0};
-    List<Command> actionSequence = new ArrayList<>();
-    for (int i = 0; i < resolvedActions.size(); i++) {
-      ResolvedPathAction current = resolvedActions.get(i);
-      double triggerS =
-          Math.max(
-              0.0,
-              path.getArcLengthAtWaypointIndex(current.pointIndex()) - current.triggerDistance());
-
-      Command waitForTrigger =
-          Commands.waitUntil(() -> updateProjectedS(path, projectedS) >= triggerS);
-
-      Command action = current.command().get();
-      if (i + 1 < resolvedActions.size()) {
-        ResolvedPathAction next = resolvedActions.get(i + 1);
-        double nextTriggerS =
-            Math.max(
-                0.0, path.getArcLengthAtWaypointIndex(next.pointIndex()) - next.triggerDistance());
-        action = action.until(() -> updateProjectedS(path, projectedS) >= nextTriggerS);
-      }
-
-      actionSequence.add(Commands.sequence(waitForTrigger, action));
-    }
+    ActivePathActionRunner actionRunner =
+        new ActivePathActionRunner(
+            buildScheduledPathActions(path, resolvedActions),
+            () -> updateProjectedS(path, projectedS));
 
     Command[] deadlineCommands = new Command[alongside.length + 1];
-    deadlineCommands[0] = Commands.sequence(actionSequence.toArray(Command[]::new));
+    deadlineCommands[0] = actionRunner;
     System.arraycopy(alongside, 0, deadlineCommands, 1, alongside.length);
 
     return pathCmd.deadlineFor(deadlineCommands);
+  }
+
+  List<ScheduledPathAction> buildScheduledPathActions(
+      SplinePath path, List<ResolvedPathAction> resolvedActions) {
+    List<ScheduledPathAction> rawScheduledActions = new ArrayList<>(resolvedActions.size());
+    for (ResolvedPathAction action : resolvedActions) {
+      double triggerS =
+          Math.max(
+              0.0,
+              path.getArcLengthAtWaypointIndex(action.pointIndex()) - action.triggerDistance());
+      rawScheduledActions.add(new ScheduledPathAction(triggerS, action.command()));
+    }
+    return groupScheduledActions(rawScheduledActions);
+  }
+
+  List<ScheduledPathAction> groupScheduledActions(List<ScheduledPathAction> rawScheduledActions) {
+    List<ScheduledPathAction> groupedActions = new ArrayList<>(rawScheduledActions.size());
+    int index = 0;
+    while (index < rawScheduledActions.size()) {
+      ScheduledPathAction action = rawScheduledActions.get(index);
+      List<Supplier<Command>> groupedSuppliers = new ArrayList<>();
+      groupedSuppliers.add(action.commandSupplier());
+      index++;
+
+      while (index < rawScheduledActions.size()) {
+        ScheduledPathAction nextAction = rawScheduledActions.get(index);
+        if (Double.compare(action.triggerS(), nextAction.triggerS()) != 0) {
+          break;
+        }
+        groupedSuppliers.add(nextAction.commandSupplier());
+        index++;
+      }
+
+      groupedActions.add(
+          new ScheduledPathAction(action.triggerS(), parallelSupplier(groupedSuppliers)));
+    }
+    return groupedActions;
+  }
+
+  private Supplier<Command> parallelSupplier(List<Supplier<Command>> commandSuppliers) {
+    List<Supplier<Command>> suppliers = List.copyOf(commandSuppliers);
+    return () -> {
+      if (suppliers.size() == 1) {
+        return suppliers.get(0).get();
+      }
+      return Commands.parallel(suppliers.stream().map(Supplier::get).toArray(Command[]::new));
+    };
   }
 
   private List<ResolvedPathAction> resolvePathActions(PathData pathData, List<PathAction> actions) {
