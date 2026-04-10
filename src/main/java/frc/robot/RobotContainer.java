@@ -264,6 +264,14 @@ public class RobotContainer {
 
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
+    // Toggle left-feed-only mode (feeds to left side, avoids hub)
+    joystick
+        .povDown()
+        .toggleOnTrue(
+            Commands.startEnd(
+                () -> superstructure.setFeedLeftOnly(true),
+                () -> superstructure.setFeedLeftOnly(false)));
+
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }
 

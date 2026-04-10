@@ -103,6 +103,8 @@ public class Superstructure {
   private boolean isHubShot = true;
   private boolean isShooting = false;
   @AutoLogOutput private boolean isAutoShootEnabled = false;
+  @AutoLogOutput private boolean feedLeftOnly = false;
+  @AutoLogOutput private boolean usingHubCornerFeed = false;
 
   /** When non-null, overrides targetPosition in update(). Blue alliance coordinates. */
   private Translation2d passTargetOverride = null;
@@ -131,10 +133,28 @@ public class Superstructure {
       isHubShot = FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X;
       if (isHubShot) {
         targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+        usingHubCornerFeed = false;
+      } else if (feedLeftOnly) {
+        // Left-feed mode: pick the nearest unblocked left-side feed point
+        Translation2d leftFeed =
+            DriverStation.isAutonomous()
+                ? FieldInfo.LEFT_FEED_POSITION_AUTO.get()
+                : FieldInfo.LEFT_FEED_POSITION.get();
+        Translation2d hubCornerFeed = FieldInfo.LEFT_FEED_HUB_CORNER.get();
+
+        if (!FieldInfo.isHubBlockingPath(turretPose.getTranslation(), leftFeed)) {
+          targetPosition = leftFeed;
+          usingHubCornerFeed = false;
+        } else if (!FieldInfo.isHubBlockingPath(turretPose.getTranslation(), hubCornerFeed)) {
+          targetPosition = hubCornerFeed;
+          usingHubCornerFeed = true;
+        } else {
+          // Both blocked — keep targeting left feed, shouldShoot() will suppress firing
+          targetPosition = leftFeed;
+          usingHubCornerFeed = false;
+        }
       } else {
-        // Compute both feed positions in current-alliance coordinates, then pick the
-        // one
-        // on the same side of the field (upper vs. lower Y half) as the robot.
+        // Normal mode: pick nearest feed based on robot Y half
         Translation2d feedA =
             DriverStation.isAutonomous()
                 ? FieldInfo.LEFT_FEED_POSITION_AUTO.get()
@@ -143,11 +163,11 @@ public class Superstructure {
             DriverStation.isAutonomous()
                 ? FieldInfo.RIGHT_FEED_POSITION_AUTO.get()
                 : FieldInfo.RIGHT_FEED_POSITION.get();
-        ;
         Translation2d upperFeed = feedA.getY() > feedB.getY() ? feedA : feedB;
         Translation2d lowerFeed = feedA.getY() > feedB.getY() ? feedB : feedA;
         targetPosition =
             robotPose.getY() > FieldInfo.width().baseUnitMagnitude() / 2.0 ? upperFeed : lowerFeed;
+        usingHubCornerFeed = false;
       }
     }
 
@@ -180,6 +200,13 @@ public class Superstructure {
     Logger.recordOutput("SWM/ShootReady", shootReady);
     Logger.recordOutput("SWM/IsHubShot", isHubShot);
     Logger.recordOutput("SWM/IsHubShot", turret.isAtTarget(distanceToHub));
+    Logger.recordOutput("FeedMode/LeftFeedOnly", feedLeftOnly);
+    Logger.recordOutput("FeedMode/UsingHubCornerFeed", usingHubCornerFeed);
+    Logger.recordOutput(
+        "FeedMode/HubBlockingPath",
+        feedLeftOnly && !isHubShot
+            ? FieldInfo.isHubBlockingPath(turretPose.getTranslation(), targetPosition)
+            : false);
   }
 
   // ==================== Targeting Getters ====================
@@ -507,8 +534,16 @@ public class Superstructure {
   }
 
   @AutoLogOutput
+  public boolean isHubBlockingFeed() {
+    return feedLeftOnly
+        && !isHubShot
+        && FieldInfo.isHubBlockingPath(turretPose.getTranslation(), targetPosition);
+  }
+
+  @AutoLogOutput
   public boolean shouldShoot() {
     // return true;
+    if (isHubBlockingFeed()) return false;
     if (isInAllianceZone() && !isUnderTower()) {
       return true;
     }
@@ -520,5 +555,13 @@ public class Superstructure {
 
   public boolean isAutoShootEnabled() {
     return isAutoShootEnabled;
+  }
+
+  public void setFeedLeftOnly(boolean leftOnly) {
+    this.feedLeftOnly = leftOnly;
+  }
+
+  public boolean isFeedLeftOnly() {
+    return feedLeftOnly;
   }
 }

@@ -265,6 +265,22 @@ public final class FieldInfo {
   private static final Rectangle2d TOWER_ZONE =
       new Rectangle2d(new Pose2d(TOWER_POSITION, Rotation2d.kZero), TOWER_WIDTH, TOWER_DEPTH);
 
+  // ==================== Hub Obstacle (for feed line-of-sight checks) ====================
+
+  /** Half-size of the hub square (41 inches = 1.0414m) in meters. */
+  private static final double HUB_HALF_SIZE = 0.5207;
+
+  /** Padding for ball clearance: ball radius (0.075m) + safety margin (0.075m). */
+  private static final double HUB_PATH_PADDING = 0.15;
+
+  /** Padded half-extent used for line-of-sight intersection checks. */
+  private static final double HUB_OBSTACLE_HALF = HUB_HALF_SIZE + HUB_PATH_PADDING;
+
+  /** Feed point just past the hub's min-X, min-Y corner for feeding around the hub. */
+  public static final ExtTranslation LEFT_FEED_HUB_CORNER =
+      new ExtTranslation(
+          HUB_POSITION.getX() - HUB_HALF_SIZE - 0.3, HUB_POSITION.getY() - HUB_HALF_SIZE - 0.3);
+
   public static boolean isInNeutralZone(Translation2d translation) {
     return NEUTRAL_ZONE.contains(translation);
   }
@@ -295,5 +311,63 @@ public final class FieldInfo {
 
   public static boolean isUnderTower(Pose2d pose) {
     return isUnderTower(pose.getTranslation());
+  }
+
+  /**
+   * Checks if the line segment from {@code from} to {@code to} intersects the padded hub obstacle.
+   * Both points must be in current-alliance coordinates (the hub is flipped internally).
+   *
+   * <p>Uses the slab (parametric) method for axis-aligned bounding box intersection.
+   *
+   * @param from Start of the line segment (e.g. turret position)
+   * @param to End of the line segment (e.g. feed target position)
+   * @return true if the segment is blocked by the hub
+   */
+  public static boolean isHubBlockingPath(Translation2d from, Translation2d to) {
+    Translation2d hubCenter = flip(HUB_POSITION);
+    double minX = hubCenter.getX() - HUB_OBSTACLE_HALF;
+    double maxX = hubCenter.getX() + HUB_OBSTACLE_HALF;
+    double minY = hubCenter.getY() - HUB_OBSTACLE_HALF;
+    double maxY = hubCenter.getY() + HUB_OBSTACLE_HALF;
+
+    double dx = to.getX() - from.getX();
+    double dy = to.getY() - from.getY();
+
+    double tMin = 0.0;
+    double tMax = 1.0;
+
+    // X slab
+    if (Math.abs(dx) < 1e-9) {
+      if (from.getX() < minX || from.getX() > maxX) return false;
+    } else {
+      double t1 = (minX - from.getX()) / dx;
+      double t2 = (maxX - from.getX()) / dx;
+      if (t1 > t2) {
+        double tmp = t1;
+        t1 = t2;
+        t2 = tmp;
+      }
+      tMin = Math.max(tMin, t1);
+      tMax = Math.min(tMax, t2);
+      if (tMin > tMax) return false;
+    }
+
+    // Y slab
+    if (Math.abs(dy) < 1e-9) {
+      if (from.getY() < minY || from.getY() > maxY) return false;
+    } else {
+      double t1 = (minY - from.getY()) / dy;
+      double t2 = (maxY - from.getY()) / dy;
+      if (t1 > t2) {
+        double tmp = t1;
+        t1 = t2;
+        t2 = tmp;
+      }
+      tMin = Math.max(tMin, t1);
+      tMax = Math.min(tMax, t2);
+      if (tMin > tMax) return false;
+    }
+
+    return true;
   }
 }
