@@ -1,16 +1,21 @@
 package frc.robot.utils;
 
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.Meters;
+
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.units.measure.Distance;
 import frc.robot.subsystems.Superstructure.FeedMode;
 
 public final class FeedTargetSelector {
-  public static final double HUB_SQUARE_HALF_SIZE_METERS = 1.4 / 2.0;
-  public static final double HUB_EXTENSION_WIDTH_METERS = 58.0 * 0.0254;
-  public static final double HUB_EXTENSION_DEPTH_METERS = 27.0 * 0.0254;
-  public static final double HUB_EXTENSION_PROTRUSION_METERS = 10.0 * 0.0254;
-  public static final double TARGET_SHIFT_RADIUS_METERS = 1.0;
-  public static final double TARGET_SHIFT_STEP_METERS = 0.1;
+  public static final Distance HUB_SQUARE_HALF_SIZE = Meters.of(1.4 / 2.0);
+  public static final Distance HUB_EXTENSION_WIDTH = Inches.of(58.0);
+  public static final Distance HUB_EXTENSION_DEPTH = Inches.of(27.0);
+  public static final Distance HUB_EXTENSION_PROTRUSION = Inches.of(10.0);
+  public static final Distance TARGET_SHIFT_RADIUS = Meters.of(1.0);
+  public static final Distance TARGET_SHIFT_STEP = Meters.of(0.1);
+  public static final Distance CLEAR_PATH_SENTINEL = Meters.of(1_000.0);
   private static final int TARGET_SHIFT_ANGLE_SAMPLES = 24;
 
   public enum FeedSide {
@@ -22,9 +27,9 @@ public final class FeedTargetSelector {
       Translation2d preferredTarget,
       Translation2d resolvedTarget,
       FeedSide side,
-      double offsetMeters,
+      Distance offset,
       boolean blockedByHub,
-      double clearanceMeters) {}
+      Distance clearance) {}
 
   private FeedTargetSelector() {
     throw new UnsupportedOperationException("This is a utility class!");
@@ -47,7 +52,7 @@ public final class FeedTargetSelector {
       Translation2d robotPosition, Translation2d leftFeedTarget, Translation2d rightFeedTarget) {
     FeedSide side = resolveAutoSide(robotPosition, leftFeedTarget, rightFeedTarget);
     Translation2d target = side == FeedSide.LEFT ? leftFeedTarget : rightFeedTarget;
-    return new FeedSelection(target, target, side, 0.0, false, Double.POSITIVE_INFINITY);
+    return new FeedSelection(target, target, side, Meters.of(0.0), false, CLEAR_PATH_SENTINEL);
   }
 
   public static FeedSelection resolveShiftedTarget(
@@ -59,23 +64,24 @@ public final class FeedTargetSelector {
       Translation2d hubPosition) {
     Translation2d shiftAxis = leftFeedTarget.minus(rightFeedTarget);
     double phaseRadians = shiftAxis.getNorm() < 1e-9 ? 0.0 : shiftAxis.getAngle().getRadians();
-    double preferredClearance = hubClearance(turretPosition, preferredTarget, hubPosition);
-    if (preferredClearance > 0.0) {
+    Distance preferredClearance = hubClearance(turretPosition, preferredTarget, hubPosition);
+    if (preferredClearance.in(Meters) > 0.0) {
       return new FeedSelection(
-          preferredTarget, preferredTarget, side, 0.0, false, preferredClearance);
+          preferredTarget, preferredTarget, side, Meters.of(0.0), false, preferredClearance);
     }
 
-    int maxSteps = (int) Math.round(TARGET_SHIFT_RADIUS_METERS / TARGET_SHIFT_STEP_METERS);
+    int maxSteps = (int) Math.round(TARGET_SHIFT_RADIUS.in(Meters) / TARGET_SHIFT_STEP.in(Meters));
     for (int step = 1; step <= maxSteps; step++) {
-      double radius = step * TARGET_SHIFT_STEP_METERS;
+      Distance radius = Meters.of(step * TARGET_SHIFT_STEP.in(Meters));
       Translation2d bestCandidate = null;
       double bestClearance = Double.NEGATIVE_INFINITY;
 
       for (int sample = 0; sample < TARGET_SHIFT_ANGLE_SAMPLES; sample++) {
         double angleRadians = phaseRadians + (2.0 * Math.PI * sample) / TARGET_SHIFT_ANGLE_SAMPLES;
         Translation2d candidate =
-            preferredTarget.plus(new Translation2d(radius, Rotation2d.fromRadians(angleRadians)));
-        double candidateClearance = hubClearance(turretPosition, candidate, hubPosition);
+            preferredTarget.plus(
+                new Translation2d(radius.in(Meters), Rotation2d.fromRadians(angleRadians)));
+        double candidateClearance = hubClearance(turretPosition, candidate, hubPosition).in(Meters);
         if (candidateClearance > 0.0 && candidateClearance > bestClearance) {
           bestCandidate = candidate;
           bestClearance = candidateClearance;
@@ -84,36 +90,39 @@ public final class FeedTargetSelector {
 
       if (bestCandidate != null) {
         return new FeedSelection(
-            preferredTarget, bestCandidate, side, radius, false, bestClearance);
+            preferredTarget, bestCandidate, side, radius, false, Meters.of(bestClearance));
       }
     }
 
-    return new FeedSelection(preferredTarget, preferredTarget, side, 0.0, true, preferredClearance);
+    return new FeedSelection(
+        preferredTarget, preferredTarget, side, Meters.of(0.0), true, preferredClearance);
   }
 
-  public static double hubClearance(
+  public static Distance hubClearance(
       Translation2d shooterPosition, Translation2d targetPosition, Translation2d hubPosition) {
     RectangleGeometry square =
         new RectangleGeometry(
             hubPosition.getX(),
             hubPosition.getY(),
-            HUB_SQUARE_HALF_SIZE_METERS,
-            HUB_SQUARE_HALF_SIZE_METERS);
+            HUB_SQUARE_HALF_SIZE.in(Meters),
+            HUB_SQUARE_HALF_SIZE.in(Meters));
     RectangleGeometry extension = neutralSideExtension(shooterPosition, hubPosition);
 
     if (shooterPosition.getDistance(targetPosition) < 1e-9) {
-      return Math.min(
-          pointToRectangleDistance(shooterPosition, square),
-          pointToRectangleDistance(shooterPosition, extension));
+      return Meters.of(
+          Math.min(
+              pointToRectangleDistance(shooterPosition, square),
+              pointToRectangleDistance(shooterPosition, extension)));
     }
-    return Math.min(
-        segmentToRectangleDistance(shooterPosition, targetPosition, square),
-        segmentToRectangleDistance(shooterPosition, targetPosition, extension));
+    return Meters.of(
+        Math.min(
+            segmentToRectangleDistance(shooterPosition, targetPosition, square),
+            segmentToRectangleDistance(shooterPosition, targetPosition, extension)));
   }
 
   public static boolean isPathBlockedByHub(
       Translation2d shooterPosition, Translation2d targetPosition, Translation2d hubPosition) {
-    return hubClearance(shooterPosition, targetPosition, hubPosition) <= 0.0;
+    return hubClearance(shooterPosition, targetPosition, hubPosition).in(Meters) <= 0.0;
   }
 
   private static FeedSide resolveSide(
@@ -197,53 +206,43 @@ public final class FeedTargetSelector {
     double minY = rectangle.centerY() - rectangle.halfWidthY();
     double maxY = rectangle.centerY() + rectangle.halfWidthY();
 
-    double tMin = 0.0;
-    double tMax = 1.0;
     double dx = end.getX() - start.getX();
     double dy = end.getY() - start.getY();
 
-    if (!clipSquareAxis(-dx, start.getX() - minX, tMin, tMax)) {
+    ClipRange clipped = clipRectangleAxis(-dx, start.getX() - minX, new ClipRange(0.0, 1.0));
+    if (clipped == null) {
       return false;
     }
-    tMin = clipMin;
-    tMax = clipMax;
-    if (!clipSquareAxis(dx, maxX - start.getX(), tMin, tMax)) {
+    clipped = clipRectangleAxis(dx, maxX - start.getX(), clipped);
+    if (clipped == null) {
       return false;
     }
-    tMin = clipMin;
-    tMax = clipMax;
-    if (!clipSquareAxis(-dy, start.getY() - minY, tMin, tMax)) {
+    clipped = clipRectangleAxis(-dy, start.getY() - minY, clipped);
+    if (clipped == null) {
       return false;
     }
-    tMin = clipMin;
-    tMax = clipMax;
-    return clipSquareAxis(dy, maxY - start.getY(), tMin, tMax);
+    return clipRectangleAxis(dy, maxY - start.getY(), clipped) != null;
   }
 
-  private static double clipMin;
-  private static double clipMax;
-
-  private static boolean clipSquareAxis(double p, double q, double currentMin, double currentMax) {
-    clipMin = currentMin;
-    clipMax = currentMax;
+  private static ClipRange clipRectangleAxis(double p, double q, ClipRange currentRange) {
     if (Math.abs(p) < 1e-9) {
-      return q >= 0.0;
+      return q >= 0.0 ? currentRange : null;
     }
 
+    double min = currentRange.min();
+    double max = currentRange.max();
     double r = q / p;
     if (p < 0.0) {
-      if (r > clipMax) {
-        return false;
+      if (r > max) {
+        return null;
       }
-      clipMin = Math.max(clipMin, r);
-      return true;
+      return new ClipRange(Math.max(min, r), max);
     }
 
-    if (r < clipMin) {
-      return false;
+    if (r < min) {
+      return null;
     }
-    clipMax = Math.min(clipMax, r);
-    return true;
+    return new ClipRange(min, Math.min(max, r));
   }
 
   private static double segmentToSegmentDistance(
@@ -305,17 +304,19 @@ public final class FeedTargetSelector {
   private static RectangleGeometry neutralSideExtension(
       Translation2d shooterPosition, Translation2d hubPosition) {
     double neutralDirection = shooterPosition.getX() >= hubPosition.getX() ? 1.0 : -1.0;
-    double extensionHalfWidthX = HUB_EXTENSION_DEPTH_METERS / 2.0;
-    double extensionHalfWidthY = HUB_EXTENSION_WIDTH_METERS / 2.0;
+    double extensionHalfWidthX = HUB_EXTENSION_DEPTH.in(Meters) / 2.0;
+    double extensionHalfWidthY = HUB_EXTENSION_WIDTH.in(Meters) / 2.0;
     double extensionCenterX =
         hubPosition.getX()
             + neutralDirection
-                * (HUB_SQUARE_HALF_SIZE_METERS
-                    + HUB_EXTENSION_PROTRUSION_METERS
+                * (HUB_SQUARE_HALF_SIZE.in(Meters)
+                    + HUB_EXTENSION_PROTRUSION.in(Meters)
                     - extensionHalfWidthX);
     return new RectangleGeometry(
         extensionCenterX, hubPosition.getY(), extensionHalfWidthX, extensionHalfWidthY);
   }
+
+  private record ClipRange(double min, double max) {}
 
   private record RectangleGeometry(
       double centerX, double centerY, double halfWidthX, double halfWidthY) {}

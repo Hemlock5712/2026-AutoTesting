@@ -1,5 +1,6 @@
 package frc.robot.utils;
 
+import static edu.wpi.first.units.Units.Meters;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -84,9 +85,9 @@ class FeedTargetSelectorTest {
 
     assertFalse(selection.blockedByHub());
     assertEquals(preferredTarget, selection.preferredTarget());
-    assertEquals(0.1, selection.offsetMeters(), 1e-9);
+    assertEquals(0.1, selection.offset().in(Meters), 1e-9);
     assertEquals(0.1, selection.resolvedTarget().getDistance(preferredTarget), 1e-9);
-    assertTrue(selection.clearanceMeters() > 0.0);
+    assertTrue(selection.clearance().in(Meters) > 0.0);
   }
 
   @Test
@@ -101,10 +102,10 @@ class FeedTargetSelectorTest {
             shooter, preferredTarget, FeedSide.LEFT, preferredTarget, alternateSideTarget, hub);
 
     assertFalse(selection.blockedByHub());
-    assertEquals(1.0, selection.offsetMeters(), 1e-9);
+    assertEquals(1.0, selection.offset().in(Meters), 1e-9);
     assertEquals(1.0, selection.resolvedTarget().getDistance(preferredTarget), 1e-9);
     assertTrue(Math.abs(selection.resolvedTarget().getX() - preferredTarget.getX()) > 0.05);
-    assertTrue(selection.clearanceMeters() > 0.0);
+    assertTrue(selection.clearance().in(Meters) > 0.0);
   }
 
   @Test
@@ -120,8 +121,8 @@ class FeedTargetSelectorTest {
 
     assertTrue(selection.blockedByHub());
     assertEquals(preferredTarget, selection.resolvedTarget());
-    assertEquals(0.0, selection.offsetMeters(), 1e-9);
-    assertEquals(0.0, selection.clearanceMeters(), 1e-9);
+    assertEquals(0.0, selection.offset().in(Meters), 1e-9);
+    assertEquals(0.0, selection.clearance().in(Meters), 1e-9);
   }
 
   @Test

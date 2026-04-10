@@ -1,10 +1,7 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
-import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
@@ -15,11 +12,11 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -32,12 +29,10 @@ import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
-import frc.robot.utils.BallTrajectorySimulator;
 import frc.robot.utils.FeedTargetSelector;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
-import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -82,11 +77,6 @@ public class Superstructure {
   private static final double CROSS_SECTION = Math.PI * BALL_RADIUS * BALL_RADIUS;
   private static final double K_DRAG =
       0.5 * AIR_DENSITY * BallPhysicsSimulation.DRAG_COEFFICIENT * CROSS_SECTION;
-  private static final double DEBUG_TRAJECTORY_TIMESTEP_S = 0.02;
-  private static final double DEBUG_TRAJECTORY_MAX_TIME_S = 3.0;
-  private static final double DEBUG_FLYWHEEL_RADIUS_M = Inches.of(2).in(Meters);
-  private static final double DEBUG_HUB_GOAL_RADIUS_M = 0.4;
-  private static final double DEBUG_HUB_HEIGHT_TOLERANCE_M = 0.3;
 
   // ==================== Subsystems ====================
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
@@ -95,11 +85,6 @@ public class Superstructure {
 
   private final Spindexer spindexer =
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
-  private final BallTrajectorySimulator debugTrajectorySimulator =
-      new BallTrajectorySimulator(
-          BallPhysicsSimulation.BALL_MASS_KG,
-          BallPhysicsSimulation.BALL_DIAMETER_M,
-          BallPhysicsSimulation.DRAG_COEFFICIENT);
 
   private final Supplier<SwerveDriveState> driveState;
 
@@ -138,11 +123,6 @@ public class Superstructure {
   private boolean isFeedPathBlocked = false;
   private double feedHubClearanceMeters = Double.POSITIVE_INFINITY;
   private String feedResolvedSide = "NONE";
-  private Pose3d[] debugShotTrajectory = new Pose3d[0];
-  private Pose3d shotEndGoalPose3d = Pose3d.kZero;
-  private Pose3d shotTrajectoryEndPose3d = Pose3d.kZero;
-  private double shotTrajectoryEndErrorMeters = Double.POSITIVE_INFINITY;
-  private boolean shotTrajectoryValid = false;
 
   // ==================== Constructor ====================
 
@@ -166,13 +146,23 @@ public class Superstructure {
       targetPosition = FieldInfo.flip(passTargetOverride);
       isHubShot = false; // Use feed lookup tables (0-9.5m range)
       setFeedSelectionState(
-          targetPosition, targetPosition, 0.0, false, Double.POSITIVE_INFINITY, "OVERRIDE");
+          targetPosition,
+          targetPosition,
+          Meters.of(0.0),
+          false,
+          FeedTargetSelector.CLEAR_PATH_SENTINEL,
+          "OVERRIDE");
     } else {
       isHubShot = FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X;
       if (isHubShot) {
         targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
         setFeedSelectionState(
-            targetPosition, targetPosition, 0.0, false, Double.POSITIVE_INFINITY, "NONE");
+            targetPosition,
+            targetPosition,
+            Meters.of(0.0),
+            false,
+            FeedTargetSelector.CLEAR_PATH_SENTINEL,
+            "NONE");
       } else {
         Translation2d leftFeedTarget =
             DriverStation.isAutonomous()
@@ -197,9 +187,9 @@ public class Superstructure {
         setFeedSelectionState(
             selection.preferredTarget(),
             selection.resolvedTarget(),
-            selection.offsetMeters(),
+            selection.offset(),
             selection.blockedByHub(),
-            selection.clearanceMeters(),
+            selection.clearance(),
             selection.side().name());
       }
     }
@@ -231,7 +221,7 @@ public class Superstructure {
     boolean shootReady = isShooting && (isHubShot ? isHubReady() : isFeedReady());
     Logger.recordOutput("SWM/ShootReady", shootReady);
     Logger.recordOutput("SWM/IsHubShot", isHubShot);
-    Logger.recordOutput("SWM/IsHubShot", turret.isAtTarget(distanceToHub));
+    Logger.recordOutput("SWM/IsTurretAtTarget", turret.isAtTarget(distanceToHub));
     Logger.recordOutput("SWM/FeedMode", teleopFeedMode.name());
     Logger.recordOutput(
         "SWM/PreferredFeedTarget", new Pose2d(preferredFeedTarget, Rotation2d.kZero));
@@ -240,8 +230,7 @@ public class Superstructure {
     Logger.recordOutput("SWM/FeedPathBlocked", isFeedPathBlocked);
     Logger.recordOutput("SWM/FeedHubClearanceMeters", feedHubClearanceMeters);
     Logger.recordOutput("SWM/FeedResolvedSide", feedResolvedSide);
-    logShotDebugGeometry(state);
-    Logger.recordOutput("SWM/ShotTrajectoryValid", shotTrajectoryValid);
+    logTargetGeometry();
   }
 
   // ==================== Targeting Getters ====================
@@ -582,7 +571,7 @@ public class Superstructure {
       return true;
     }
     if (isInNeutralZone()) {
-      return shotTrajectoryValid;
+      return !isFeedPathBlocked;
     }
     return false;
   }
@@ -594,127 +583,30 @@ public class Superstructure {
   private void setFeedSelectionState(
       Translation2d preferredTarget,
       Translation2d resolvedTarget,
-      double offsetMeters,
+      Distance offset,
       boolean blockedByHub,
-      double clearanceMeters,
+      Distance clearance,
       String resolvedSide) {
     preferredFeedTarget = preferredTarget;
     resolvedFeedTarget = resolvedTarget;
-    resolvedFeedOffsetMeters = offsetMeters;
+    resolvedFeedOffsetMeters = offset.in(Meters);
     isFeedPathBlocked = blockedByHub;
-    feedHubClearanceMeters = clearanceMeters;
+    feedHubClearanceMeters = clearance.in(Meters);
     feedResolvedSide = resolvedSide;
   }
 
-  private void logShotDebugGeometry(SwerveDriveState state) {
+  private void logTargetGeometry() {
     Translation2d hub2d = FieldInfo.flip(FieldInfo.HUB_POSITION);
     Pose2d hubPose2d = new Pose2d(hub2d, Rotation2d.kZero);
     Pose3d hubPose3d =
         new Pose3d(hub2d.getX(), hub2d.getY(), FieldInfo.HUB_HEIGHT.in(Meters), Rotation3d.kZero);
     Pose2d endGoalPose2d = new Pose2d(targetPosition, Rotation2d.kZero);
-    shotEndGoalPose3d =
+    Pose3d endGoalPose3d =
         new Pose3d(targetPosition.getX(), targetPosition.getY(), 0.0, Rotation3d.kZero);
-    debugShotTrajectory = buildExpectedShotTrajectory(state);
-    shotTrajectoryValid =
-        isPredictedShotTrajectoryValid(debugShotTrajectory, hubPose3d, shotEndGoalPose3d);
 
     Logger.recordOutput("SWM/HubPose2d", hubPose2d);
     Logger.recordOutput("SWM/HubPose3d", hubPose3d);
     Logger.recordOutput("SWM/EndGoalPose2d", endGoalPose2d);
-    Logger.recordOutput("SWM/EndGoalPose3d", shotEndGoalPose3d);
-    Logger.recordOutput("SWM/ShotTrajectoryEndPose3d", shotTrajectoryEndPose3d);
-    Logger.recordOutput("SWM/ShotTrajectoryEndErrorMeters", shotTrajectoryEndErrorMeters);
-    Logger.recordOutput("SWM/ShotTrajectory", debugShotTrajectory);
-  }
-
-  private Pose3d[] buildExpectedShotTrajectory(SwerveDriveState state) {
-    Translation3d launchPosition =
-        new Translation3d(
-            turretPose.getX(), turretPose.getY(), TURRET_HOLE_CENTER.getMeasureZ().in(Meters));
-    double lookupDistance = Math.min(getFlywheelDistance(), isHubShot ? 5.5 : 9.5);
-    double flywheelRps =
-        isHubShot
-            ? ShooterLookup.getFlywheelMap().get(lookupDistance)
-            : ShooterLookup.getFeedFlywheelMap().get(lookupDistance);
-
-    if (flywheelRps <= 1e-6) {
-      return new Pose3d[] {new Pose3d(launchPosition, Rotation3d.kZero)};
-    }
-
-    double flywheelLinearVelocity = flywheelRps * 2.0 * Math.PI * DEBUG_FLYWHEEL_RADIUS_M;
-    double turretAngleRad = Rotations.of(getTurretAngle()).in(Radians);
-    double hoodDegrees =
-        isHubShot
-            ? ShooterLookup.getHoodMap().get(Math.min(getHoodDistance(), 5.5))
-            : ShooterLookup.getFeedHoodMap().get(Math.min(getHoodDistance(), 9.5));
-    double hoodAngleRad = Degrees.of(75.0 - hoodDegrees).in(Radians);
-
-    double robotVelX = flywheelLinearVelocity * Math.cos(turretAngleRad) * Math.cos(hoodAngleRad);
-    double robotVelY = flywheelLinearVelocity * Math.sin(turretAngleRad) * Math.cos(hoodAngleRad);
-    double robotVelZ = flywheelLinearVelocity * Math.sin(hoodAngleRad);
-
-    ChassisSpeeds fieldSpeeds =
-        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation());
-    Translation2d turretOffsetField =
-        TURRET_TRANSFORM.getTranslation().rotateBy(state.Pose.getRotation());
-    Translation2d turretVelocityField =
-        new Translation2d(
-            fieldSpeeds.vxMetersPerSecond
-                - fieldSpeeds.omegaRadiansPerSecond * turretOffsetField.getY(),
-            fieldSpeeds.vyMetersPerSecond
-                + fieldSpeeds.omegaRadiansPerSecond * turretOffsetField.getX());
-
-    double cosRobot = state.Pose.getRotation().getCos();
-    double sinRobot = state.Pose.getRotation().getSin();
-    double fieldVelX = robotVelX * cosRobot - robotVelY * sinRobot + turretVelocityField.getX();
-    double fieldVelY = robotVelX * sinRobot + robotVelY * cosRobot + turretVelocityField.getY();
-    Translation3d launchVelocity = new Translation3d(fieldVelX, fieldVelY, robotVelZ);
-
-    List<Pose3d> trajectory =
-        debugTrajectorySimulator.simulate(
-            launchPosition,
-            launchVelocity,
-            DEBUG_TRAJECTORY_TIMESTEP_S,
-            DEBUG_TRAJECTORY_MAX_TIME_S);
-    return trajectory.toArray(Pose3d[]::new);
-  }
-
-  private boolean isPredictedShotTrajectoryValid(
-      Pose3d[] trajectory, Pose3d hubPose3d, Pose3d endGoalPose3d) {
-    if (trajectory.length == 0) {
-      shotTrajectoryEndPose3d = Pose3d.kZero;
-      shotTrajectoryEndErrorMeters = Double.POSITIVE_INFINITY;
-      return false;
-    }
-
-    if (isHubShot) {
-      shotTrajectoryEndPose3d = trajectory[trajectory.length - 1];
-      shotTrajectoryEndErrorMeters =
-          shotTrajectoryEndPose3d
-              .getTranslation()
-              .toTranslation2d()
-              .getDistance(hubPose3d.getTranslation().toTranslation2d());
-      for (Pose3d point : trajectory) {
-        double horizontalDistance =
-            point
-                .getTranslation()
-                .toTranslation2d()
-                .getDistance(hubPose3d.getTranslation().toTranslation2d());
-        double verticalDistance = Math.abs(point.getZ() - hubPose3d.getZ());
-        if (horizontalDistance <= DEBUG_HUB_GOAL_RADIUS_M
-            && verticalDistance <= DEBUG_HUB_HEIGHT_TOLERANCE_M) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    shotTrajectoryEndPose3d = trajectory[trajectory.length - 1];
-    shotTrajectoryEndErrorMeters =
-        shotTrajectoryEndPose3d
-            .getTranslation()
-            .toTranslation2d()
-            .getDistance(endGoalPose3d.getTranslation().toTranslation2d());
-    return !isFeedPathBlocked;
+    Logger.recordOutput("SWM/EndGoalPose3d", endGoalPose3d);
   }
 }
