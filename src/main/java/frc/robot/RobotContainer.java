@@ -23,6 +23,7 @@ import frc.robot.subsystems.BallPhysicsSimulation;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
+import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.path.PathData;
@@ -263,6 +264,15 @@ public class RobotContainer {
 
     // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
+    joystick
+        .povLeft()
+        .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.FORCE_LEFT)));
+    joystick
+        .povRight()
+        .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.FORCE_RIGHT)));
+    joystick
+        .povDown()
+        .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.AUTO)));
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
