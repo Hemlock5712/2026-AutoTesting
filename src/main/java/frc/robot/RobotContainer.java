@@ -114,6 +114,7 @@ public class RobotContainer {
         autoRoutines.leftAutoFeedActualTakeFromTheirSideAtEnd(8.22));
     addPathAutoOption(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT);
     addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP);
+
     addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP_LONG);
     addPathAutoOption(Paths.OP);
     addPathAutoOption(Paths.OP_RIGHT);

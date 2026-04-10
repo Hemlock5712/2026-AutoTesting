@@ -1,5 +1,6 @@
 package frc.robot.utils.path;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -27,6 +28,13 @@ public final class Paths {
     }
   }
 
+  // Named field positions
+  public static final Pose2d START_LEFT =
+      new Pose2d(
+          new Translation2d(4.455046439628482, 7.697925696594428), Rotation2d.fromDegrees(-90));
+  public static final Pose2d START_LEFT_MIRROR =
+      new Pose2d(
+          new Translation2d(4.455046439628482, 0.5120743034055728), Rotation2d.fromDegrees(90));
   public static final PathData LEFT =
       new PathData(
           List.of(
@@ -199,13 +207,8 @@ public final class Paths {
               new Translation2d(3.4060148148148146, 2.370733333333333),
               new Translation2d(3.222237037037037, 0.6799777777777773),
               new Translation2d(6.064666666666666, 0.8147481481481478),
-              new Translation2d(6.113674074074074, 3.755192592592593),
-              new Translation2d(7.4858814814814805, 3.3876370370370363),
-              new Translation2d(6.848785185185185, 0.8515037037037034),
-              new Translation2d(3.0752148148148146, 0.6554740740740739),
-              new Translation2d(1.1149185185185184, 1.5866148148148147),
-              new Translation2d(1.0659111111111108, 2.5790148148148146),
-              new Translation2d(3.369259259259259, 0.6432222222222226)),
+              new Translation2d(6.597223942208462, 2.9356346749226017),
+              new Translation2d(7.851805985552115, 4.028059855521157)),
           List.of(
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90)),
               new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(90)),
@@ -214,23 +217,74 @@ public final class Paths {
               new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(45)),
               new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
               new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
-              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(180)),
-              new PathData.HeadingWaypoint(10, Rotation2d.fromDegrees(180)),
               new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(90)),
-              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(275)),
-              new PathData.HeadingWaypoint(11, Rotation2d.fromDegrees(155)),
               new PathData.HeadingWaypoint(13, Rotation2d.fromDegrees(180))),
           VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
           List.of(
               new PathData.ConstraintZone(3, 4, 1.67, 10.791),
               new PathData.ConstraintZone(1, 2, 3, 10.791),
-              new PathData.ConstraintZone(4, 5, 0.6, 10.791),
-              new PathData.ConstraintZone(10, 13, 1.3, 10.791)),
+              new PathData.ConstraintZone(4, 5, 0.6, 10.791)),
           List.of(),
           List.of(
               new PathData.WaypointFlag("a93d03e8-e085-4640-b510-ab1fbd36c6ee", 4, "HubShoot"),
-              new PathData.WaypointFlag("28221e58-5585-4c36-ba49-cd43d20e7d6e", 5, "StopShoot"),
-              new PathData.WaypointFlag("e7c2ec0b-6c29-4586-951c-2a32324bdd9d", 10, "HubShoot")));
+              new PathData.WaypointFlag("28221e58-5585-4c36-ba49-cd43d20e7d6e", 5, "StopShoot")));
+
+  public static final PathData JOE_PATH =
+      new PathData(
+          List.of(
+              new Translation2d(4.455046439628482, 7.697925696594428),
+              new Translation2d(11.914262125902992, 7.672321981424149)),
+          List.of(new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90))),
+          VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
+          List.of(),
+          List.of(),
+          List.of());
+
+  public static final PathData BEN_LOOP =
+      new PathData(
+          List.of(
+              new Translation2d(4.455046439628482, 7.697925696594428),
+              new Translation2d(7.510423116615066, 7.1431785345717245),
+              new Translation2d(7.792063983488132, 2.875892672858618),
+              new Translation2d(5.854716202270382, 2.560113519091849),
+              new Translation2d(2.2957997936016508, 2.6795975232198153),
+              new Translation2d(2.4750257997936016, 5.6923013415892685),
+              new Translation2d(7.740856553147574, 5.308245614035089),
+              new Translation2d(7.425077399380804, 1.0665634674922613),
+              new Translation2d(2.3555417956656344, 1.3311351909184745),
+              new Translation2d(2.50062951496388, 7.126109391124872),
+              new Translation2d(7.57016511867905, 6.9895562435500525),
+              new Translation2d(7.95422084623323, 3.063653250773995),
+              new Translation2d(5.8803199174406595, 2.4747678018575865),
+              new Translation2d(3.251671826625387, 2.543044375644996)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(45)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(12, Rotation2d.fromDegrees(45)),
+              new PathData.HeadingWaypoint(11, Rotation2d.fromDegrees(-90))),
+          VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
+          List.of(
+              new PathData.ConstraintZone(1, 2, 2, 10.791),
+              new PathData.ConstraintZone(6, 7, 2, 10.791),
+              new PathData.ConstraintZone(10, 12, 2, 10.791),
+              new PathData.ConstraintZone(3, 4, 2, 10.791),
+              new PathData.ConstraintZone(12, 13, 2, 10.791)),
+          List.of(),
+          List.of());
+
+  public static final PathData JOE_PATH_DEPOT =
+      new PathData(
+          List.of(
+              new Translation2d(4.455046439628482, 0.5120743034055728),
+              new Translation2d(11.914262125902992, 0.5376780185758516),
+              new Translation2d(15.754819401444786, 2.1248503611971117),
+              new Translation2d(11.854520123839007, 2.4406295149638817)),
+          List.of(new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90))),
+          VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
+          List.of(),
+          List.of(),
+          List.of());
 
   /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later
