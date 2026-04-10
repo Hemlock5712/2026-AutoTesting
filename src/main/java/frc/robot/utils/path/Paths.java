@@ -183,7 +183,7 @@ public final class Paths {
           List.of(
               new PathData.ConstraintZone(3, 4, 1.67, 10.791),
               new PathData.ConstraintZone(1, 2, 2.5, 10.791),
-              new PathData.ConstraintZone(4, 5, 0.6, 10.791),
+              new PathData.ConstraintZone(4, 5, 0.4, 10.791),
               new PathData.ConstraintZone(10, 13, 1.3, 10.791)),
           List.of(),
           List.of(
@@ -284,6 +284,40 @@ public final class Paths {
           List.of(),
           List.of(),
           List.of());
+
+  public static final PathData SHARK =
+      new PathData(
+          List.of(
+              new Translation2d(4.419906753471135, 7.586285106050246),
+              new Translation2d(8.135246452913565, 6.874017890480497),
+              new Translation2d(8.481754818664674, 4.621713452057237),
+              new Translation2d(7.884990410982211, 4.39070786862921),
+              new Translation2d(6.96096810231259, 5.064474153627621),
+              new Translation2d(7.730986692870608, 6.181001140196417),
+              new Translation2d(8.597257607248377, 5.584236716340682),
+              new Translation2d(7.82723901669036, 5.218477875912972),
+              new Translation2d(6.4989569479777805, 7.393780453193557),
+              new Translation2d(4.342904894415334, 7.624786036621583),
+              new Translation2d(0.8778212369042575, 7.624786036621583)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-130)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(-200)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(-5)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(-180))),
+          VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
+          List.of(
+              new PathData.ConstraintZone(1, 7, 2, 10.791),
+              new PathData.ConstraintZone(9, 10, 1.5, 10.791)),
+          List.of(),
+          List.of(
+              new PathData.WaypointFlag("7982971e-c96d-4907-ae7a-6239c3c2446e", 1, "FeedShoot"),
+              new PathData.WaypointFlag("94e22bd0-704b-4db3-970a-2491db98897f", 7, "StopShoot"),
+              new PathData.WaypointFlag("b5ab820f-bd0a-465d-86d4-c33f8607c481", 9, "HubShoot")));
 
   /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later

@@ -118,6 +118,7 @@ public class RobotContainer {
     addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP_LONG);
     addPathAutoOption(Paths.OP);
     addPathAutoOption(Paths.OP_RIGHT);
+    addPathAutoOption(Paths.SHARK);
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 

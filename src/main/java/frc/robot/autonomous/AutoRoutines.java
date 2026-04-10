@@ -450,7 +450,7 @@ public class AutoRoutines {
             List.of(
                 new PathAction("HubShoot", 0.5, superstructure::hubShoot),
                 new PathAction("FeedShoot", 0.5, superstructure::feedShoot),
-                new PathAction("StopShoot", 0.5, superstructure::stopShoot),
+                new PathAction("StopShoot", 0.25, superstructure::stopShoot),
                 new PathAction("SlowRaiseIntake", 0.5, intakeCoordinator::slowUpAndRun),
                 new PathAction("RunIntake", 0.5, intakeCoordinator::downAndRunFast))),
         superstructure.hubShoot());
