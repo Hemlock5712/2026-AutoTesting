@@ -1,6 +1,5 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -15,7 +14,9 @@ public final class Paths {
   public enum WaypointFlag {
     FEEDSHOOT("FeedShoot"),
     STOPSHOOT("StopShoot"),
-    HUBSHOOT("HubShoot");
+    HUBSHOOT("HubShoot"),
+    SLOWRAISEINTAKE("SlowRaiseIntake"),
+    RUNINTAKE("RunIntake");
 
     private final String label;
 
@@ -28,13 +29,6 @@ public final class Paths {
     }
   }
 
-  // Named field positions
-  public static final Pose2d START_LEFT =
-      new Pose2d(
-          new Translation2d(4.455046439628482, 7.697925696594428), Rotation2d.fromDegrees(-90));
-  public static final Pose2d START_LEFT_MIRROR =
-      new Pose2d(
-          new Translation2d(4.455046439628482, 0.5120743034055728), Rotation2d.fromDegrees(90));
   public static final PathData LEFT =
       new PathData(
           List.of(
@@ -188,14 +182,19 @@ public final class Paths {
           VelocityConstraints.defaults().withMaxVelocity(5).withMaxAcceleration(10.791),
           List.of(
               new PathData.ConstraintZone(3, 4, 1.67, 10.791),
-              new PathData.ConstraintZone(1, 2, 3, 10.791),
+              new PathData.ConstraintZone(1, 2, 2.5, 10.791),
               new PathData.ConstraintZone(4, 5, 0.6, 10.791),
               new PathData.ConstraintZone(10, 13, 1.3, 10.791)),
           List.of(),
           List.of(
               new PathData.WaypointFlag("171ed5ba-6083-4aab-82bd-fd0e0e614390", 4, "HubShoot"),
               new PathData.WaypointFlag("ec2f238b-6e43-4cdf-93f4-f2703ab80ae6", 5, "StopShoot"),
-              new PathData.WaypointFlag("7e5a241c-0a6f-4d8d-8e53-89f9b9e2be20", 10, "HubShoot")));
+              new PathData.WaypointFlag("7e5a241c-0a6f-4d8d-8e53-89f9b9e2be20", 10, "HubShoot"),
+              new PathData.WaypointFlag(
+                  "8f556a15-54ee-4d2c-9bd4-43ab6735bde0", 4, "SlowRaiseIntake"),
+              new PathData.WaypointFlag("f24f6185-c700-4454-9f6c-a30e3af2e090", 6, "RunIntake"),
+              new PathData.WaypointFlag(
+                  "f9f15365-3bbe-4175-848b-efc574e2c984", 13, "SlowRaiseIntake")));
 
   public static final PathData OP_RIGHT =
       new PathData(

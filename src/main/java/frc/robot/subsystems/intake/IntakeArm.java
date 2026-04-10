@@ -70,7 +70,7 @@ public class IntakeArm extends SubsystemBase {
 
   private void setPositionSlow(Angle position) {
     arm.setControl(
-        positionOut.withPosition(position.in(Rotations)).withVelocity(0.25).withAcceleration(1));
+        positionOut.withPosition(position.in(Rotations)).withVelocity(0.15).withAcceleration(1));
   }
 
   public Command intakeDown() {

@@ -444,12 +444,15 @@ public class AutoRoutines {
     PathData pathData = Paths.forAlliance(path);
     return Commands.sequence(
         autoCommands.resetPose(() -> pathData.getStartingPose()),
+        intakeCoordinator.downAndRunFast(),
         autoCommands.followPathWithActions(
             pathData,
             List.of(
                 new PathAction("HubShoot", 0.5, superstructure::hubShoot),
                 new PathAction("FeedShoot", 0.5, superstructure::feedShoot),
-                new PathAction("StopShoot", 0.5, superstructure::stopShoot))),
+                new PathAction("StopShoot", 0.5, superstructure::stopShoot),
+                new PathAction("SlowRaiseIntake", 0.5, intakeCoordinator::slowUpAndRun),
+                new PathAction("RunIntake", 0.5, intakeCoordinator::downAndRunFast))),
         superstructure.hubShoot());
   }
 
