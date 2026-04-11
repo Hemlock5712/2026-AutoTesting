@@ -16,7 +16,6 @@ import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -120,12 +119,7 @@ public class Superstructure {
   /** When non-null, overrides targetPosition in update(). Blue alliance coordinates. */
   private Translation2d passTargetOverride = null;
 
-  private Translation2d preferredFeedTarget = FieldInfo.RIGHT_FEED_POSITION.get();
-  private Translation2d resolvedFeedTarget = FieldInfo.RIGHT_FEED_POSITION.get();
-  private double resolvedFeedOffsetMeters = 0.0;
-  private boolean isFeedPathBlocked = false;
-  private double feedHubClearanceMeters = Double.POSITIVE_INFINITY;
-  private String feedResolvedSide = "NONE";
+  private FeedTargetSelector.FeedSelection feedSelection = null;
 
   // ==================== Constructor ====================
 
@@ -147,53 +141,16 @@ public class Superstructure {
 
     if (passTargetOverride != null) {
       targetPosition = FieldInfo.flip(passTargetOverride);
-      isHubShot = false; // Use feed lookup tables (0-9.5m range)
-      setFeedSelectionState(
-          targetPosition,
-          targetPosition,
-          Meters.of(0.0),
-          false,
-          FeedTargetSelector.CLEAR_PATH_SENTINEL,
-          "OVERRIDE");
+      isHubShot = false;
+      feedSelection = null;
     } else {
       isHubShot = FieldInfo.flipX(robotPose.getX()) < FieldInfo.ALLIANCE_ZONE_X;
       if (isHubShot) {
         targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
-        setFeedSelectionState(
-            targetPosition,
-            targetPosition,
-            Meters.of(0.0),
-            false,
-            FeedTargetSelector.CLEAR_PATH_SENTINEL,
-            "NONE");
+        feedSelection = null;
       } else {
-        Translation2d leftFeedTarget =
-            DriverStation.isAutonomous()
-                ? FieldInfo.LEFT_FEED_POSITION_AUTO.get()
-                : FieldInfo.LEFT_FEED_POSITION.get();
-        Translation2d rightFeedTarget =
-            DriverStation.isAutonomous()
-                ? FieldInfo.RIGHT_FEED_POSITION_AUTO.get()
-                : FieldInfo.RIGHT_FEED_POSITION.get();
-        FeedTargetSelector.FeedSelection selection =
-            DriverStation.isAutonomous()
-                ? FeedTargetSelector.selectAutoTarget(
-                    robotPose.getTranslation(), leftFeedTarget, rightFeedTarget)
-                : FeedTargetSelector.selectTeleopTarget(
-                    teleopFeedMode,
-                    robotPose.getTranslation(),
-                    turretPose.getTranslation(),
-                    leftFeedTarget,
-                    rightFeedTarget,
-                    FieldInfo.flip(FieldInfo.netLineCenter()));
-        targetPosition = selection.resolvedTarget();
-        setFeedSelectionState(
-            selection.preferredTarget(),
-            selection.resolvedTarget(),
-            selection.offset(),
-            selection.blocked(),
-            selection.clearance(),
-            selection.side().name());
+        feedSelection = resolveFeedTarget(robotPose);
+        targetPosition = feedSelection.resolvedTarget();
       }
     }
 
@@ -210,30 +167,7 @@ public class Superstructure {
         MathUtil.inputModulus(
             angleToVirtualTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
 
-    // Telemetry
-    Logger.recordOutput("SWM/VirtualTarget", new Pose2d(virtualTargetPosition, Rotation2d.kZero));
-    Logger.recordOutput("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
-    Logger.recordOutput("SWM/VirtualTargetDist", distanceToVirtualTarget);
-    Logger.recordOutput("SWM/Feasible", swmSolutionFeasible);
-    Logger.recordOutput("SWM/Converged", swmConverged);
-    Logger.recordOutput("SWM/Delay", swmDelay);
-    Logger.recordOutput(
-        "SWM/OdometryAge_ms", (Utils.getCurrentTimeSeconds() - state.Timestamp) * 1000.0);
-    Logger.recordOutput("SWM/TotalDelay_ms", swmDelay * 1000.0);
-
-    boolean shootReady = isShooting && (isHubShot ? isHubReady() : isFeedReady());
-    Logger.recordOutput("SWM/ShootReady", shootReady);
-    Logger.recordOutput("SWM/IsHubShot", isHubShot);
-    Logger.recordOutput("SWM/IsTurretAtTarget", turret.isAtTarget(distanceToHub));
-    Logger.recordOutput("SWM/FeedMode", teleopFeedMode.name());
-    Logger.recordOutput(
-        "SWM/PreferredFeedTarget", new Pose2d(preferredFeedTarget, Rotation2d.kZero));
-    Logger.recordOutput("SWM/ResolvedFeedTarget", new Pose2d(resolvedFeedTarget, Rotation2d.kZero));
-    Logger.recordOutput("SWM/ResolvedFeedOffsetMeters", resolvedFeedOffsetMeters);
-    Logger.recordOutput("SWM/FeedPathBlocked", isFeedPathBlocked);
-    Logger.recordOutput("SWM/FeedHubClearanceMeters", feedHubClearanceMeters);
-    Logger.recordOutput("SWM/FeedResolvedSide", feedResolvedSide);
-    logTargetGeometry();
+    logTelemetry(state);
   }
 
   // ==================== Targeting Getters ====================
@@ -332,7 +266,9 @@ public class Superstructure {
   }
 
   private boolean isFeedReady() {
-    return turret.isNotFlipping() && shooter.isInBallpark() && !isFeedPathBlocked;
+    return turret.isNotFlipping()
+        && shooter.isInBallpark()
+        && (feedSelection == null || !feedSelection.blocked());
   }
 
   /** Selects hub shot or feed shot based on field position. */
@@ -591,7 +527,7 @@ public class Superstructure {
       return true;
     }
     if (isInNeutralZone()) {
-      return !isFeedPathBlocked;
+      return feedSelection == null || !feedSelection.blocked();
     }
     return false;
   }
@@ -600,33 +536,70 @@ public class Superstructure {
     return isAutoShootEnabled;
   }
 
-  private void setFeedSelectionState(
-      Translation2d preferredTarget,
-      Translation2d resolvedTarget,
-      Distance offset,
-      boolean blockedByHub,
-      Distance clearance,
-      String resolvedSide) {
-    preferredFeedTarget = preferredTarget;
-    resolvedFeedTarget = resolvedTarget;
-    resolvedFeedOffsetMeters = offset.in(Meters);
-    isFeedPathBlocked = blockedByHub;
-    feedHubClearanceMeters = clearance.in(Meters);
-    feedResolvedSide = resolvedSide;
+  private FeedTargetSelector.FeedSelection resolveFeedTarget(Pose2d robotPose) {
+    Translation2d leftFeedTarget =
+        DriverStation.isAutonomous()
+            ? FieldInfo.LEFT_FEED_POSITION_AUTO.get()
+            : FieldInfo.LEFT_FEED_POSITION.get();
+    Translation2d rightFeedTarget =
+        DriverStation.isAutonomous()
+            ? FieldInfo.RIGHT_FEED_POSITION_AUTO.get()
+            : FieldInfo.RIGHT_FEED_POSITION.get();
+    return DriverStation.isAutonomous()
+        ? FeedTargetSelector.selectAutoTarget(
+            robotPose.getTranslation(), leftFeedTarget, rightFeedTarget)
+        : FeedTargetSelector.selectTeleopTarget(
+            teleopFeedMode,
+            robotPose.getTranslation(),
+            turretPose.getTranslation(),
+            leftFeedTarget,
+            rightFeedTarget,
+            FieldInfo.flip(FieldInfo.netLineCenter()));
   }
 
-  private void logTargetGeometry() {
-    Translation2d hub2d = FieldInfo.flip(FieldInfo.HUB_POSITION);
-    Pose2d hubPose2d = new Pose2d(hub2d, Rotation2d.kZero);
-    Pose3d hubPose3d =
-        new Pose3d(hub2d.getX(), hub2d.getY(), FieldInfo.HUB_HEIGHT.in(Meters), Rotation3d.kZero);
-    Pose2d endGoalPose2d = new Pose2d(targetPosition, Rotation2d.kZero);
-    Pose3d endGoalPose3d =
-        new Pose3d(targetPosition.getX(), targetPosition.getY(), 0.0, Rotation3d.kZero);
+  private void logTelemetry(SwerveDriveState state) {
+    // SWM state
+    Logger.recordOutput("SWM/VirtualTarget", new Pose2d(virtualTargetPosition, Rotation2d.kZero));
+    Logger.recordOutput("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
+    Logger.recordOutput("SWM/VirtualTargetDist", distanceToVirtualTarget);
+    Logger.recordOutput("SWM/Feasible", swmSolutionFeasible);
+    Logger.recordOutput("SWM/Converged", swmConverged);
+    Logger.recordOutput("SWM/Delay", swmDelay);
+    Logger.recordOutput(
+        "SWM/OdometryAge_ms", (Utils.getCurrentTimeSeconds() - state.Timestamp) * 1000.0);
+    Logger.recordOutput("SWM/TotalDelay_ms", swmDelay * 1000.0);
 
-    Logger.recordOutput("SWM/HubPose2d", hubPose2d);
-    Logger.recordOutput("SWM/HubPose3d", hubPose3d);
-    Logger.recordOutput("SWM/EndGoalPose2d", endGoalPose2d);
-    Logger.recordOutput("SWM/EndGoalPose3d", endGoalPose3d);
+    // Shoot readiness
+    boolean shootReady = isShooting && (isHubShot ? isHubReady() : isFeedReady());
+    Logger.recordOutput("SWM/ShootReady", shootReady);
+    Logger.recordOutput("SWM/IsHubShot", isHubShot);
+    Logger.recordOutput("SWM/IsTurretAtTarget", turret.isAtTarget(distanceToHub));
+    Logger.recordOutput("SWM/FeedMode", teleopFeedMode.name());
+
+    // Feed selection
+    if (feedSelection != null) {
+      Logger.recordOutput(
+          "SWM/PreferredFeedTarget", new Pose2d(feedSelection.preferredTarget(), Rotation2d.kZero));
+      Logger.recordOutput(
+          "SWM/ResolvedFeedTarget", new Pose2d(feedSelection.resolvedTarget(), Rotation2d.kZero));
+      Logger.recordOutput("SWM/ResolvedFeedOffsetMeters", feedSelection.offset().in(Meters));
+      Logger.recordOutput("SWM/FeedPathBlocked", feedSelection.blocked());
+      Logger.recordOutput("SWM/FeedHubClearanceMeters", feedSelection.clearance().in(Meters));
+      Logger.recordOutput("SWM/FeedResolvedSide", feedSelection.side().name());
+    } else {
+      Logger.recordOutput("SWM/FeedResolvedSide", passTargetOverride != null ? "OVERRIDE" : "NONE");
+      Logger.recordOutput("SWM/FeedPathBlocked", false);
+    }
+
+    // Target geometry
+    Translation2d hub2d = FieldInfo.flip(FieldInfo.HUB_POSITION);
+    Logger.recordOutput("SWM/HubPose2d", new Pose2d(hub2d, Rotation2d.kZero));
+    Logger.recordOutput(
+        "SWM/HubPose3d",
+        new Pose3d(hub2d.getX(), hub2d.getY(), FieldInfo.HUB_HEIGHT.in(Meters), Rotation3d.kZero));
+    Logger.recordOutput("SWM/EndGoalPose2d", new Pose2d(targetPosition, Rotation2d.kZero));
+    Logger.recordOutput(
+        "SWM/EndGoalPose3d",
+        new Pose3d(targetPosition.getX(), targetPosition.getY(), 0.0, Rotation3d.kZero));
   }
 }

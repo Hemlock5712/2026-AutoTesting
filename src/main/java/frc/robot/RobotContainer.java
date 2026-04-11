@@ -7,6 +7,8 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -28,6 +30,7 @@ import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
+import java.util.Optional;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -85,22 +88,19 @@ public class RobotContainer {
   public final BallPhysicsSimulation ballPhysicsSimulation =
       new BallPhysicsSimulation(drivetrain, superstructure);
 
-  /* Autonomous mode selector */
-  private final SendableChooser<Command> autoChooser;
-
+  /* Autonomous mode selector — builds only the selected path during disabled */
+  private final SendableChooser<PathData> autoChooser = new SendableChooser<>();
   private final AutoRoutines autoRoutines;
+  private Command cachedAutoCommand = Commands.none();
+  private PathData lastBuiltPath;
+  private Optional<Alliance> lastBuiltAlliance = Optional.empty();
 
   public RobotContainer() {
-
-    // Set up autonomous routines
-    autoChooser = new SendableChooser<>();
     autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
 
-    // Add autonomous mode options to dashboard
-    autoChooser.addOption("None", Commands.none());
+    // Register available paths (lightweight — no SplinePath/VelocityProfile computation)
     addPathAutoOption(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT);
     addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP);
-
     addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP_LONG);
     addPathAutoOption(Paths.OP);
     addPathAutoOption(Paths.OP_RIGHT);
@@ -109,10 +109,6 @@ public class RobotContainer {
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();
-  }
-
-  private void addPathAutoOption(PathData path) {
-    autoChooser.addOption(Paths.nameOf(path), autoRoutines.autoBuilder(path));
   }
 
   private static boolean bumpIsInAllianceZone = true;
@@ -264,8 +260,7 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    /* Run the path selected from the auto chooser */
-    return autoChooser.getSelected();
+    return cachedAutoCommand;
   }
 
   public double rescaleInputs(double input) {
@@ -293,5 +288,32 @@ public class RobotContainer {
   /** Sets the rumble intensity on the driver controller (0.0 = off, 1.0 = full). */
   public void setRumble(double value) {
     joystick.getHID().setRumble(RumbleType.kBothRumble, value);
+  }
+
+  private void addPathAutoOption(PathData path) {
+    autoChooser.addOption(Paths.nameOf(path), path);
+  }
+
+  /**
+   * Polls for changes in auto selection or alliance during disabled. Rebuilds the cached auto
+   * command only when something changes. Call from {@code disabledPeriodic()}.
+   */
+  public void updateAutoSelection() {
+    PathData selected = autoChooser.getSelected();
+    Optional<Alliance> alliance = DriverStation.getAlliance();
+
+    if (selected == lastBuiltPath && alliance.equals(lastBuiltAlliance)) {
+      return;
+    }
+
+    lastBuiltPath = selected;
+    lastBuiltAlliance = alliance;
+
+    if (selected == null) {
+      cachedAutoCommand = Commands.none();
+      return;
+    }
+
+    cachedAutoCommand = autoRoutines.autoBuilder(selected);
   }
 }
