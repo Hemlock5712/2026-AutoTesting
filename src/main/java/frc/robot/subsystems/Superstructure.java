@@ -112,6 +112,10 @@ public class Superstructure {
   private double swmDelay = 0;
 
   private boolean isHubShot = true;
+
+  public boolean isHubShot() {
+    return isHubShot;
+  }
   private boolean isShooting = false;
   @AutoLogOutput private boolean isAutoShootEnabled = false;
   private FeedMode teleopFeedMode = FeedMode.AUTO;

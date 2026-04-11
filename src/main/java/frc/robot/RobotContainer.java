@@ -62,7 +62,8 @@ public class RobotContainer {
       RotationsPerSecond.of(1)
           .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
 
-  private double maxShootSpeed = 1.5;
+  private double maxShootSpeed = 2.0;
+  private double maxFeedSpeed = 3.0;
   private double maxShootAngularRate = maxAngularRate * 0.75;
 
   private final CommandXboxController joystick = new CommandXboxController(0);
@@ -214,10 +215,11 @@ public class RobotContainer {
                 new TurretDrive(
                     drivetrain,
                     () -> {
+                      double speed = superstructure.isHubShot() ? maxShootSpeed : maxFeedSpeed;
                       Vector<N2> scaled =
                           rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
-                      translationVel[0] = -scaled.get(0) * maxShootSpeed;
-                      translationVel[1] = -scaled.get(1) * maxShootSpeed;
+                      translationVel[0] = -scaled.get(0) * speed;
+                      translationVel[1] = -scaled.get(1) * speed;
                       return translationVel[0];
                     },
                     () -> translationVel[1],
