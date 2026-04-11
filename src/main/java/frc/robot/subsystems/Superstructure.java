@@ -88,7 +88,7 @@ public class Superstructure {
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
   private final Hopper hopper = new Hopper();
-  
+
   private final Supplier<SwerveDriveState> driveState;
 
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
@@ -185,13 +185,13 @@ public class Superstructure {
                     turretPose.getTranslation(),
                     leftFeedTarget,
                     rightFeedTarget,
-                    FieldInfo.flip(FieldInfo.HUB_POSITION));
+                    FieldInfo.flip(FieldInfo.netLineCenter()));
         targetPosition = selection.resolvedTarget();
         setFeedSelectionState(
             selection.preferredTarget(),
             selection.resolvedTarget(),
             selection.offset(),
-            selection.blockedByHub(),
+            selection.blocked(),
             selection.clearance(),
             selection.side().name());
       }

@@ -78,29 +78,6 @@ public class AutoRoutines {
   }
 
   /**
-   * Test autonomous using the LEFT path from the path editor.
-   *
-   * <p>Follows the LEFT path with heading waypoints and constraint zones. Automatically mirrors for
-   * red alliance. Start pose is set to the first control point of the path.
-   */
-  public Command pathEditorTestAuto() {
-    PathData pathData = Paths.forAlliance(Paths.LEFT);
-    Translation2d start = pathData.controlPoints().get(0);
-    Rotation2d startHeading =
-        pathData.headingWaypoints().isEmpty()
-            ? Rotation2d.kZero
-            : pathData.headingWaypoints().stream()
-                .filter(hw -> hw.waypointIndex() == 0)
-                .findFirst()
-                .map(PathData.HeadingWaypoint::heading)
-                .orElse(Rotation2d.kZero);
-
-    return Commands.sequence(
-        autoCommands.resetPose(() -> new Pose2d(start, startHeading)),
-        autoCommands.followPath(pathData));
-  }
-
-  /**
    * Example autonomous using WAITING commands for sequential operations.
    *
    * <p>Demonstrates using AndWait variants to ensure mechanisms are ready before continuing. Good
@@ -420,13 +397,6 @@ public class AutoRoutines {
                 .withMaxSpeed(3)
                 .deadlineFor(superstructure.stopShoot())),
         () -> (centerToZone));
-  }
-
-  public Command leftCenterAuto() {
-    PathData pathData = Paths.forAlliance(Paths.LEFT);
-    return Commands.sequence(
-        autoCommands.resetPose(() -> pathData.getStartingPose()),
-        autoCommands.followPath(pathData));
   }
 
   /**

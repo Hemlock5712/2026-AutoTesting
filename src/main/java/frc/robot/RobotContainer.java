@@ -99,7 +99,6 @@ public class RobotContainer {
     // Add autonomous mode options to dashboard
     autoChooser.addOption("None", Commands.none());
     autoChooser.addOption("Path Follow Test", autoRoutines.pathFollowTestAuto());
-    autoChooser.addOption("Path Editor Test (LEFT)", autoRoutines.pathEditorTestAuto());
     autoChooser.addOption("Mobility Auto", autoRoutines.sequentialScoringAuto());
     autoChooser.addOption("Right Auto", autoRoutines.rightAuto());
     autoChooser.addOption("Right Auto Pass", autoRoutines.rightAutoPass());

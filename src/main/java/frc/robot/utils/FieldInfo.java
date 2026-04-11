@@ -109,6 +109,13 @@ public final class FieldInfo {
   public static final ExtTranslation LEFT_FEED_POSITION_AUTO =
       FieldFlip.overWidth(RIGHT_FEED_POSITION_AUTO);
 
+  public static final double NET_INSET = 3.5;
+
+  public static Translation2d netLineCenter() {
+    double w = layout.getFieldWidth();
+    return new Translation2d(w - NET_INSET, w / 2.0);
+  }
+
   public static final double ALLIANCE_ZONE_X = 5.4;
 
   /** Y-axis lock position on the right side (blue alliance coordinates). */
