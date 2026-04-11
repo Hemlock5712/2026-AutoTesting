@@ -22,6 +22,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.AccelerationLimiter;
+import frc.robot.subsystems.hopper.Hopper;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
@@ -86,6 +87,8 @@ public class Superstructure {
   private final Spindexer spindexer =
       RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
+  private final Hopper hopper = new Hopper();
+  
   private final Supplier<SwerveDriveState> driveState;
 
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
@@ -396,6 +399,23 @@ public class Superstructure {
 
   public Command stopSpindexer() {
     return spindexer.stopCommand();
+  }
+
+  // Hopper commands
+  public Command startHopper() {
+    return hopper.start();
+  }
+
+  public Command startHopperSlow() {
+    return hopper.startSlow();
+  }
+
+  public Command reverseHopper() {
+    return hopper.reverse();
+  }
+
+  public Command stopHopper() {
+    return hopper.stop();
   }
 
   private Translation2d virtualTarget(SwerveDriveState state) {

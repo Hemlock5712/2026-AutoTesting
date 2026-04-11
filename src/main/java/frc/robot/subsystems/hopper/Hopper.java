@@ -23,9 +23,9 @@ public class Hopper extends SubsystemBase {
 
   protected TalonFXConfiguration sideConfig = new TalonFXConfiguration();
 
-  Alert motorConfigAlert = new Alert("Spindexer Motor Configuration Failed", AlertType.kError);
+  Alert motorConfigAlert = new Alert("Main Motor Configuration Failed", AlertType.kError);
 
-  Alert sideMotorConfigAlert = new Alert("Kicker Motor Configuration Failed", AlertType.kError);
+  Alert sideMotorConfigAlert = new Alert("Side Motor Configuration Failed", AlertType.kError);
 
   private final VelocityVoltage mainVelocityOut = new VelocityVoltage(0);
   private final VelocityVoltage sideVelocityOut = new VelocityVoltage(0);
@@ -57,7 +57,7 @@ public class Hopper extends SubsystemBase {
   public Command reverse() {
     return Commands.runOnce(() -> setVelocity(-50));
   }
-  
+
   public Command stop() {
     return Commands.runOnce(() -> setVelocity(0));
   }
