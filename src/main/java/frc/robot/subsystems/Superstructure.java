@@ -116,6 +116,7 @@ public class Superstructure {
   public boolean isHubShot() {
     return isHubShot;
   }
+
   private boolean isShooting = false;
   @AutoLogOutput private boolean isAutoShootEnabled = false;
   private FeedMode teleopFeedMode = FeedMode.AUTO;
