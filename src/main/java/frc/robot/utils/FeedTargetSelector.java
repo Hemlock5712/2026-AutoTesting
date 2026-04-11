@@ -50,8 +50,8 @@ public final class FeedTargetSelector {
   public static Distance netClearance(
       Translation2d shooterPosition, Translation2d targetPosition, Translation2d netCenter) {
     double lineX = netCenter.getX();
-    double lineMinY = FieldInfo.NET_INSET;
-    double lineMaxY = netCenter.getY() * 2.0 - FieldInfo.NET_INSET;
+    double lineMinY = netCenter.getY() - FieldInfo.NET_INSET.in(Meters) / 2.0;
+    double lineMaxY = netCenter.getY() + FieldInfo.NET_INSET.in(Meters) / 2.0;
 
     double sx = shooterPosition.getX();
     double sy = shooterPosition.getY();

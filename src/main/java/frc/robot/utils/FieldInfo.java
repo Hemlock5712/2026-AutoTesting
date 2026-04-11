@@ -1,5 +1,6 @@
 package frc.robot.utils;
 
+import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
@@ -109,11 +110,11 @@ public final class FieldInfo {
   public static final ExtTranslation LEFT_FEED_POSITION_AUTO =
       FieldFlip.overWidth(RIGHT_FEED_POSITION_AUTO);
 
-  public static final double NET_INSET = 3.5;
+  public static final Distance NET_INSET = Inches.of(58.0 + 31.0);
 
   public static Translation2d netLineCenter() {
     double w = layout.getFieldWidth();
-    return new Translation2d(w - NET_INSET, w / 2.0);
+    return new Translation2d(5.5, w / 2.0);
   }
 
   public static final double ALLIANCE_ZONE_X = 5.4;
