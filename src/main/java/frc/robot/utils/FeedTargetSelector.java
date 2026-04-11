@@ -9,9 +9,10 @@ import edu.wpi.first.units.measure.Distance;
 import frc.robot.subsystems.Superstructure.FeedMode;
 
 public final class FeedTargetSelector {
-  public static final Distance HUB_SQUARE_HALF_SIZE = Meters.of(1.4 / 2.0);
+  // public static final Distance HUB_SQUARE_HALF_SIZE = Meters.of(1.4 / 2.0);
+  public static final Distance HUB_SQUARE_HALF_SIZE = Meters.of(0);
   public static final Distance HUB_EXTENSION_WIDTH = Inches.of(58.0);
-  public static final Distance HUB_EXTENSION_DEPTH = Inches.of(27.0);
+  public static final Distance HUB_EXTENSION_DEPTH = Inches.of(10.0);
   public static final Distance HUB_EXTENSION_PROTRUSION = Inches.of(10.0);
   public static final Distance TARGET_SHIFT_RADIUS = Meters.of(1.0);
   public static final Distance TARGET_SHIFT_STEP = Meters.of(0.1);
