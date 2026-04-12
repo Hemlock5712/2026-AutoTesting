@@ -216,11 +216,7 @@ public class Superstructure {
     return Commands.parallel(
         shooterCommand,
         Commands.runOnce(() -> isShooting = true),
-        Commands.either(
-                hopper.start(),
-                Commands.either(hopper.start(), hopper.startSlow(), () -> turret.isNotFlipping()),
-                readyToFeed)
-            .repeatedly());
+        Commands.either(hopper.start(), hopper.stop(), readyToFeed).repeatedly());
   }
 
   public Command spinUpShooter() {
@@ -248,7 +244,7 @@ public class Superstructure {
         turret.trackHubCommand(() -> 0.0),
         Commands.sequence(
             Commands.runOnce(() -> isShooting = true),
-            Commands.either(hopper.start(), hopper.startSlow(), () -> isFeedReady()).repeatedly()));
+            Commands.either(hopper.start(), hopper.stop(), () -> isFeedReady()).repeatedly()));
   }
 
   private boolean isHubReady() {
@@ -263,8 +259,9 @@ public class Superstructure {
   }
 
   private boolean isFeedReady() {
-    return turret.isNotFlipping()
-        && shooter.isInBallpark()
+    return turret.isAtTarget(distanceToVirtualTarget)
+        && shooter.isAtTarget(distanceToVirtualTarget)
+        && swmSolutionFeasible
         && (feedSelection == null || !feedSelection.blocked());
   }
 

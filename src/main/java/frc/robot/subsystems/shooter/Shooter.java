@@ -233,13 +233,6 @@ public class Shooter extends SubsystemBase {
     return debouncedTrue;
   }
 
-  /** Loose readiness: flywheel and hood roughly at target. */
-  public boolean isInBallpark() {
-    boolean flywheelClose = getVelocity().isNear(getTargetVelocity(), RotationsPerSecond.of(3));
-    boolean hoodClose = getPosition().isNear(getTargetPosition(), Degree.of(5));
-    return flywheelClose && hoodClose;
-  }
-
   /**
    * Get how fast the flywheel is currently spinning.
    *
