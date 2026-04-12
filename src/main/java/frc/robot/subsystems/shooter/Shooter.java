@@ -233,6 +233,25 @@ public class Shooter extends SubsystemBase {
     return debouncedTrue;
   }
 
+  /** Looser check for feed shots - wider margin than hub shots. */
+  public boolean isAtFeedTarget(double distance) {
+    double margin = 0.8; // Wider than hub's 0.4m
+    double minDist = Math.max(1.5, distance - margin);
+    double maxDist = Math.min(9.5, distance + margin); // Feed range is longer
+
+    double actualRPS = getVelocity().in(RotationsPerSecond);
+    boolean flywheelOk =
+        actualRPS >= ShooterLookup.getFeedFlywheelMap().get(minDist)
+            && actualRPS <= ShooterLookup.getFeedFlywheelMap().get(maxDist);
+
+    double actualHoodDeg = getPosition().in(Degrees);
+    boolean hoodOk =
+        actualHoodDeg >= ShooterLookup.getFeedHoodMap().get(minDist)
+            && actualHoodDeg <= ShooterLookup.getFeedHoodMap().get(maxDist);
+
+    return flywheelOk && hoodOk;
+  }
+
   /**
    * Get how fast the flywheel is currently spinning.
    *

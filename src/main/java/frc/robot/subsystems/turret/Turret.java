@@ -28,6 +28,7 @@ public class Turret extends SubsystemBase {
   protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
 
   private static final double MAX_LATERAL_MISS_M = 0.4; // 20cm — 50% of goal radius
+  private static final double FEED_LATERAL_MISS_M = 0.8; // Wider tolerance for feed shots
 
   // Dual absolute encoders for CRT positioning
   protected final CANcoder encoder1 =
@@ -145,6 +146,12 @@ public class Turret extends SubsystemBase {
   /** Distance-dependent shoot gate: tighter position tolerance at longer range. */
   public boolean isAtTarget(double distanceToTarget) {
     double maxAngleRot = Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
+    return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
+  }
+
+  /** Looser check for feed shots - wider tolerance than hub shots. */
+  public boolean isAtFeedTarget(double distanceToTarget) {
+    double maxAngleRot = Math.atan(FEED_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
     return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
   }
 
