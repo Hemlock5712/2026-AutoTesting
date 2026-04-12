@@ -1,8 +1,12 @@
 package frc.robot.subsystems.hopper;
 
+import static edu.wpi.first.units.Units.RotationsPerSecond;
+
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -13,9 +17,9 @@ import frc.robot.utils.TalonFXUtil;
 
 public class Hopper extends SubsystemBase {
 
-  protected final TalonFX main = new TalonFX(1000, TunerConstants.kCANBus);
+  protected final TalonFX main = new TalonFX(51, TunerConstants.kCANBus);
 
-  protected final TalonFX side = new TalonFX(1001, TunerConstants.kCANBus);
+  protected final TalonFX side = new TalonFX(50, TunerConstants.kCANBus);
 
   protected TalonFXConfiguration mainConfig = new TalonFXConfiguration();
 
@@ -29,8 +33,21 @@ public class Hopper extends SubsystemBase {
   private final VelocityVoltage sideVelocityOut = new VelocityVoltage(0);
 
   public Hopper() {
+    mainConfig.Feedback.SensorToMechanismRatio = 2.77;
+
+    mainConfig.Slot0.kP = 0.1;
+    mainConfig.Slot0.kS = 0.33;
+    mainConfig.Slot0.kV = 0.33;
+
+    mainConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     boolean success = TalonFXUtil.applyConfigWithRetries(main, mainConfig);
     motorConfigAlert.set(!success);
+
+    sideConfig.Slot0.kP = 0.1;
+    sideConfig.Slot0.kS = 0.375;
+    sideConfig.Slot0.kV = 0.375;
+
+    sideConfig.Feedback.SensorToMechanismRatio = 3.9;
     success = TalonFXUtil.applyConfigWithRetries(side, sideConfig);
     sideMotorConfigAlert.set(!success);
 
@@ -38,25 +55,27 @@ public class Hopper extends SubsystemBase {
     side.optimizeBusUtilization();
   }
 
-  public void setVelocity(double velocity) {
-    main.setControl(mainVelocityOut.withVelocity(velocity));
-    side.setControl(sideVelocityOut.withVelocity(velocity));
+  public void setVelocity(AngularVelocity mainVelocity, AngularVelocity sideVelocity) {
+    main.setControl(mainVelocityOut.withVelocity(mainVelocity));
+    side.setControl(sideVelocityOut.withVelocity(sideVelocity));
   }
 
   // TODO: change velocity (idk what it should be)
   public Command start() {
-    return Commands.runOnce(() -> setVelocity(50));
+    return Commands.runOnce(
+        () -> setVelocity(RotationsPerSecond.of(35), RotationsPerSecond.of(30)));
   }
 
   public Command startSlow() {
-    return Commands.runOnce(() -> setVelocity(25));
+    return Commands.runOnce(() -> setVelocity(RotationsPerSecond.of(10), RotationsPerSecond.of(5)));
   }
 
   public Command reverse() {
-    return Commands.runOnce(() -> setVelocity(-50));
+    return Commands.runOnce(
+        () -> setVelocity(RotationsPerSecond.of(-25), RotationsPerSecond.of(-5)));
   }
 
   public Command stop() {
-    return Commands.runOnce(() -> setVelocity(0));
+    return Commands.runOnce(() -> setVelocity(RotationsPerSecond.of(0), RotationsPerSecond.of(0)));
   }
 }

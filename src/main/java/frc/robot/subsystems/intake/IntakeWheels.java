@@ -1,5 +1,6 @@
 package frc.robot.subsystems.intake;
 
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -9,13 +10,12 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
 
 public class IntakeWheels extends SubsystemBase {
 
-  private final TalonFX wheel = new TalonFX(23, TunerConstants.kCANBus);
+  private final TalonFX wheel = new TalonFX(23, CANBus.roboRIO());
 
   private TalonFXConfiguration wheelConfig = new TalonFXConfiguration();
 
@@ -25,7 +25,7 @@ public class IntakeWheels extends SubsystemBase {
 
   public IntakeWheels() {
     wheelConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-    wheelConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+    wheelConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
     wheelConfig.Feedback.SensorToMechanismRatio = 2.33;
 
     wheelConfig.Slot0.kS = 0.3; // Static friction

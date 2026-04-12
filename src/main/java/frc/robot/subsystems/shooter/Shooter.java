@@ -43,13 +43,15 @@ public class Shooter extends SubsystemBase {
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(1);
   private static final Angle HOOD_TOLERANCE = Degree.of(1);
 
+  private CANBus turretCanBus = new CANBus("turret");
+
   // Main motor that spins the flywheel
-  protected final TalonFX flywheel = new TalonFX(28, CANBus.roboRIO());
-  protected final TalonFX follower = new TalonFX(52, CANBus.roboRIO());
+  protected final TalonFX flywheel = new TalonFX(28, turretCanBus);
+  protected final TalonFX follower = new TalonFX(52, turretCanBus);
 
   // Hood motor and encoder for position control
-  protected final TalonFX hood = new TalonFX(29, CANBus.roboRIO());
-  protected final CANcoder hoodEncoder = new CANcoder(30, CANBus.roboRIO());
+  protected final TalonFX hood = new TalonFX(29, turretCanBus);
+  protected final CANcoder hoodEncoder = new CANcoder(30, turretCanBus);
 
   // Controller for spinning the flywheel at a target speed
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);

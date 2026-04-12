@@ -25,8 +25,6 @@ import frc.robot.subsystems.hopper.Hopper;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
-import frc.robot.subsystems.spindexer.Spindexer;
-import frc.robot.subsystems.spindexer.SpindexerSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FeedTargetSelector;
@@ -82,9 +80,6 @@ public class Superstructure {
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
 
   private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
-
-  private final Spindexer spindexer =
-      RobotBase.isSimulation() ? new SpindexerSIM() : new Spindexer();
 
   private final Hopper hopper = new Hopper();
 
@@ -213,8 +208,7 @@ public class Superstructure {
             () -> targetFlywheelVelocity.get(), () -> Degrees.of(targetHoodAngle.get()))
         .alongWith(Commands.runOnce(() -> isShooting = true))
         .alongWith(
-            Commands.sequence(
-                Commands.waitUntil(() -> shooter.isAtTarget()), spindexer.forwardCommand()));
+            Commands.sequence(Commands.waitUntil(() -> shooter.isAtTarget()), hopper.start()));
   }
 
   /** Core shoot logic: runs shooter, then feeds when ready. */
@@ -223,9 +217,8 @@ public class Superstructure {
         shooterCommand,
         Commands.runOnce(() -> isShooting = true),
         Commands.either(
-                spindexer.forwardCommand(),
-                Commands.either(
-                    spindexer.slowFeed(), spindexer.prepFeed(), () -> turret.isNotFlipping()),
+                hopper.start(),
+                Commands.either(hopper.start(), hopper.startSlow(), () -> turret.isNotFlipping()),
                 readyToFeed)
             .repeatedly());
   }
@@ -255,8 +248,7 @@ public class Superstructure {
         turret.trackHubCommand(() -> 0.0),
         Commands.sequence(
             Commands.runOnce(() -> isShooting = true),
-            Commands.either(spindexer.forwardCommand(), spindexer.prepFeed(), () -> isFeedReady())
-                .repeatedly()));
+            Commands.either(hopper.start(), hopper.startSlow(), () -> isFeedReady()).repeatedly()));
   }
 
   private boolean isHubReady() {
@@ -301,13 +293,13 @@ public class Superstructure {
               isAutoShootEnabled = false;
               isShooting = false;
               shooter.stopMotors();
-              spindexer.stop();
+              hopper.stop();
             });
   }
 
   public Command stopShoot() {
     return Commands.sequence(
-        Commands.runOnce(() -> isShooting = false), spindexer.stopCommand(), shooter.stopCommand());
+        Commands.runOnce(() -> isShooting = false), hopper.stop(), shooter.stopCommand());
   }
 
   /**
@@ -326,7 +318,7 @@ public class Superstructure {
                   passTargetOverride = blueAllianceTarget;
                   isShooting = true;
                 }),
-            spindexer.forwardCommand())
+            hopper.start())
         .finallyDo(
             () -> {
               passTargetOverride = null;
@@ -335,11 +327,11 @@ public class Superstructure {
   }
 
   public Command reverseSpindexer() {
-    return spindexer.backCommand();
+    return hopper.reverse();
   }
 
   public Command stopSpindexer() {
-    return spindexer.stopCommand();
+    return hopper.stop();
   }
 
   // Hopper commands
