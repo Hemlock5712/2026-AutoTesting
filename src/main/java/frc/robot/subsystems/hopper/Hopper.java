@@ -54,7 +54,7 @@ public class Hopper extends SubsystemBase {
 
     sideConfig.Feedback.SensorToMechanismRatio = 3.9;
 
-    sideConfig.CurrentLimits.StatorCurrentLimit = 20.0;
+    sideConfig.CurrentLimits.StatorCurrentLimit = 120.0;
     success = TalonFXUtil.applyConfigWithRetries(side, sideConfig);
     sideMotorConfigAlert.set(!success);
 
