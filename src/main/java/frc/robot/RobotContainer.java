@@ -243,9 +243,9 @@ public class RobotContainer {
                     (intakeCoordinator.getVelocityTarget() < 20
                         || intakeCoordinator.getVelocityTarget() > 30)));
 
-    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
-    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick
         .povLeft()

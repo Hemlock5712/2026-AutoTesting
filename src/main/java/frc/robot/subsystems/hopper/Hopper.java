@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
+import org.littletonrobotics.junction.AutoLogOutput;
 
 public class Hopper extends SubsystemBase {
 
@@ -39,6 +40,10 @@ public class Hopper extends SubsystemBase {
     mainConfig.Slot0.kS = 0.33;
     mainConfig.Slot0.kV = 0.33;
 
+    mainConfig.CurrentLimits.StatorCurrentLimit = 240;
+    mainConfig.CurrentLimits.StatorCurrentLimitEnable = true;
+    
+
     mainConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     boolean success = TalonFXUtil.applyConfigWithRetries(main, mainConfig);
     motorConfigAlert.set(!success);
@@ -48,6 +53,8 @@ public class Hopper extends SubsystemBase {
     sideConfig.Slot0.kV = 0.375;
 
     sideConfig.Feedback.SensorToMechanismRatio = 3.9;
+
+    sideConfig.CurrentLimits.StatorCurrentLimit = 20.0;
     success = TalonFXUtil.applyConfigWithRetries(side, sideConfig);
     sideMotorConfigAlert.set(!success);
 
@@ -62,19 +69,23 @@ public class Hopper extends SubsystemBase {
 
   public Command start() {
     return Commands.runOnce(
-        () -> setVelocity(RotationsPerSecond.of(35), RotationsPerSecond.of(30)));
+        () -> setVelocity(RotationsPerSecond.of(20), RotationsPerSecond.of(10)));
   }
 
   public Command startSlow() {
-    return Commands.runOnce(() -> setVelocity(RotationsPerSecond.of(10), RotationsPerSecond.of(5)));
+    return Commands.runOnce(() -> setVelocity(RotationsPerSecond.of(30), RotationsPerSecond.of(5)));
   }
 
   public Command reverseCommand() {
-    return Commands.runOnce(
-        () -> setVelocity(RotationsPerSecond.of(-5), RotationsPerSecond.of(-5)));
+    return Commands.runOnce(() -> setVelocity(RotationsPerSecond.of(-5), RotationsPerSecond.of(5)));
   }
 
   public Command stop() {
     return Commands.runOnce(() -> setVelocity(RotationsPerSecond.of(0), RotationsPerSecond.of(0)));
+  }
+
+  @AutoLogOutput
+  public double leaderStator() {
+    return main.getStatorCurrent().getValueAsDouble();
   }
 }

@@ -26,10 +26,10 @@ public class ShooterLookup {
     flywheelMap.put(2.0, 28.0);
     flywheelMap.put(2.5, 29.0);
     flywheelMap.put(3.0, 31.0);
-    flywheelMap.put(3.5, 35.0);
-    flywheelMap.put(4.0, 37.0);
-    flywheelMap.put(4.5, 39.0);
-    flywheelMap.put(5.0, 41.0);
+    flywheelMap.put(3.5, 33.0);
+    flywheelMap.put(4.0, 34.0);
+    flywheelMap.put(4.5, 37.0);
+    flywheelMap.put(5.0, 39.0);
     flywheelMap.put(5.5, 42.0);
   }
 
@@ -40,11 +40,11 @@ public class ShooterLookup {
     hoodMap.put(2.0, 5.0);
     hoodMap.put(2.5, 9.0);
     hoodMap.put(3.0, 11.0);
-    hoodMap.put(3.5, 12.0);
-    hoodMap.put(4.0, 14.0);
-    hoodMap.put(4.5, 15.5);
+    hoodMap.put(3.5, 13.0);
+    hoodMap.put(4.0, 15.0);
+    hoodMap.put(4.5, 15.0);
     hoodMap.put(5.0, 16.0);
-    hoodMap.put(5.5, 17.0);
+    hoodMap.put(5.5, 19.0);
   }
 
   private static void buildToF() {
