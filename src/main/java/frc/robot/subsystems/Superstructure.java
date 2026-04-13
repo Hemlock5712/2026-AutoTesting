@@ -2,6 +2,7 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
@@ -290,7 +291,7 @@ public class Superstructure {
               isAutoShootEnabled = false;
               isShooting = false;
               shooter.stopMotors();
-              hopper.stop();
+              hopper.setVelocity(RotationsPerSecond.of(-5), RotationsPerSecond.of(-5));
             });
   }
 
@@ -323,10 +324,6 @@ public class Superstructure {
             });
   }
 
-  public Command reverseSpindexer() {
-    return hopper.reverse();
-  }
-
   public Command stopSpindexer() {
     return hopper.stop();
   }
@@ -338,10 +335,6 @@ public class Superstructure {
 
   public Command startHopperSlow() {
     return hopper.startSlow();
-  }
-
-  public Command reverseHopper() {
-    return hopper.reverse();
   }
 
   public Command stopHopper() {

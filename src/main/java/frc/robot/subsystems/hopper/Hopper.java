@@ -60,7 +60,6 @@ public class Hopper extends SubsystemBase {
     side.setControl(sideVelocityOut.withVelocity(sideVelocity));
   }
 
-  // TODO: change velocity (idk what it should be)
   public Command start() {
     return Commands.runOnce(
         () -> setVelocity(RotationsPerSecond.of(35), RotationsPerSecond.of(30)));
@@ -70,9 +69,9 @@ public class Hopper extends SubsystemBase {
     return Commands.runOnce(() -> setVelocity(RotationsPerSecond.of(10), RotationsPerSecond.of(5)));
   }
 
-  public Command reverse() {
+  public Command reverseCommand() {
     return Commands.runOnce(
-        () -> setVelocity(RotationsPerSecond.of(-25), RotationsPerSecond.of(-5)));
+        () -> setVelocity(RotationsPerSecond.of(-5), RotationsPerSecond.of(-5)));
   }
 
   public Command stop() {
