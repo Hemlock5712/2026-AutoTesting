@@ -19,8 +19,8 @@ public class JamProtectedShoot extends Command {
 
   // Timing constants
   private static final double SIDEWAYS_CONFIRM_TIME = 0.5; // 0.5s to confirm ball in sideways
-  private static final double KICKER_TIMEOUT = 0.1; // 0.1s for ball to reach kicker
-  private static final double RECOVERY_TIME = 0.5; // 0.5s recovery sequence
+  private static final double KICKER_TIMEOUT = 0.2; // 0.1s for ball to reach kicker
+  private static final double RECOVERY_TIME = 0.1; // 0.5s recovery sequence
 
   private final Hopper hopper;
   private final BooleanSupplier isReadyToFeed;
@@ -78,7 +78,7 @@ public class JamProtectedShoot extends Command {
   private void executeNormal() {
     // Normal hopper control: start if ready, stop if not
     if (isReadyToFeed.getAsBoolean()) {
-      hopper.setVelocity(RotationsPerSecond.of(20), RotationsPerSecond.of(10));
+      hopper.setVelocity(RotationsPerSecond.of(34), RotationsPerSecond.of(10));
 
       // Start monitoring for jams if ball is in sideways
       if (hopper.hasBallInSideways()) {
@@ -92,7 +92,7 @@ public class JamProtectedShoot extends Command {
 
   private void executeMonitoringSideways() {
     // Keep hopper running while monitoring
-    hopper.setVelocity(RotationsPerSecond.of(20), RotationsPerSecond.of(10));
+    hopper.setVelocity(RotationsPerSecond.of(34), RotationsPerSecond.of(10));
 
     // If ball leaves sideways, go back to normal
     if (!hopper.hasBallInSideways()) {
@@ -121,7 +121,7 @@ public class JamProtectedShoot extends Command {
 
   private void executeWaitingForKicker() {
     // Keep hopper running while waiting for ball to reach kicker
-    hopper.setVelocity(RotationsPerSecond.of(20), RotationsPerSecond.of(10));
+    hopper.setVelocity(RotationsPerSecond.of(34), RotationsPerSecond.of(10));
 
     // If we're no longer ready to feed, go back to normal
     if (!isReadyToFeed.getAsBoolean()) {
