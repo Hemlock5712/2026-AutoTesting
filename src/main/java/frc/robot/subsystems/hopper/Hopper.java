@@ -28,7 +28,7 @@ public class Hopper extends SubsystemBase {
 
   protected final TalonFX side = new TalonFX(50, TunerConstants.kCANBus);
 
-  private final CANrange sidewaysRange = new CANrange(40, TunerConstants.kCANBus);
+  private final CANrange sidewaysRange = new CANrange(40, new CANBus("turret"));
   private final CANrange kickerRange = new CANrange(41, new CANBus("turret"));
 
   protected TalonFXConfiguration mainConfig = new TalonFXConfiguration();
