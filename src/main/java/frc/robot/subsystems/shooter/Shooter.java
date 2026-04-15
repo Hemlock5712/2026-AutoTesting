@@ -235,7 +235,7 @@ public class Shooter extends SubsystemBase {
 
   /** Looser check for feed shots - wider margin than hub shots. */
   public boolean isAtFeedTarget(double distance) {
-    double margin = 0.8; // Wider than hub's 0.4m
+    double margin = 2.0; // Wider than hub's 0.4m
     double minDist = Math.max(1.5, distance - margin);
     double maxDist = Math.min(9.5, distance + margin); // Feed range is longer
 
