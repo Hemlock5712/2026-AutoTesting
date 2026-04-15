@@ -225,16 +225,15 @@ public class Superstructure {
     return shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance);
   }
 
-  /** Shooting sequence with SWM compensation (degrades to static when stationary). */
-  /** Hub shot with SWM compensation. */
+  /** Hub shot with SWM compensation and jam protection. */
   public Command hubShoot() {
-    return shootSequence(
+    return shootSequenceWithJamProtection(
         shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance), this::isHubReady);
   }
 
-  /** Feed shot — wider tolerance, uses feed lookup maps. */
+  /** Feed shot with jam protection — wider tolerance, uses feed lookup maps. */
   public Command feedShoot() {
-    return shootSequence(
+    return shootSequenceWithJamProtection(
         shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
         this::isFeedReady);
   }
