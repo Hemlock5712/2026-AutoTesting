@@ -41,13 +41,22 @@ public class HubShiftUtil {
       return;
     }
 
+    double time = timer.get();
     boolean[] schedule = getSchedule();
-    int shiftIndex = getShiftIndex(timer.get());
+    int shiftIndex = getShiftIndex(time);
     hubActive = schedule[shiftIndex];
+
+    int nextBoundaryIndex = shiftIndex + 1;
+    double timeUntilShift =
+        (nextBoundaryIndex < shiftBoundaries.length)
+            ? shiftBoundaries[nextBoundaryIndex] - time
+            : Double.MAX_VALUE;
+
     Logger.recordOutput("Hub/HubActive", hubActive);
-    Logger.recordOutput("Hub/TimeUntilShift", getSecondsUntilNextShift());
+    Logger.recordOutput("Hub/TimeUntilShift", timeUntilShift);
     Logger.recordOutput(
-        "Hub/TimeUntilShiftHumanDisplay", String.format("%02.1f", getSecondsUntilNextShift()));
+        "Hub/TimeUntilShiftHumanDisplay",
+        ((int) timeUntilShift) + "." + ((int) (timeUntilShift * 10) % 10));
   }
 
   /** Returns whether our hub is currently active. */

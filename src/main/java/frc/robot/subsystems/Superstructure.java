@@ -260,7 +260,7 @@ public class Superstructure {
   }
 
   private boolean isFeedReady() {
-    return turret.isAtFeedTarget(distanceToVirtualTarget)
+    return turret.isNotFlipping()
         && shooter.isAtFeedTarget(distanceToVirtualTarget)
         && swmSolutionFeasible
         && (feedSelection == null || !feedSelection.blocked());

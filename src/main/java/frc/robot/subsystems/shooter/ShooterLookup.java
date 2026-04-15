@@ -48,17 +48,17 @@ public class ShooterLookup {
   }
 
   private static void buildToF() {
-    tofMap.put(0.0, 0.8667);
-    tofMap.put(1.0, 0.8667);
-    tofMap.put(1.5, 0.8667);
-    tofMap.put(2.0, 0.9667);
-    tofMap.put(2.5, 0.9556);
-    tofMap.put(3.0, 0.9833);
-    tofMap.put(3.5, 1.100);
-    tofMap.put(4.0, 1.1389);
-    tofMap.put(4.5, 1.2167);
-    tofMap.put(5.0, 1.2667);
-    tofMap.put(5.5, 1.3278);
+    tofMap.put(0.0, 0.889);
+    tofMap.put(1.0, 0.889);
+    tofMap.put(1.5, 0.889);
+    tofMap.put(2.0, 0.933);
+    tofMap.put(2.5, 0.983);
+    tofMap.put(3.0, 1.044);
+    tofMap.put(3.5, 1.044);
+    tofMap.put(4.0, 1.017);
+    tofMap.put(4.5, 1.161);
+    tofMap.put(5.0, 1.211);
+    tofMap.put(5.5, 1.333);
   }
 
   private static void buildFeedFlywheel() {

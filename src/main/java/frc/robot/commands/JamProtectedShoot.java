@@ -19,7 +19,7 @@ public class JamProtectedShoot extends Command {
 
   // Timing constants
   private static final double SIDEWAYS_CONFIRM_TIME = 0.5; // 0.5s to confirm ball in sideways
-  private static final double KICKER_TIMEOUT = 0.2; // 0.1s for ball to reach kicker
+  private static final double KICKER_TIMEOUT = 0.33; // 0.33s for ball to reach kicker
   private static final double RECOVERY_TIME = 0.1; // 0.5s recovery sequence
 
   private final Hopper hopper;
