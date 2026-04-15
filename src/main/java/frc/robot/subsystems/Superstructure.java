@@ -22,6 +22,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.AccelerationLimiter;
+import frc.robot.commands.JamProtectedShoot;
 import frc.robot.subsystems.hopper.Hopper;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
@@ -271,6 +272,36 @@ public class Superstructure {
     return Commands.either(
         hubShoot(),
         feedShoot(),
+        () -> FieldInfo.flipX(driveState.get().Pose.getX()) < FieldInfo.ALLIANCE_ZONE_X);
+  }
+
+  /** Core shoot logic with jam protection: runs shooter, then feeds with jam detection. */
+  private Command shootSequenceWithJamProtection(
+      Command shooterCommand, BooleanSupplier readyToFeed) {
+    return Commands.parallel(
+        shooterCommand,
+        Commands.runOnce(() -> isShooting = true),
+        new JamProtectedShoot(hopper, readyToFeed));
+  }
+
+  /** Hub shot with SWM compensation and jam protection. */
+  public Command jamProtectedHubShoot() {
+    return shootSequenceWithJamProtection(
+        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance), this::isHubReady);
+  }
+
+  /** Feed shot with jam protection. */
+  public Command jamProtectedFeedShoot() {
+    return shootSequenceWithJamProtection(
+        shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
+        this::isFeedReady);
+  }
+
+  /** Selects hub shot or feed shot based on field position, with jam protection. */
+  public Command jamProtectedShoot() {
+    return Commands.either(
+        jamProtectedHubShoot(),
+        jamProtectedFeedShoot(),
         () -> FieldInfo.flipX(driveState.get().Pose.getX()) < FieldInfo.ALLIANCE_ZONE_X);
   }
 

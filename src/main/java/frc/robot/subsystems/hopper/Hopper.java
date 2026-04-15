@@ -4,6 +4,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.hardware.CANrange;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import edu.wpi.first.units.measure.AngularVelocity;
@@ -18,9 +19,16 @@ import org.littletonrobotics.junction.AutoLogOutput;
 
 public class Hopper extends SubsystemBase {
 
+  // Ball detection thresholds (in meters)
+  private static final double SIDEWAYS_BALL_THRESHOLD_M = 0.203; // 203mm
+  private static final double KICKER_BALL_THRESHOLD_M = 0.100; // 100mm
+
   protected final TalonFX main = new TalonFX(51, TunerConstants.kCANBus);
 
   protected final TalonFX side = new TalonFX(50, TunerConstants.kCANBus);
+
+  private final CANrange sidewaysRange = new CANrange(40, TunerConstants.kCANBus);
+  private final CANrange kickerRange = new CANrange(41, TunerConstants.kCANBus);
 
   protected TalonFXConfiguration mainConfig = new TalonFXConfiguration();
 
@@ -42,7 +50,6 @@ public class Hopper extends SubsystemBase {
 
     mainConfig.CurrentLimits.StatorCurrentLimit = 240;
     mainConfig.CurrentLimits.StatorCurrentLimitEnable = true;
-    
 
     mainConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     boolean success = TalonFXUtil.applyConfigWithRetries(main, mainConfig);
@@ -54,7 +61,7 @@ public class Hopper extends SubsystemBase {
 
     sideConfig.Feedback.SensorToMechanismRatio = 3.9;
 
-    sideConfig.CurrentLimits.StatorCurrentLimit = 120.0;
+    sideConfig.CurrentLimits.StatorCurrentLimit = 20.0;
     success = TalonFXUtil.applyConfigWithRetries(side, sideConfig);
     sideMotorConfigAlert.set(!success);
 
@@ -87,5 +94,30 @@ public class Hopper extends SubsystemBase {
   @AutoLogOutput
   public double leaderStator() {
     return main.getStatorCurrent().getValueAsDouble();
+  }
+
+  @AutoLogOutput
+  public boolean hasBallInSideways() {
+    return sidewaysRange.getDistance().getValueAsDouble() < SIDEWAYS_BALL_THRESHOLD_M;
+  }
+
+  @AutoLogOutput
+  public boolean hasBallInKicker() {
+    return kickerRange.getDistance().getValueAsDouble() < KICKER_BALL_THRESHOLD_M;
+  }
+
+  @AutoLogOutput
+  public double sidewaysDistance() {
+    return sidewaysRange.getDistance().getValueAsDouble();
+  }
+
+  @AutoLogOutput
+  public double kickerDistance() {
+    return kickerRange.getDistance().getValueAsDouble();
+  }
+
+  public void setJamRecovery() {
+    // Reverse kicker (main), forward sideways (side)
+    setVelocity(RotationsPerSecond.of(-20), RotationsPerSecond.of(15));
   }
 }
