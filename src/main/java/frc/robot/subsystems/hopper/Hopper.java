@@ -2,6 +2,7 @@ package frc.robot.subsystems.hopper;
 
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.CANrange;
@@ -20,7 +21,7 @@ import org.littletonrobotics.junction.AutoLogOutput;
 public class Hopper extends SubsystemBase {
 
   // Ball detection thresholds (in meters)
-  private static final double SIDEWAYS_BALL_THRESHOLD_M = 0.203; // 203mm
+  private static final double SIDEWAYS_BALL_THRESHOLD_M = 0.19; // 203mm
   private static final double KICKER_BALL_THRESHOLD_M = 0.100; // 100mm
 
   protected final TalonFX main = new TalonFX(51, TunerConstants.kCANBus);
@@ -28,7 +29,7 @@ public class Hopper extends SubsystemBase {
   protected final TalonFX side = new TalonFX(50, TunerConstants.kCANBus);
 
   private final CANrange sidewaysRange = new CANrange(40, TunerConstants.kCANBus);
-  private final CANrange kickerRange = new CANrange(41, TunerConstants.kCANBus);
+  private final CANrange kickerRange = new CANrange(41, new CANBus("turret"));
 
   protected TalonFXConfiguration mainConfig = new TalonFXConfiguration();
 
@@ -61,7 +62,7 @@ public class Hopper extends SubsystemBase {
 
     sideConfig.Feedback.SensorToMechanismRatio = 3.9;
 
-    sideConfig.CurrentLimits.StatorCurrentLimit = 20.0;
+    sideConfig.CurrentLimits.StatorCurrentLimit = 120.0;
     success = TalonFXUtil.applyConfigWithRetries(side, sideConfig);
     sideMotorConfigAlert.set(!success);
 
@@ -76,7 +77,7 @@ public class Hopper extends SubsystemBase {
 
   public Command start() {
     return Commands.runOnce(
-        () -> setVelocity(RotationsPerSecond.of(20), RotationsPerSecond.of(10)));
+        () -> setVelocity(RotationsPerSecond.of(34), RotationsPerSecond.of(10)));
   }
 
   public Command startSlow() {
