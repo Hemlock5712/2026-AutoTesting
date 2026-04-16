@@ -82,6 +82,7 @@ public class AutoRoutines {
         followPathWithEvents(Paths.LEFT_TO_MIDDLE),
         new WaitCommand(4).deadlineFor(superstructure.shoot()),
         superstructure.stopShoot(),
+        autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE_CLEANUP.getStartingPose()),
         followPathWithEvents(Paths.LEFT_TO_MIDDLE_CLEANUP),
         superstructure.shoot());
   }
