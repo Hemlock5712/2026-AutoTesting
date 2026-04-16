@@ -234,15 +234,7 @@ public class RobotContainer {
     // intakeCoordinator.upAndRun(),
     // () -> intakeCoordinator.getTargetPositionRotations() != 0));
 
-    joystick
-        .leftTrigger(0.5)
-        .onTrue(
-            Commands.either(
-                intakeCoordinator.deployAndRun(),
-                intakeCoordinator.downAndRunFast(),
-                () ->
-                    (intakeCoordinator.getVelocityTarget() < 20
-                        || intakeCoordinator.getVelocityTarget() > 30)));
+    joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
     // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 

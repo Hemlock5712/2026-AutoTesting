@@ -40,7 +40,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
   // Ball properties (game-specific, passed to simulator)
   public static final double BALL_MASS_KG = 0.2268; // 0.5 lbs
   public static final double BALL_DIAMETER_M = 0.15; // 150 mm
-  public static final double DRAG_COEFFICIENT = 0.5; // Smooth foam sphere
+  public static final double DRAG_COEFFICIENT = 2; // Smooth foam sphere
 
   // Launch geometry defaults
   private static final double LAUNCH_HEIGHT_M = 0.4826; // 19 inches

@@ -1,6 +1,5 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -30,13 +29,6 @@ public final class Paths {
     }
   }
 
-  // Named field positions
-  public static final Pose2d START_LEFT =
-      new Pose2d(
-          new Translation2d(4.455046439628482, 7.697925696594428), Rotation2d.fromDegrees(-90));
-  public static final Pose2d START_LEFT_MIRROR =
-      new Pose2d(
-          new Translation2d(4.455046439628482, 0.5120743034055728), Rotation2d.fromDegrees(90));
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
@@ -138,16 +130,16 @@ public final class Paths {
       new PathData(
           List.of(
               new Translation2d(4.4474222222222215, 7.689296296296297),
-              new Translation2d(8.13522962962963, 7.11345925925926),
-              new Translation2d(8.576296296296295, 4.8223629629629645),
+              new Translation2d(8.000493199565913, 7.143524404479861),
+              new Translation2d(8.250749241497267, 4.833468570199595),
               new Translation2d(5.795125925925926, 5.753503703703705),
               new Translation2d(3.4060148148148146, 5.839266666666668),
               new Translation2d(3.222237037037037, 7.5300222222222235),
               new Translation2d(6.064666666666666, 7.395251851851853),
               new Translation2d(6.113674074074074, 4.454807407407408),
               new Translation2d(7.4858814814814805, 4.8223629629629645),
-              new Translation2d(6.848785185185185, 7.358496296296297),
-              new Translation2d(3.0752148148148146, 7.554525925925927),
+              new Translation2d(6.903216708020739, 7.220526265622537),
+              new Translation2d(2.8798695723551013, 7.50928324490757),
               new Translation2d(1.1149185185185184, 6.623385185185186),
               new Translation2d(1.0659111111111108, 5.630985185185186),
               new Translation2d(3.369259259259259, 7.566777777777778)),
@@ -171,18 +163,17 @@ public final class Paths {
           List.of(
               new PathData.ConstraintZone(3, 4, 1.67, 10.791),
               new PathData.ConstraintZone(1, 2, 2.5, 10.791),
-              new PathData.ConstraintZone(4, 5, 0.4, 10.791),
-              new PathData.ConstraintZone(10, 13, 1.3, 10.791)),
+              new PathData.ConstraintZone(4, 5, 0.6, 10.791),
+              new PathData.ConstraintZone(11, 13, 0.7, 10.791),
+              new PathData.ConstraintZone(6, 8, 2, 10.791000000000002)),
           List.of(),
           List.of(
               new PathData.WaypointFlag("171ed5ba-6083-4aab-82bd-fd0e0e614390", 4, "HubShoot"),
               new PathData.WaypointFlag("ec2f238b-6e43-4cdf-93f4-f2703ab80ae6", 5, "StopShoot"),
-              new PathData.WaypointFlag("7e5a241c-0a6f-4d8d-8e53-89f9b9e2be20", 10, "HubShoot"),
               new PathData.WaypointFlag(
                   "8f556a15-54ee-4d2c-9bd4-43ab6735bde0", 4, "SlowRaiseIntake"),
               new PathData.WaypointFlag("f24f6185-c700-4454-9f6c-a30e3af2e090", 6, "RunIntake"),
-              new PathData.WaypointFlag(
-                  "f9f15365-3bbe-4175-848b-efc574e2c984", 13, "SlowRaiseIntake")));
+              new PathData.WaypointFlag("3af66403-f880-4d82-aaf0-aac30109a0f1", 12, "HubShoot")));
 
   public static final PathData SHARK =
       new PathData(

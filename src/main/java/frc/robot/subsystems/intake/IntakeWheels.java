@@ -41,6 +41,10 @@ public class IntakeWheels extends SubsystemBase {
   @Override
   public void periodic() {}
 
+  public Command runIntakeAuto() {
+    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(10)));
+  }
+
   public Command runIntake() {
     return runOnce(() -> wheel.setControl(voltageOut.withVelocity(20)));
   }

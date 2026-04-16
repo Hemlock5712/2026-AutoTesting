@@ -100,6 +100,10 @@ public class Limelight extends SubsystemBase {
       return null;
     }
 
+    if (poseEstimate.avgTagDist > 5.5) {
+      return null;
+    }
+
     // Use MegaTag2 for single tag estimates when not disabled
     // (disabled gyro may not be seeded correctly yet)
     if (poseEstimate.tagCount == 1 && !DriverStation.isDisabled()) {

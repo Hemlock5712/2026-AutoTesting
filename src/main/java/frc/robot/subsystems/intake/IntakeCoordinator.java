@@ -68,7 +68,7 @@ public class IntakeCoordinator {
   }
 
   public Command deployAndRunAUTO() {
-    return Commands.parallel(arm.intakeDownAUTO(), wheels.runIntake());
+    return Commands.parallel(arm.intakeDown(), wheels.runIntakeAuto());
   }
 
   public Command upAndRun() {
