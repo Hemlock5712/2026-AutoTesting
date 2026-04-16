@@ -17,7 +17,7 @@ import java.util.List;
 public final class SplinePath {
 
   /** Samples per meter of path length for the arc-length lookup table. */
-  private static final int SAMPLES_PER_METER = 1000;
+  private static final int SAMPLES_PER_METER = 250;
 
   /** Minimum samples to ensure even short paths have adequate resolution. */
   private static final int MIN_SAMPLES = 100;

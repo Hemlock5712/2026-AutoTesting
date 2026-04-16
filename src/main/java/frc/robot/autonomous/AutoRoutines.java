@@ -16,6 +16,7 @@ import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 public class AutoRoutines {
@@ -96,13 +97,14 @@ public class AutoRoutines {
   }
 
   public Command leftSide2Passes() {
+    PathData mainPath = Paths.forAlliance(Paths.LEFT_TO_MIDDLE);
     PathData[] cleanupPath = new PathData[1];
     Command[] prebuiltCleanup = new Command[1];
-    var pathReady = new java.util.concurrent.atomic.AtomicBoolean(false);
+    var pathReady = new AtomicBoolean(false);
     return Commands.sequence(
-        autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE.getStartingPose()),
+        autoCommands.resetPose(() -> mainPath.getStartingPose()),
         intakeCoordinator.deployAndRunAUTO(),
-        followPathWithEvents(Paths.LEFT_TO_MIDDLE, 0.15),
+        followPathWithEvents(mainPath, 0.15),
         // Build cleanup path on background thread while shooting
         Commands.parallel(
             new WaitCommand(5).deadlineFor(superstructure.shoot()),
@@ -113,7 +115,8 @@ public class AutoRoutines {
                       new Thread(
                               () -> {
                                 cleanupPath[0] =
-                                    Paths.LEFT_TO_MIDDLE_CLEANUP.withStartingPoint(robotPos);
+                                    Paths.forAlliance(Paths.LEFT_TO_MIDDLE_CLEANUP)
+                                        .withStartingPoint(robotPos);
                                 prebuiltCleanup[0] = followPathWithEvents(cleanupPath[0], 0.15);
                                 pathReady.set(true);
                               })
@@ -127,13 +130,14 @@ public class AutoRoutines {
   }
 
   public Command rightSide2Passes() {
+    PathData mainPath = Paths.forAlliance(Paths.RIGHT_TO_MIDDLE);
     PathData[] cleanupPath = new PathData[1];
     Command[] prebuiltCleanup = new Command[1];
-    var pathReady = new java.util.concurrent.atomic.AtomicBoolean(false);
+    var pathReady = new AtomicBoolean(false);
     return Commands.sequence(
-        autoCommands.resetPose(() -> Paths.RIGHT_TO_MIDDLE.getStartingPose()),
+        autoCommands.resetPose(() -> mainPath.getStartingPose()),
         intakeCoordinator.deployAndRunAUTO(),
-        followPathWithEvents(Paths.RIGHT_TO_MIDDLE, 0.15),
+        followPathWithEvents(mainPath, 0.15),
         // Build cleanup path on background thread while shooting
         Commands.parallel(
             new WaitCommand(5).deadlineFor(superstructure.shoot()),
@@ -144,7 +148,8 @@ public class AutoRoutines {
                       new Thread(
                               () -> {
                                 cleanupPath[0] =
-                                    Paths.RIGHT_TO_MIDDLE_CLEANUP.withStartingPoint(robotPos);
+                                    Paths.forAlliance(Paths.RIGHT_TO_MIDDLE_CLEANUP)
+                                        .withStartingPoint(robotPos);
                                 prebuiltCleanup[0] = followPathWithEvents(cleanupPath[0], 0.15);
                                 pathReady.set(true);
                               })

@@ -54,8 +54,8 @@ public final class VelocityProfile {
       List<PathData.ConstraintZone> constraintZones) {
     totalLength = path.getTotalLength();
 
-    // Determine number of samples (~1000 per meter, minimum 100)
-    int numSamples = Math.max(100, (int) (totalLength * 1000));
+    // Determine number of samples (~250 per meter, minimum 100)
+    int numSamples = Math.max(100, (int) (totalLength * 250));
     sSamples = new double[numSamples + 1];
     velocities = new double[numSamples + 1];
 
