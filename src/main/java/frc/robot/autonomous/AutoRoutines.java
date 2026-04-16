@@ -9,6 +9,7 @@ import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 public class AutoRoutines {
 
@@ -49,18 +50,37 @@ public class AutoRoutines {
    * @return A command that runs the path with the actions
    */
   public Command autoBuilder(PathData path) {
+    return autoBuilder(path, () -> true);
+  }
+
+  public Command autoBuilder(PathData path, BooleanSupplier resetPose) {
     PathData pathData = Paths.forAlliance(path);
     return Commands.sequence(
-        autoCommands.resetPose(() -> pathData.getStartingPose()),
-        intakeCoordinator.downAndRunFast(),
-        autoCommands.followPathWithActions(
-            pathData,
-            List.of(
-                new PathAction("HubShoot", 0.5, superstructure::hubShoot),
-                new PathAction("FeedShoot", 0.5, superstructure::feedShoot),
-                new PathAction("StopShoot", 0.25, superstructure::stopShoot),
-                new PathAction("SlowRaiseIntake", 0.5, intakeCoordinator::slowUpAndRun),
-                new PathAction("RunIntake", 0.5, intakeCoordinator::deployAndRunAUTO))),
+        Commands.either(
+            autoCommands.resetPose(() -> pathData.getStartingPose()), Commands.none(), resetPose),
+        intakeCoordinator.deployAndRunAUTO(),
+        followPathWithEvents(pathData),
         superstructure.hubShoot());
+  }
+
+  private Command followPathWithEvents(PathData path) {
+    return autoCommands.followPathWithActions(
+        path,
+        List.of(
+            new PathAction("HubShoot", 0.5, superstructure::hubShoot),
+            new PathAction("FeedShoot", 0.5, superstructure::feedShoot),
+            new PathAction("StopShoot", 0.25, superstructure::stopShoot),
+            new PathAction("SlowRaiseIntake", 0.5, intakeCoordinator::slowUpAndRun),
+            new PathAction("RunIntake", 0.5, intakeCoordinator::deployAndRunAUTO)));
+  }
+
+  public Command leftSide2Passes() {
+    return Commands.sequence(
+        autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE.getStartingPose()),
+        followPathWithEvents(Paths.LEFT_TO_MIDDLE),
+        superstructure.shoot().repeatedly().withTimeout(4),
+        superstructure.stopShoot(),
+        followPathWithEvents(Paths.LEFT_TO_MIDDLE_CLEANUP),
+        superstructure.shoot().repeatedly());
   }
 }

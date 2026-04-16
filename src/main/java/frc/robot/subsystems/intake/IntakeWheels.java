@@ -42,7 +42,7 @@ public class IntakeWheels extends SubsystemBase {
   public void periodic() {}
 
   public Command runIntakeAuto() {
-    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(10)));
+    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(15)));
   }
 
   public Command runIntake() {

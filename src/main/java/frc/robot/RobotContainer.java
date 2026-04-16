@@ -29,7 +29,6 @@ import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.path.PathData;
-import frc.robot.utils.path.Paths;
 import java.util.Optional;
 
 /**
@@ -78,8 +77,8 @@ public class RobotContainer {
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 
   // Vision camera for tracking robot position
-  public final Limelight limelightBR = new Limelight("limelight-br", drivetrain, 2.0);
-  public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain, 2.0);
+  public final Limelight limelightBR = new Limelight("limelight-br", drivetrain, 1.0);
+  public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain, 1.0);
   public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
   // public final Limelight limelightMM = new Limelight("limelight-mm",
@@ -90,7 +89,7 @@ public class RobotContainer {
       new BallPhysicsSimulation(drivetrain, superstructure);
 
   /* Autonomous mode selector — builds only the selected path during disabled */
-  private final SendableChooser<PathData> autoChooser = new SendableChooser<>();
+  private final SendableChooser<Command> autoChooser = new SendableChooser<>();
   private final AutoRoutines autoRoutines;
   private Command cachedAutoCommand = Commands.none();
   private PathData lastBuiltPath;
@@ -100,13 +99,14 @@ public class RobotContainer {
     autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
 
     // Register available paths (lightweight — no SplinePath/VelocityProfile computation)
-    addPathAutoOption(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT);
-    addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP);
-    addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP_LONG);
-    addPathAutoOption(Paths.OP);
-    addPathAutoOption(Paths.OP_RIGHT);
-    addPathAutoOption(Paths.SHARK);
-    addPathAutoOption(Paths.MADTOWN);
+    // addPathAutoOption(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT);
+    // addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP);
+    // addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP_LONG);
+    // addPathAutoOption(Paths.OP);
+    // addPathAutoOption(Paths.OP_RIGHT);
+    // addPathAutoOption(Paths.SHARK);
+    // addPathAutoOption(Paths.MADTOWN);
+    autoChooser.addOption("Left Side 2 Passes", autoRoutines.leftSide2Passes());
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
@@ -255,7 +255,7 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    return cachedAutoCommand;
+    return autoChooser.getSelected();
   }
 
   public double rescaleInputs(double input) {
@@ -285,34 +285,34 @@ public class RobotContainer {
     joystick.getHID().setRumble(RumbleType.kBothRumble, value);
   }
 
-  private void addPathAutoOption(PathData path) {
-    autoChooser.addOption(Paths.nameOf(path), path);
-  }
+  // private void addPathAutoOption(PathData path) {
+  //   autoChooser.addOption(Paths.nameOf(path), path);
+  // }
 
   /**
    * Polls for changes in auto selection or alliance during disabled. Rebuilds the cached auto
    * command only when something changes. Call from {@code disabledPeriodic()}.
    */
   public void updateAutoSelection() {
-    PathData selected = autoChooser.getSelected();
+    // PathData selected = autoChooser.getSelected();
     Optional<Alliance> alliance = DriverStation.getAlliance();
 
-    if (selected == lastBuiltPath && alliance.equals(lastBuiltAlliance)) {
+    if (alliance.equals(lastBuiltAlliance)) {
       return;
     }
 
-    lastBuiltPath = selected;
+    // lastBuiltPath = selected;
     lastBuiltAlliance = alliance;
 
     // Update tag filters on rear cameras when alliance changes
     updateRearCameraTagFilters(alliance);
 
-    if (selected == null) {
-      cachedAutoCommand = Commands.none();
-      return;
-    }
+    // if (selected == null) {
+    //   cachedAutoCommand = Commands.none();
+    //   return;
+    // }
 
-    cachedAutoCommand = autoRoutines.autoBuilder(selected);
+    // cachedAutoCommand = autoRoutines.autoBuilder(selected);
   }
 
   /**

@@ -132,31 +132,31 @@ public final class Paths {
               new Translation2d(4.4474222222222215, 7.689296296296297),
               new Translation2d(8.000493199565913, 7.143524404479861),
               new Translation2d(8.250749241497267, 4.833468570199595),
-              new Translation2d(5.795125925925926, 5.753503703703705),
+              new Translation2d(5.825190681239516, 5.62273764691202),
               new Translation2d(3.4060148148148146, 5.839266666666668),
               new Translation2d(3.222237037037037, 7.5300222222222235),
-              new Translation2d(6.064666666666666, 7.395251851851853),
-              new Translation2d(6.113674074074074, 4.454807407407408),
-              new Translation2d(7.4858814814814805, 4.8223629629629645),
-              new Translation2d(6.903216708020739, 7.220526265622537),
+              new Translation2d(5.57493463930816, 7.547784175478908),
+              new Translation2d(7.846489481454309, 5.160726480055966),
+              new Translation2d(6.652960666089384, 4.024949028201501),
+              new Translation2d(6.3642036946301275, 7.3360290573365505),
               new Translation2d(2.8798695723551013, 7.50928324490757),
-              new Translation2d(1.1149185185185184, 6.623385185185186),
-              new Translation2d(1.0659111111111108, 5.630985185185186),
+              new Translation2d(1.2435800674193156, 6.700763702909477),
+              new Translation2d(1.2050791378914147, 5.603487181626351),
               new Translation2d(3.369259259259259, 7.566777777777778)),
           List.of(
               new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(270)),
-              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(315)),
               new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(270)),
-              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(315)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(45)),
               new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
               new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
               new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(180)),
               new PathData.HeadingWaypoint(10, Rotation2d.fromDegrees(180)),
-              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(270)),
-              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(85)),
+              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(250)),
+              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(180)),
               new PathData.HeadingWaypoint(11, Rotation2d.fromDegrees(205)),
               new PathData.HeadingWaypoint(13, Rotation2d.fromDegrees(180)),
-              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90))),
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(45))),
           VelocityConstraints.defaults()
               .withMaxVelocity(4.9)
               .withMaxAcceleration(10.791000000000002),
@@ -353,6 +353,51 @@ public final class Paths {
               new PathData.WaypointFlag("2b9d2dac-cf56-4747-ade7-27b47cda7616", 6, "RunIntake"),
               new PathData.WaypointFlag(
                   "875a7795-e94d-4b29-a647-322c24568eb2", 11, "SlowRaiseIntake")));
+
+  public static final PathData LEFT_TO_MIDDLE_CLEANUP =
+      new PathData(
+          List.of(
+              new Translation2d(4.4474222222222215, 7.689296296296297),
+              new Translation2d(5.4594318507244575, 7.586285106050246),
+              new Translation2d(8.000493199565913, 7.143524404479861),
+              new Translation2d(8.250749241497267, 4.833468570199595),
+              new Translation2d(6.806964384200987, 4.21745368105819),
+              new Translation2d(6.4989569479777805, 7.297528126765212),
+              new Translation2d(4.188901176303729, 7.586285106050246)),
+          List.of(
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-70)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(0))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(4.9)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(2, 3, 2.5, 10.791)),
+          List.of(),
+          List.of());
+
+  public static final PathData LEFT_TO_MIDDLE =
+      new PathData(
+          List.of(
+              new Translation2d(4.208151641067681, 7.701787897764259),
+              new Translation2d(8.115995988149615, 7.085773008622855),
+              new Translation2d(8.347001565317022, 4.871969500770933),
+              new Translation2d(7.230474609007896, 5.025973223056283),
+              new Translation2d(6.575958807033582, 7.3360290573365505),
+              new Translation2d(4.22740210583163, 7.586285106050246)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(0))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(1, 2, 2, 10.791000000000002)),
+          List.of(),
+          List.of());
 
   /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later
