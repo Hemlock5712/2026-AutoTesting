@@ -126,6 +126,37 @@ public class AutoRoutines {
         superstructure.shoot());
   }
 
+  public Command rightSide2Passes() {
+    PathData[] cleanupPath = new PathData[1];
+    Command[] prebuiltCleanup = new Command[1];
+    var pathReady = new java.util.concurrent.atomic.AtomicBoolean(false);
+    return Commands.sequence(
+        autoCommands.resetPose(() -> Paths.RIGHT_TO_MIDDLE.getStartingPose()),
+        intakeCoordinator.deployAndRunAUTO(),
+        followPathWithEvents(Paths.RIGHT_TO_MIDDLE, 0.15),
+        // Build cleanup path on background thread while shooting
+        Commands.parallel(
+            new WaitCommand(5).deadlineFor(superstructure.shoot()),
+            Commands.sequence(
+                Commands.runOnce(
+                    () -> {
+                      var robotPos = autoCommands.getRobotTranslation();
+                      new Thread(
+                              () -> {
+                                cleanupPath[0] =
+                                    Paths.RIGHT_TO_MIDDLE_CLEANUP.withStartingPoint(robotPos);
+                                prebuiltCleanup[0] = followPathWithEvents(cleanupPath[0], 0.15);
+                                pathReady.set(true);
+                              })
+                          .start();
+                    }),
+                Commands.waitUntil(pathReady::get))),
+        superstructure.stopShoot(),
+        autoCommands.resetPose(() -> cleanupPath[0].getStartingPose()),
+        autoCommands.deferCommand(() -> prebuiltCleanup[0]),
+        superstructure.shoot());
+  }
+
   public Command leftAutoFeed(double midlineX) {
     return Commands.sequence(
         autoCommands.leftAutoSetup(),
@@ -187,7 +218,6 @@ public class AutoRoutines {
                     .driveTo(new ExtPose(3.5, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)))
                     .withMaxSpeed(1)
                     .withWaypoint(1)),
-            superstructure.shoot()),
-        intakeCoordinator.slowUpAndRun());
+            superstructure.shoot()));
   }
 }

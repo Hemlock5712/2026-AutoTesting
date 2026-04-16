@@ -107,6 +107,7 @@ public class RobotContainer {
     // addPathAutoOption(Paths.SHARK);
     // addPathAutoOption(Paths.MADTOWN);
     autoChooser.addOption("Left Side 2 Passes", autoRoutines.leftSide2Passes());
+    autoChooser.addOption("Right Side 2 Pass", autoRoutines.rightSide2Passes());
     autoChooser.addOption("Left Side Auto", autoRoutines.leftAutoFeed(8.1));
 
     SmartDashboard.putData("Auto Mode", autoChooser);
@@ -237,9 +238,9 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
-    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick
         .povLeft()

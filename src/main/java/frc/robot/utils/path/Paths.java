@@ -369,7 +369,7 @@ public final class Paths {
               new Translation2d(5.4594318507244575, 7.586285106050246),
               new Translation2d(8.000493199565913, 7.143524404479861),
               new Translation2d(8.250749241497267, 4.833468570199595),
-              new Translation2d(6.806964384200987, 4.21745368105819),
+              new Translation2d(6.537, 4.083),
               new Translation2d(6.520891569760011, 7.297184614934276),
               new Translation2d(4.22740210583163, 7.586285106050246)),
           List.of(
@@ -398,6 +398,51 @@ public final class Paths {
           List.of(
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
               new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(0))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(1, 2, 2, 10.791000000000002)),
+          List.of(),
+          List.of());
+
+  public static final PathData RIGHT_TO_MIDDLE_CLEANUP =
+      new PathData(
+          List.of(
+              new Translation2d(4.22740210583163, 0.6237148939497548),
+              new Translation2d(5.4594318507244575, 0.6237148939497548),
+              new Translation2d(8.000493199565913, 1.0664755955201395),
+              new Translation2d(8.250749241497267, 3.376531429800406),
+              new Translation2d(6.53728945347439, 4.083199282140768),
+              new Translation2d(6.520891569760011, 0.9128153850657252),
+              new Translation2d(4.22740210583163, 0.6237148939497548)),
+          List.of(
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(70)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(0))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(4.9)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(2, 3, 2.5, 10.791)),
+          List.of(),
+          List.of());
+
+  public static final PathData RIGHT_TO_MIDDLE =
+      new PathData(
+          List.of(
+              new Translation2d(4.208151641067681, 0.508212102235742),
+              new Translation2d(8.115995988149615, 1.1242269913771459),
+              new Translation2d(8.347001565317022, 3.3380304992290677),
+              new Translation2d(7.230474609007896, 3.1840267769437176),
+              new Translation2d(6.575958807033582, 0.8739709426634503),
+              new Translation2d(4.22740210583163, 0.6237148939497548)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(90)),
               new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
               new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(0))),
           VelocityConstraints.defaults()

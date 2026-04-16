@@ -13,7 +13,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
-import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 public class Limelight extends SubsystemBase {
 
@@ -55,6 +55,7 @@ public class Limelight extends SubsystemBase {
    *     viewing angle).
    */
   public Limelight(String limelightName, CommandSwerveDrivetrain drivetrain, double stdDevFactor) {
+    super(limelightName);
     m_limelightName = limelightName;
     m_drivetrain = drivetrain;
     m_stdDevFactor = stdDevFactor;
@@ -69,12 +70,15 @@ public class Limelight extends SubsystemBase {
     updateRobotOrientation();
 
     PoseEstimate poseEstimate = getValidPoseEstimate();
-    if (poseEstimate == null) {
-      return;
+    if (poseEstimate != null) {
+      lastPoseEstimate = poseEstimate;
+      addVisionMeasurement(poseEstimate);
     }
 
-    lastPoseEstimate = poseEstimate;
-    addVisionMeasurement(poseEstimate);
+    Logger.recordOutput(m_limelightName + "/Pose", lastPoseEstimate.pose);
+    Logger.recordOutput(m_limelightName + "/TimestampSeconds", lastPoseEstimate.timestampSeconds);
+    Logger.recordOutput(m_limelightName + "/AvgTagDist", lastPoseEstimate.avgTagDist);
+    Logger.recordOutput(m_limelightName + "/TagCount", lastPoseEstimate.tagCount);
   }
 
   private void updateRobotOrientation() {
@@ -177,22 +181,18 @@ public class Limelight extends SubsystemBase {
     LimelightHelpers.SetFiducialIDFiltersOverride(m_limelightName, validIDs);
   }
 
-  @AutoLogOutput
   public Pose2d getPose() {
     return lastPoseEstimate.pose;
   }
 
-  @AutoLogOutput
   public double getTimestampSeconds() {
     return lastPoseEstimate.timestampSeconds;
   }
 
-  @AutoLogOutput
   public double getAvgTagDist() {
     return lastPoseEstimate.avgTagDist;
   }
 
-  @AutoLogOutput
   public int getTagCount() {
     return lastPoseEstimate.tagCount;
   }
