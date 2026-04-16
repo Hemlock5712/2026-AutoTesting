@@ -1,13 +1,18 @@
 package frc.robot.autonomous;
 
+import static edu.wpi.first.units.Units.Meters;
+
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.commands.DriveToPoint;
 import frc.robot.commands.FollowPath;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.ProjectionResult;
 import frc.robot.utils.path.RotationSupplier;
@@ -48,6 +53,10 @@ public class AutoCommands {
    */
   public AutoCommands(CommandSwerveDrivetrain drivetrain) {
     this.drivetrain = drivetrain;
+  }
+
+  public DriveToPoint driveTo(Supplier<Pose2d> pose) {
+    return new DriveToPoint(drivetrain, pose);
   }
 
   // ==================== Drive Commands ====================
@@ -424,5 +433,12 @@ public class AutoCommands {
     return Commands.sequence(
         Commands.waitUntil(() -> FieldInfo.flipX(drivetrain.getPose().getX()) > blueAllianceX),
         commandToRun);
+  }
+
+  public Command leftAutoSetup() {
+    return resetPose(
+        () ->
+            new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.fromDegrees(-90))
+                .get());
   }
 }
