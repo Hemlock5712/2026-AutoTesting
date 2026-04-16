@@ -96,7 +96,7 @@ public class AutoRoutines {
         followPathWithEvents(Paths.LEFT_TO_MIDDLE, 0.15),
         // Build cleanup path from robot position while shooting
         Commands.parallel(
-            new WaitCommand(3).deadlineFor(superstructure.shoot()),
+            new WaitCommand(5).deadlineFor(superstructure.shoot()),
             Commands.runOnce(
                 () -> {
                   cleanupPath[0] =
