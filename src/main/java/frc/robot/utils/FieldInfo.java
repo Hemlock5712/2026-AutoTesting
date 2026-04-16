@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.utils.geometry.ExtTranslation;
 import java.util.List;
+import java.util.Optional;
 
 public final class FieldInfo {
 
@@ -90,6 +91,22 @@ public final class FieldInfo {
   /** Returns the current field's AprilTag layout. */
   public static AprilTagFieldLayout aprilTags() {
     return layout;
+  }
+
+  // ==================== Alliance Tag Filtering ====================
+
+  private static final int[] BLUE_ALLIANCE_TAGS = {27, 18, 25, 26, 21, 24, 19, 20};
+  private static final int[] RED_ALLIANCE_TAGS = {3, 4, 9, 5, 8, 10, 11, 2};
+
+  /**
+   * Returns AprilTag IDs trusted when on the given alliance. Returns an empty array (no filter /
+   * accept all) if alliance is unknown.
+   */
+  public static int[] getAllianceTags(Optional<Alliance> alliance) {
+    if (alliance.isEmpty()) {
+      return new int[] {};
+    }
+    return alliance.get() == Alliance.Blue ? BLUE_ALLIANCE_TAGS : RED_ALLIANCE_TAGS;
   }
 
   // ==================== Field Positions (Blue Alliance Coordinates)

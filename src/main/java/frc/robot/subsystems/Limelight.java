@@ -167,6 +167,16 @@ public class Limelight extends SubsystemBase {
         VecBuilder.fill(xyStdDev, xyStdDev, rotationStdDev));
   }
 
+  /**
+   * Sets which AprilTag IDs this Limelight will use for pose estimation. Tags not in the list will
+   * be ignored. Pass an empty array to clear the filter (accept all).
+   *
+   * @param validIDs Array of valid AprilTag IDs, or empty array to accept all.
+   */
+  public void setTagFilter(int[] validIDs) {
+    LimelightHelpers.SetFiducialIDFiltersOverride(m_limelightName, validIDs);
+  }
+
   @AutoLogOutput
   public Pose2d getPose() {
     return lastPoseEstimate.pose;

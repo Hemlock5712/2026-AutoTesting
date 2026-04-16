@@ -78,8 +78,8 @@ public class RobotContainer {
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 
   // Vision camera for tracking robot position
-  public final Limelight limelightBR = new Limelight("limelight-br", drivetrain);
-  public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain);
+  public final Limelight limelightBR = new Limelight("limelight-br", drivetrain, 2.0);
+  public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain, 2.0);
   public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
   // public final Limelight limelightMM = new Limelight("limelight-mm",
@@ -304,11 +304,24 @@ public class RobotContainer {
     lastBuiltPath = selected;
     lastBuiltAlliance = alliance;
 
+    // Update tag filters on rear cameras when alliance changes
+    updateRearCameraTagFilters(alliance);
+
     if (selected == null) {
       cachedAutoCommand = Commands.none();
       return;
     }
 
     cachedAutoCommand = autoRoutines.autoBuilder(selected);
+  }
+
+  /**
+   * Sets fiducial ID filters on rear-facing cameras to only trust tags on our alliance side. Clears
+   * filters (accept all) when alliance is unknown.
+   */
+  private void updateRearCameraTagFilters(Optional<Alliance> alliance) {
+    int[] validIDs = FieldInfo.getAllianceTags(alliance);
+    limelightBL.setTagFilter(validIDs);
+    limelightBR.setTagFilter(validIDs);
   }
 }
