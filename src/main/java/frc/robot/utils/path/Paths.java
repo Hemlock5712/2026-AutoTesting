@@ -33,10 +33,10 @@ public final class Paths {
   // Named field positions
   public static final Pose2d START_LEFT =
       new Pose2d(
-          new Translation2d(4.4474222222222215, 7.689296296296297), Rotation2d.fromDegrees(-90));
+          new Translation2d(4.455046439628482, 7.697925696594428), Rotation2d.fromDegrees(-90));
   public static final Pose2d START_LEFT_MIRROR =
       new Pose2d(
-          new Translation2d(4.4474222222222215, 0.5207037037037034), Rotation2d.fromDegrees(90));
+          new Translation2d(4.455046439628482, 0.5120743034055728), Rotation2d.fromDegrees(90));
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
@@ -184,40 +184,6 @@ public final class Paths {
               new PathData.WaypointFlag(
                   "f9f15365-3bbe-4175-848b-efc574e2c984", 13, "SlowRaiseIntake")));
 
-  public static final PathData OP_RIGHT =
-      new PathData(
-          List.of(
-              new Translation2d(4.4474222222222215, 0.5207037037037034),
-              new Translation2d(8.13522962962963, 1.0965407407407408),
-              new Translation2d(8.576296296296295, 3.3876370370370363),
-              new Translation2d(5.795125925925926, 2.4564962962962955),
-              new Translation2d(3.4060148148148146, 2.370733333333333),
-              new Translation2d(3.222237037037037, 0.6799777777777773),
-              new Translation2d(6.064666666666666, 0.8147481481481478),
-              new Translation2d(6.597223942208462, 2.9356346749226017),
-              new Translation2d(7.851805985552115, 4.028059855521157)),
-          List.of(
-              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90)),
-              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(90)),
-              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(45)),
-              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(90)),
-              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(45)),
-              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
-              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
-              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(90)),
-              new PathData.HeadingWaypoint(13, Rotation2d.fromDegrees(180))),
-          VelocityConstraints.defaults()
-              .withMaxVelocity(4.9)
-              .withMaxAcceleration(10.791000000000002),
-          List.of(
-              new PathData.ConstraintZone(3, 4, 1.67, 10.791),
-              new PathData.ConstraintZone(1, 2, 3, 10.791),
-              new PathData.ConstraintZone(4, 5, 0.6, 10.791)),
-          List.of(),
-          List.of(
-              new PathData.WaypointFlag("a93d03e8-e085-4640-b510-ab1fbd36c6ee", 4, "HubShoot"),
-              new PathData.WaypointFlag("28221e58-5585-4c36-ba49-cd43d20e7d6e", 5, "StopShoot")));
-
   public static final PathData SHARK =
       new PathData(
           List.of(
@@ -350,6 +316,52 @@ public final class Paths {
               new PathData.WaypointFlag("69576060-0879-476f-8eea-485921af6696", 6, "RunIntake"),
               new PathData.WaypointFlag(
                   "efb30369-46e2-4bcd-af3b-bcc09f09e518", 13, "SlowRaiseIntake")));
+
+  public static final PathData OP_RIGHT =
+      new PathData(
+          List.of(
+              new Translation2d(4.4474222222222215, 0.5207037037037034),
+              new Translation2d(8.13522962962963, 1.0965407407407408),
+              new Translation2d(8.576296296296295, 3.3876370370370363),
+              new Translation2d(5.795125925925926, 2.4564962962962955),
+              new Translation2d(3.4060148148148146, 2.370733333333333),
+              new Translation2d(3.222237037037037, 0.6799777777777773),
+              new Translation2d(6.064666666666666, 0.8147481481481478),
+              new Translation2d(6.113674074074074, 3.755192592592593),
+              new Translation2d(7.4858814814814805, 3.3876370370370363),
+              new Translation2d(6.848785185185185, 0.8515037037037034),
+              new Translation2d(3.0683424807903403, 0.6299231613611429),
+              new Translation2d(0.8170142700329308, 0.5936114160263459)),
+          List.of(
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(45)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(45)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(10, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(275)),
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(4.9)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(
+              new PathData.ConstraintZone(3, 4, 1.67, 10.791),
+              new PathData.ConstraintZone(1, 2, 2.5, 10.791),
+              new PathData.ConstraintZone(4, 5, 0.8, 10.791),
+              new PathData.ConstraintZone(10, 11, 1.3, 10.791)),
+          List.of(),
+          List.of(
+              new PathData.WaypointFlag("a4139cb1-105e-4795-9ede-ab8766ca394f", 4, "HubShoot"),
+              new PathData.WaypointFlag("0a20700e-addf-4c65-87d8-0a6bf8c8debe", 5, "StopShoot"),
+              new PathData.WaypointFlag("d63096a3-90aa-4987-895e-392abb95d278", 10, "HubShoot"),
+              new PathData.WaypointFlag(
+                  "10174257-3bf0-40f5-a090-b737a4ac87a3", 4, "SlowRaiseIntake"),
+              new PathData.WaypointFlag("2b9d2dac-cf56-4747-ade7-27b47cda7616", 6, "RunIntake"),
+              new PathData.WaypointFlag(
+                  "875a7795-e94d-4b29-a647-322c24568eb2", 11, "SlowRaiseIntake")));
 
   /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later
