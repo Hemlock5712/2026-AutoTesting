@@ -165,10 +165,14 @@ public final class RotationSuppliers {
    * @return Arc-length in meters
    */
   private static double waypointIndexToArcLength(SplinePath path, double waypointIndex) {
-    int numSegments = path.getNumSegments(); // N-1 for N control points
-    int numCPs = numSegments + 1;
-    double frac = waypointIndex / (numCPs - 1);
-    return frac * path.getTotalLength();
+    int lo = (int) waypointIndex;
+    int hi = lo + 1;
+    double frac = waypointIndex - lo;
+
+    double loS = path.getArcLengthAtWaypointIndex(lo);
+    double hiS = path.getArcLengthAtWaypointIndex(hi);
+
+    return loS + frac * (hiS - loS);
   }
 
   // ---- Internal helpers ----
@@ -185,7 +189,7 @@ public final class RotationSuppliers {
    */
   static double angleErrorToOmega(double angleError) {
     double absError = Math.abs(angleError);
-    if (absError < 0.05) {
+    if (absError < 0.005) {
       return 0.0;
     }
     double stoppingOmega = Math.sqrt(2.0 * MAX_ANGULAR_DECEL * DECEL_BUDGET_FACTOR * absError);
