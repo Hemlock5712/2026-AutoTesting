@@ -75,15 +75,27 @@ public class AutoRoutines {
             new PathAction("RunIntake", 0.5, intakeCoordinator::deployAndRunAUTO)));
   }
 
+  private Command followPathWithEvents(PathData path, double completionTolerance) {
+    return autoCommands.followPathWithActions(
+        path,
+        List.of(
+            new PathAction("HubShoot", 0.5, superstructure::hubShoot),
+            new PathAction("FeedShoot", 0.5, superstructure::feedShoot),
+            new PathAction("StopShoot", 0.25, superstructure::stopShoot),
+            new PathAction("SlowRaiseIntake", 0.5, intakeCoordinator::slowUpAndRun),
+            new PathAction("RunIntake", 0.5, intakeCoordinator::deployAndRunAUTO)),
+        completionTolerance);
+  }
+
   public Command leftSide2Passes() {
     return Commands.sequence(
         autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE.getStartingPose()),
         intakeCoordinator.deployAndRunAUTO(),
-        followPathWithEvents(Paths.LEFT_TO_MIDDLE),
+        followPathWithEvents(Paths.LEFT_TO_MIDDLE, 0.05),
         new WaitCommand(4).deadlineFor(superstructure.shoot()),
         superstructure.stopShoot(),
         autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE_CLEANUP.getStartingPose()),
-        followPathWithEvents(Paths.LEFT_TO_MIDDLE_CLEANUP),
+        followPathWithEvents(Paths.LEFT_TO_MIDDLE_CLEANUP, 0.5),
         superstructure.shoot());
   }
 }

@@ -238,12 +238,31 @@ public class AutoCommands {
    * @return A command that follows the path with all actions wired
    */
   public Command followPathWithActions(
+      PathData pathData,
+      List<PathAction> actions,
+      double completionTolerance,
+      Command... alongside) {
+    return followPathWithActionsInternal(pathData, actions, completionTolerance, alongside);
+  }
+
+  public Command followPathWithActions(
       PathData pathData, List<PathAction> actions, Command... alongside) {
+    return followPathWithActionsInternal(pathData, actions, -1, alongside);
+  }
+
+  private Command followPathWithActionsInternal(
+      PathData pathData,
+      List<PathAction> actions,
+      double completionTolerance,
+      Command... alongside) {
     double t0 = Timer.getFPGATimestamp();
     SplinePath path = new SplinePath(pathData.controlPoints());
     double t1 = Timer.getFPGATimestamp();
     FollowPath pathCmd =
         new FollowPath(drivetrain, path, pathData.globalConstraints(), pathData.constraintZones());
+    if (completionTolerance > 0) {
+      pathCmd.withCompletionTolerance(completionTolerance);
+    }
     double t2 = Timer.getFPGATimestamp();
 
     Logger.recordOutput("PathBench/SplinePathMs", (t1 - t0) * 1000);
