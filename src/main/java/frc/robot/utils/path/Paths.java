@@ -357,7 +357,7 @@ public final class Paths {
   public static final PathData LEFT_TO_MIDDLE_CLEANUP =
       new PathData(
           List.of(
-              new Translation2d(4.4474222222222215, 7.689296296296297),
+              new Translation2d(4.22740210583163, 7.586285106050246),
               new Translation2d(5.4594318507244575, 7.586285106050246),
               new Translation2d(8.000493199565913, 7.143524404479861),
               new Translation2d(8.250749241497267, 4.833468570199595),
