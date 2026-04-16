@@ -1,6 +1,7 @@
 package frc.robot.autonomous;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -128,6 +129,13 @@ public class AutoCommands {
 
   public Command resetPose(Supplier<Pose2d> pose) {
     return drivetrain.runOnce(() -> drivetrain.resetPose(pose.get()));
+  }
+
+  public Command resetTranslation(Supplier<Translation2d> translation) {
+    return drivetrain.runOnce(
+        () ->
+            drivetrain.resetPose(
+                new Pose2d(translation.get(), drivetrain.getPose().getRotation())));
   }
 
   // ==================== Path Actions ====================

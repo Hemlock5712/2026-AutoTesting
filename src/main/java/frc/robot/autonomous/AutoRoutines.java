@@ -91,10 +91,10 @@ public class AutoRoutines {
     return Commands.sequence(
         autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE.getStartingPose()),
         intakeCoordinator.deployAndRunAUTO(),
-        followPathWithEvents(Paths.LEFT_TO_MIDDLE, 0.05),
+        followPathWithEvents(Paths.LEFT_TO_MIDDLE, 0.15),
         new WaitCommand(4).deadlineFor(superstructure.shoot()),
         superstructure.stopShoot(),
-        autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE_CLEANUP.getStartingPose()),
+        autoCommands.resetTranslation(() -> Paths.LEFT_TO_MIDDLE_CLEANUP.controlPoints().get(0)),
         followPathWithEvents(Paths.LEFT_TO_MIDDLE_CLEANUP, 0.5),
         superstructure.shoot());
   }
