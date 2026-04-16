@@ -363,7 +363,7 @@ public final class Paths {
               new Translation2d(8.250749241497267, 4.833468570199595),
               new Translation2d(6.806964384200987, 4.21745368105819),
               new Translation2d(6.4989569479777805, 7.297528126765212),
-              new Translation2d(4.188901176303729, 7.586285106050246)),
+              new Translation2d(4.22740210583163, 7.586285106050246)),
           List.of(
               new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-70)),
               new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(-180)),
