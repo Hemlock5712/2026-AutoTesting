@@ -1,5 +1,6 @@
 package frc.robot.utils.path;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -29,6 +30,13 @@ public final class Paths {
     }
   }
 
+  // Named field positions
+  public static final Pose2d START_LEFT =
+      new Pose2d(
+          new Translation2d(4.4474222222222215, 7.689296296296297), Rotation2d.fromDegrees(-90));
+  public static final Pose2d START_LEFT_MIRROR =
+      new Pose2d(
+          new Translation2d(4.4474222222222215, 0.5207037037037034), Rotation2d.fromDegrees(90));
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
@@ -362,13 +370,13 @@ public final class Paths {
               new Translation2d(8.000493199565913, 7.143524404479861),
               new Translation2d(8.250749241497267, 4.833468570199595),
               new Translation2d(6.806964384200987, 4.21745368105819),
-              new Translation2d(6.4989569479777805, 7.297528126765212),
+              new Translation2d(6.520891569760011, 7.297184614934276),
               new Translation2d(4.22740210583163, 7.586285106050246)),
           List.of(
               new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-70)),
               new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(-180)),
-              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(-180)),
-              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
               new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(0)),
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(0))),
           VelocityConstraints.defaults()
