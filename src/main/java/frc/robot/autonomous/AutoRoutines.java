@@ -3,6 +3,7 @@ package frc.robot.autonomous;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.WaitCommand;
 import frc.robot.autonomous.AutoCommands.PathAction;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
@@ -78,9 +79,9 @@ public class AutoRoutines {
     return Commands.sequence(
         autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE.getStartingPose()),
         followPathWithEvents(Paths.LEFT_TO_MIDDLE),
-        superstructure.shoot().repeatedly().withTimeout(4),
+        new WaitCommand(4).deadlineFor(superstructure.shoot()),
         superstructure.stopShoot(),
         followPathWithEvents(Paths.LEFT_TO_MIDDLE_CLEANUP),
-        superstructure.shoot().repeatedly());
+        superstructure.shoot());
   }
 }

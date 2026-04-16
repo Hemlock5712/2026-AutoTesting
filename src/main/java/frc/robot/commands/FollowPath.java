@@ -379,10 +379,8 @@ public class FollowPath extends Command {
           path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).endWaypointIndex());
     }
 
-    // Initial projection: find where the robot is on the path
-    Pose2d pose = swerve.getPose();
-    ProjectionResult proj = path.getClosestPoint(pose.getTranslation());
-    lastProjectedS = proj.s();
+    // Always start at the beginning of the path
+    lastProjectedS = 0.0;
 
     // Log the reference path as a Pose2d array (shows as trajectory in
     // AdvantageScope)
