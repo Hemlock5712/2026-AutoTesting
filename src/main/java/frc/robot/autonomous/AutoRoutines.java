@@ -78,6 +78,7 @@ public class AutoRoutines {
   public Command leftSide2Passes() {
     return Commands.sequence(
         autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE.getStartingPose()),
+        intakeCoordinator.deployAndRunAUTO(),
         followPathWithEvents(Paths.LEFT_TO_MIDDLE),
         new WaitCommand(4).deadlineFor(superstructure.shoot()),
         superstructure.stopShoot(),
