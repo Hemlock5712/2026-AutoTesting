@@ -28,8 +28,8 @@ import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.path.PathData;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -89,10 +89,10 @@ public class RobotContainer {
       new BallPhysicsSimulation(drivetrain, superstructure);
 
   /* Autonomous mode selector — builds only the selected path during disabled */
-  private final SendableChooser<Command> autoChooser = new SendableChooser<>();
+  private final SendableChooser<Supplier<Command>> autoChooser = new SendableChooser<>();
   private final AutoRoutines autoRoutines;
   private Command cachedAutoCommand = Commands.none();
-  private PathData lastBuiltPath;
+  private Supplier<Command> lastBuiltSupplier;
   private Optional<Alliance> lastBuiltAlliance = Optional.empty();
 
   public RobotContainer() {
@@ -106,9 +106,9 @@ public class RobotContainer {
     // addPathAutoOption(Paths.OP_RIGHT);
     // addPathAutoOption(Paths.SHARK);
     // addPathAutoOption(Paths.MADTOWN);
-    autoChooser.addOption("Left Side 2 Passes", autoRoutines.leftSide2Passes());
-    autoChooser.addOption("Right Side 2 Pass", autoRoutines.rightSide2Passes());
-    autoChooser.addOption("Left Side Auto", autoRoutines.leftAutoFeed(8.1));
+    autoChooser.addOption("Left Side 2 Passes", autoRoutines::leftSide2Passes);
+    autoChooser.addOption("Right Side 2 Pass", autoRoutines::rightSide2Passes);
+    autoChooser.addOption("Left Side Auto", () -> autoRoutines.leftAutoFeed(8.1));
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
@@ -257,7 +257,10 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    return autoChooser.getSelected();
+    // Force rebuild with current alliance at auto start
+    lastBuiltAlliance = Optional.empty();
+    updateAutoSelection();
+    return cachedAutoCommand;
   }
 
   public double rescaleInputs(double input) {
@@ -296,25 +299,25 @@ public class RobotContainer {
    * command only when something changes. Call from {@code disabledPeriodic()}.
    */
   public void updateAutoSelection() {
-    // PathData selected = autoChooser.getSelected();
+    Supplier<Command> selected = autoChooser.getSelected();
     Optional<Alliance> alliance = DriverStation.getAlliance();
 
-    if (alliance.equals(lastBuiltAlliance)) {
+    if (alliance.equals(lastBuiltAlliance) && selected == lastBuiltSupplier) {
       return;
     }
 
-    // lastBuiltPath = selected;
+    lastBuiltSupplier = selected;
     lastBuiltAlliance = alliance;
 
     // Update tag filters on rear cameras when alliance changes
     updateRearCameraTagFilters(alliance);
 
-    // if (selected == null) {
-    //   cachedAutoCommand = Commands.none();
-    //   return;
-    // }
+    if (selected == null) {
+      cachedAutoCommand = Commands.none();
+      return;
+    }
 
-    // cachedAutoCommand = autoRoutines.autoBuilder(selected);
+    cachedAutoCommand = selected.get();
   }
 
   /**

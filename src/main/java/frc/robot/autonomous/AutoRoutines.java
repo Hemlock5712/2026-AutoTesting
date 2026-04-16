@@ -103,7 +103,7 @@ public class AutoRoutines {
     var pathReady = new AtomicBoolean(false);
     return Commands.sequence(
         autoCommands.resetPose(() -> mainPath.getStartingPose()),
-        intakeCoordinator.deployAndRunAUTO(),
+        intakeCoordinator.deployAndRunAUTO().deadlineFor(superstructure.prerollShooter(34)),
         followPathWithEvents(mainPath, 0.15),
         // Build cleanup path on background thread while shooting
         Commands.parallel(
@@ -125,6 +125,7 @@ public class AutoRoutines {
                 Commands.waitUntil(pathReady::get))),
         superstructure.stopShoot(),
         autoCommands.resetPose(() -> cleanupPath[0].getStartingPose()),
+        superstructure.prerollShooter(34),
         autoCommands.deferCommand(() -> prebuiltCleanup[0]),
         superstructure.shoot());
   }
@@ -136,7 +137,7 @@ public class AutoRoutines {
     var pathReady = new AtomicBoolean(false);
     return Commands.sequence(
         autoCommands.resetPose(() -> mainPath.getStartingPose()),
-        intakeCoordinator.deployAndRunAUTO(),
+        intakeCoordinator.deployAndRunAUTO().deadlineFor(superstructure.prerollShooter(34)),
         followPathWithEvents(mainPath, 0.15),
         // Build cleanup path on background thread while shooting
         Commands.parallel(
@@ -158,6 +159,7 @@ public class AutoRoutines {
                 Commands.waitUntil(pathReady::get))),
         superstructure.stopShoot(),
         autoCommands.resetPose(() -> cleanupPath[0].getStartingPose()),
+        superstructure.prerollShooter(34),
         autoCommands.deferCommand(() -> prebuiltCleanup[0]),
         superstructure.shoot());
   }

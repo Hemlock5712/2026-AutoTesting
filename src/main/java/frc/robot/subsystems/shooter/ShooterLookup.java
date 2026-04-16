@@ -20,18 +20,32 @@ public class ShooterLookup {
     buildFeedTime();
   }
 
+  // private static void buildFlywheel() {
+  //   flywheelMap.put(0.0, 23.0);
+  //   flywheelMap.put(1.0, 23.0);
+  //   flywheelMap.put(1.5, 26.0);
+  //   flywheelMap.put(2.0, 28.0);
+  //   flywheelMap.put(2.5, 29.0);
+  //   flywheelMap.put(3.0, 32.0);
+  //   flywheelMap.put(3.5, 34.0);
+  //   flywheelMap.put(4.0, 36.0);
+  //   flywheelMap.put(4.5, 39.0);
+  //   flywheelMap.put(5.0, 44.0);
+  //   flywheelMap.put(5.5, 45.0);
+  // }
+
   private static void buildFlywheel() {
-    flywheelMap.put(0.0, 23.0);
-    flywheelMap.put(1.0, 23.0);
-    flywheelMap.put(1.5, 26.0);
-    flywheelMap.put(2.0, 28.0);
-    flywheelMap.put(2.5, 29.0);
-    flywheelMap.put(3.0, 32.0);
-    flywheelMap.put(3.5, 34.0);
-    flywheelMap.put(4.0, 36.0);
-    flywheelMap.put(4.5, 39.0);
-    flywheelMap.put(5.0, 44.0);
-    flywheelMap.put(5.5, 45.0);
+    flywheelMap.put(0.0, 23.0 + 2.0);
+    flywheelMap.put(1.0, 23.0 + 2.0);
+    flywheelMap.put(1.5, 26.0 + 2.0);
+    flywheelMap.put(2.0, 28.0 + 2.0);
+    flywheelMap.put(2.5, 29.0 + 2.0);
+    flywheelMap.put(3.0, 32.0 + 2.0);
+    flywheelMap.put(3.5, 34.0 + 2.0);
+    flywheelMap.put(4.0, 36.0 + 2.0);
+    flywheelMap.put(4.5, 39.0 + 2.0);
+    flywheelMap.put(5.0, 44.0 + 2.0);
+    flywheelMap.put(5.5, 45.0 + 2.0);
   }
 
   private static void buildHood() {

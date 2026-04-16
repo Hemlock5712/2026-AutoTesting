@@ -225,6 +225,10 @@ public class Superstructure {
     return shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance);
   }
 
+  public Command prerollShooter(double rps) {
+    return Commands.runOnce(() -> shooter.setVelocity(rps), shooter);
+  }
+
   /** Hub shot with SWM compensation and jam protection. */
   public Command hubShoot() {
     return shootSequenceWithJamProtection(
