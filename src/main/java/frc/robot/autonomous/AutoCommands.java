@@ -138,6 +138,10 @@ public class AutoCommands {
                 new Pose2d(translation.get(), drivetrain.getPose().getRotation())));
   }
 
+  public Translation2d getRobotTranslation() {
+    return drivetrain.getPose().getTranslation();
+  }
+
   // ==================== Path Actions ====================
 
   /** An action to trigger at a specific control point or waypoint flag along a path. */
@@ -256,6 +260,13 @@ public class AutoCommands {
   public Command followPathWithActions(
       PathData pathData, List<PathAction> actions, Command... alongside) {
     return followPathWithActionsInternal(pathData, actions, -1, alongside);
+  }
+
+  public Command followPathWithActions(
+      Supplier<PathData> pathDataSupplier, List<PathAction> actions, double completionTolerance) {
+    return Commands.defer(
+        () -> followPathWithActionsInternal(pathDataSupplier.get(), actions, completionTolerance),
+        java.util.Set.of(drivetrain));
   }
 
   private Command followPathWithActionsInternal(

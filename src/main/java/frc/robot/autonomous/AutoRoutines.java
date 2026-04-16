@@ -11,6 +11,7 @@ import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 public class AutoRoutines {
 
@@ -87,15 +88,30 @@ public class AutoRoutines {
         completionTolerance);
   }
 
+  private Command followPathWithEvents(
+      Supplier<PathData> pathSupplier, double completionTolerance) {
+    return autoCommands.followPathWithActions(
+        pathSupplier,
+        List.of(
+            new PathAction("HubShoot", 0.5, superstructure::hubShoot),
+            new PathAction("FeedShoot", 0.5, superstructure::feedShoot),
+            new PathAction("StopShoot", 0.25, superstructure::stopShoot),
+            new PathAction("SlowRaiseIntake", 0.5, intakeCoordinator::slowUpAndRun),
+            new PathAction("RunIntake", 0.5, intakeCoordinator::deployAndRunAUTO)),
+        completionTolerance);
+  }
+
   public Command leftSide2Passes() {
     return Commands.sequence(
         autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE.getStartingPose()),
         intakeCoordinator.deployAndRunAUTO(),
         followPathWithEvents(Paths.LEFT_TO_MIDDLE, 0.15),
-        new WaitCommand(4).deadlineFor(superstructure.shoot()),
+        new WaitCommand(3).deadlineFor(superstructure.shoot()),
         superstructure.stopShoot(),
-        autoCommands.resetPose(() -> Paths.LEFT_TO_MIDDLE_CLEANUP.getStartingPose()),
-        followPathWithEvents(Paths.LEFT_TO_MIDDLE_CLEANUP, 0.15),
+        followPathWithEvents(
+            () ->
+                Paths.LEFT_TO_MIDDLE_CLEANUP.withStartingPoint(autoCommands.getRobotTranslation()),
+            0.15),
         superstructure.shoot());
   }
 }

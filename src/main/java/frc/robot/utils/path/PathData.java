@@ -132,4 +132,21 @@ public record PathData(
             .orElse(Rotation2d.kZero);
     return new Pose2d(start, heading);
   }
+
+  /**
+   * Returns a copy of this path with the first control point replaced.
+   *
+   * @param newStart The new starting position
+   */
+  public PathData withStartingPoint(Translation2d newStart) {
+    var newPoints = new java.util.ArrayList<>(controlPoints);
+    newPoints.set(0, newStart);
+    return new PathData(
+        List.copyOf(newPoints),
+        headingWaypoints,
+        globalConstraints,
+        constraintZones,
+        rotationZones,
+        waypointFlags);
+  }
 }
