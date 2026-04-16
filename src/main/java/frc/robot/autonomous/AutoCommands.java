@@ -142,6 +142,10 @@ public class AutoCommands {
     return drivetrain.getPose().getTranslation();
   }
 
+  public Command deferCommand(Supplier<Command> supplier) {
+    return Commands.defer(supplier, java.util.Set.of(drivetrain));
+  }
+
   // ==================== Path Actions ====================
 
   /** An action to trigger at a specific control point or waypoint flag along a path. */
@@ -260,13 +264,6 @@ public class AutoCommands {
   public Command followPathWithActions(
       PathData pathData, List<PathAction> actions, Command... alongside) {
     return followPathWithActionsInternal(pathData, actions, -1, alongside);
-  }
-
-  public Command followPathWithActions(
-      Supplier<PathData> pathDataSupplier, List<PathAction> actions, double completionTolerance) {
-    return Commands.defer(
-        () -> followPathWithActionsInternal(pathDataSupplier.get(), actions, completionTolerance),
-        java.util.Set.of(drivetrain));
   }
 
   private Command followPathWithActionsInternal(
