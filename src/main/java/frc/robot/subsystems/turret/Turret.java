@@ -6,7 +6,7 @@ import static edu.wpi.first.units.Units.Rotations;
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.MotionMagicTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
@@ -39,7 +39,7 @@ public class Turret extends SubsystemBase {
   // CRT calculator for absolute position determination
   private final DualEncoderCRT crt;
 
-  private final MotionMagicVoltage angleOut = new MotionMagicVoltage(0);
+  private final MotionMagicTorqueCurrentFOC angleOut = new MotionMagicTorqueCurrentFOC(0);
 
   // Shooting gate: distance-dependent position tolerance (~half the effective scoring radius)
 
@@ -89,8 +89,8 @@ public class Turret extends SubsystemBase {
 
     // PID gains
     config.Slot0.kS = 0.42; // Static friction compensation
-    config.Slot0.kP = 512; // Proportional gain
-    config.Slot0.kD = 8; // Derivative gain
+    config.Slot0.kP = 3000; // Proportional gain
+    config.Slot0.kD = 64; // Derivative gain
     config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseVelocitySign;
     config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 

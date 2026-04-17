@@ -1,6 +1,5 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -30,13 +29,6 @@ public final class Paths {
     }
   }
 
-  // Named field positions
-  public static final Pose2d START_LEFT =
-      new Pose2d(
-          new Translation2d(4.4474222222222215, 7.689296296296297), Rotation2d.fromDegrees(-90));
-  public static final Pose2d START_LEFT_MIRROR =
-      new Pose2d(
-          new Translation2d(4.4474222222222215, 0.5207037037037034), Rotation2d.fromDegrees(90));
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
@@ -389,7 +381,7 @@ public final class Paths {
   public static final PathData LEFT_TO_MIDDLE =
       new PathData(
           List.of(
-              new Translation2d(4.208151641067681, 7.701787897764259),
+              new Translation2d(4.447, 7.694),
               new Translation2d(8.115995988149615, 7.085773008622855),
               new Translation2d(8.347001565317022, 4.871969500770933),
               new Translation2d(7.230474609007896, 5.025973223056283),
@@ -434,7 +426,7 @@ public final class Paths {
   public static final PathData RIGHT_TO_MIDDLE =
       new PathData(
           List.of(
-              new Translation2d(4.208151641067681, 0.508212102235742),
+              new Translation2d(4.447, 0.5160000000000009),
               new Translation2d(8.115995988149615, 1.1242269913771459),
               new Translation2d(8.347001565317022, 3.3380304992290677),
               new Translation2d(7.230474609007896, 3.1840267769437176),

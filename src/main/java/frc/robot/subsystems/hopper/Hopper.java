@@ -83,7 +83,7 @@ public class Hopper extends SubsystemBase {
   }
 
   public Command reverseCommand() {
-    return runOnce(() -> setVelocity(RotationsPerSecond.of(-5), RotationsPerSecond.of(5)));
+    return runOnce(() -> setVelocity(RotationsPerSecond.of(-30), RotationsPerSecond.of(30)));
   }
 
   public Command stop() {
@@ -113,6 +113,16 @@ public class Hopper extends SubsystemBase {
   @AutoLogOutput
   public double kickerDistance() {
     return kickerRange.getDistance().getValueAsDouble();
+  }
+
+  @AutoLogOutput
+  public AngularVelocity getAngularVelocityMain() {
+    return main.getVelocity().getValue();
+  }
+
+  @AutoLogOutput
+  public AngularVelocity getAngularVelocitySide() {
+    return side.getVelocity().getValue();
   }
 
   public void setJamRecovery() {
