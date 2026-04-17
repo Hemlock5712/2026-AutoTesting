@@ -14,7 +14,7 @@ import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.Follower;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -56,7 +56,8 @@ public class Shooter extends SubsystemBase {
   // Controller for spinning the flywheel at a target speed
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
 
-  private final MotionMagicVoltage rotationOut = new MotionMagicVoltage(0);
+  private final PositionTorqueCurrentFOC rotationOut =
+      new PositionTorqueCurrentFOC(Rotations.of(0));
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();
@@ -102,11 +103,11 @@ public class Shooter extends SubsystemBase {
     hoodConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // Control values
-    hoodConfig.Slot0.kG = 0.35; // Gravity compensation
-    hoodConfig.Slot0.kS = 0.1; // Static friction
+    hoodConfig.Slot0.kG = 5; // Gravity compensation
+    hoodConfig.Slot0.kS = 3; // Static friction
     hoodConfig.Slot0.kV = 0.0; // Velocity feedforward
-    hoodConfig.Slot0.kP = 100; // Proportional gain
-    hoodConfig.Slot0.kD = 0; // Proportional gain
+    hoodConfig.Slot0.kP = 6400; // Proportional gain
+    hoodConfig.Slot0.kD = 5; // Proportional gain
     hoodConfig.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
     hoodConfig.Slot0.GravityType = GravityTypeValue.Elevator_Static;
 
