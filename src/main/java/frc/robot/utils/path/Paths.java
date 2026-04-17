@@ -445,6 +445,26 @@ public final class Paths {
           List.of());
 
   /**
+   * Holds pre-generated blue and red variants of a path. Call {@link #get()} at runtime to select
+   * the correct variant based on the current alliance.
+   */
+  public record AlliancePath(PathData blue, PathData red) {
+    /** Creates an AlliancePath by pre-mirroring the given blue-alliance path. */
+    public static AlliancePath of(PathData bluePath) {
+      return new AlliancePath(bluePath, bluePath.mirrorForRedAlliance());
+    }
+
+    /** Returns the correct variant for the current alliance. */
+    public PathData get() {
+      var alliance = DriverStation.getAlliance();
+      if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
+        return red;
+      }
+      return blue;
+    }
+  }
+
+  /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later
    * when the alliance is known.
    */

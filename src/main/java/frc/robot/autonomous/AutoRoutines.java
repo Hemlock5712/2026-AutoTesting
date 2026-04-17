@@ -15,6 +15,7 @@ import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
+import frc.robot.utils.path.Paths.AlliancePath;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
@@ -26,6 +27,12 @@ public class AutoRoutines {
   private final AutoCommands autoCommands;
   private final Superstructure superstructure;
   private final IntakeCoordinator intakeCoordinator;
+
+  // Pre-generated blue/red path pairs
+  private final AlliancePath leftToMiddle = AlliancePath.of(Paths.LEFT_TO_MIDDLE);
+  private final AlliancePath leftToMiddleCleanup = AlliancePath.of(Paths.LEFT_TO_MIDDLE_CLEANUP);
+  private final AlliancePath rightToMiddle = AlliancePath.of(Paths.RIGHT_TO_MIDDLE);
+  private final AlliancePath rightToMiddleCleanup = AlliancePath.of(Paths.RIGHT_TO_MIDDLE_CLEANUP);
 
   public AutoRoutines(
       AutoCommands autoCommands,
@@ -97,44 +104,21 @@ public class AutoRoutines {
   }
 
   public Command leftSide2Passes() {
-    PathData mainPath = Paths.forAlliance(Paths.LEFT_TO_MIDDLE);
-    PathData[] cleanupPath = new PathData[1];
-    Command[] prebuiltCleanup = new Command[1];
-    var pathReady = new AtomicBoolean(false);
-    return Commands.sequence(
-        autoCommands.resetPose(() -> mainPath.getStartingPose()),
-        intakeCoordinator.deployAndRunAUTO().deadlineFor(superstructure.prerollShooter(34)),
-        followPathWithEvents(mainPath, 0.15),
-        // Build cleanup path on background thread while shooting
-        Commands.parallel(
-            new WaitCommand(5).deadlineFor(superstructure.shoot()),
-            Commands.sequence(
-                Commands.runOnce(
-                    () -> {
-                      var robotPos = autoCommands.getRobotTranslation();
-                      new Thread(
-                              () -> {
-                                cleanupPath[0] =
-                                    Paths.forAlliance(Paths.LEFT_TO_MIDDLE_CLEANUP)
-                                        .withStartingPoint(robotPos);
-                                prebuiltCleanup[0] = followPathWithEvents(cleanupPath[0], 0.15);
-                                pathReady.set(true);
-                              })
-                          .start();
-                    }),
-                Commands.waitUntil(pathReady::get))),
-        superstructure.stopShoot(),
-        autoCommands.resetPose(() -> cleanupPath[0].getStartingPose()),
-        superstructure.prerollShooter(34),
-        autoCommands.deferCommand(() -> prebuiltCleanup[0]),
-        superstructure.shoot());
+    return side2Passes(leftToMiddle, leftToMiddleCleanup);
   }
 
   public Command rightSide2Passes() {
-    PathData mainPath = Paths.forAlliance(Paths.RIGHT_TO_MIDDLE);
+    return side2Passes(rightToMiddle, rightToMiddleCleanup);
+  }
+
+  private Command side2Passes(AlliancePath mainAlliancePath, AlliancePath cleanupAlliancePath) {
+    PathData mainPath = mainAlliancePath.get();
+    PathData cleanupBase = cleanupAlliancePath.get();
+
     PathData[] cleanupPath = new PathData[1];
     Command[] prebuiltCleanup = new Command[1];
     var pathReady = new AtomicBoolean(false);
+
     return Commands.sequence(
         autoCommands.resetPose(() -> mainPath.getStartingPose()),
         intakeCoordinator.deployAndRunAUTO().deadlineFor(superstructure.prerollShooter(34)),
@@ -148,9 +132,7 @@ public class AutoRoutines {
                       var robotPos = autoCommands.getRobotTranslation();
                       new Thread(
                               () -> {
-                                cleanupPath[0] =
-                                    Paths.forAlliance(Paths.RIGHT_TO_MIDDLE_CLEANUP)
-                                        .withStartingPoint(robotPos);
+                                cleanupPath[0] = cleanupBase.withStartingPoint(robotPos);
                                 prebuiltCleanup[0] = followPathWithEvents(cleanupPath[0], 0.15);
                                 pathReady.set(true);
                               })
