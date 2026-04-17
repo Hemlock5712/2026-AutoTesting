@@ -235,6 +235,8 @@ public class Superstructure {
         shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance), this::isHubReady);
   }
 
+  /** Hub shot with SWM compensation and jam protection. */
+
   /** Feed shot with jam protection — wider tolerance, uses feed lookup maps. */
   public Command feedShoot() {
     return shootSequenceWithJamProtection(
@@ -325,7 +327,7 @@ public class Superstructure {
               isAutoShootEnabled = false;
               isShooting = false;
               shooter.stopMotors();
-              hopper.setVelocity(RotationsPerSecond.of(-5), RotationsPerSecond.of(-5));
+              hopper.setVelocity(RotationsPerSecond.of(0), RotationsPerSecond.of(0));
             });
   }
 
@@ -373,6 +375,11 @@ public class Superstructure {
 
   public Command stopHopper() {
     return hopper.stop();
+  }
+
+  public Command recoverHopper() {
+    return Commands.runOnce(
+        () -> hopper.setVelocity(RotationsPerSecond.of(-30), RotationsPerSecond.of(-30)));
   }
 
   private Translation2d virtualTarget(SwerveDriveState state) {

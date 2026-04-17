@@ -79,6 +79,7 @@ public class Limelight extends SubsystemBase {
     Logger.recordOutput(m_limelightName + "/TimestampSeconds", lastPoseEstimate.timestampSeconds);
     Logger.recordOutput(m_limelightName + "/AvgTagDist", lastPoseEstimate.avgTagDist);
     Logger.recordOutput(m_limelightName + "/TagCount", lastPoseEstimate.tagCount);
+    // Logger.recordOutput(m_limelightName + "/TagFilter", lastPoseEstimate.)
   }
 
   private void updateRobotOrientation() {

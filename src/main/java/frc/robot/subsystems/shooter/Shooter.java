@@ -73,7 +73,7 @@ public class Shooter extends SubsystemBase {
 
   Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
 
-  private final Debouncer atTargetDebouncer = new Debouncer(0.1, DebounceType.kFalling);
+  private final Debouncer atTargetDebouncer = new Debouncer(0.25, DebounceType.kFalling);
 
   public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled

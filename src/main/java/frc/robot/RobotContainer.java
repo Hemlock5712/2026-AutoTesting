@@ -81,8 +81,7 @@ public class RobotContainer {
   public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain, 1.0);
   public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
   public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
-  // public final Limelight limelightMM = new Limelight("limelight-mm",
-  // drivetrain);
+  public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -238,9 +237,11 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
-    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+
+    joystick.start().onTrue(superstructure.recoverHopper()).onFalse(superstructure.stopHopper());
 
     joystick
         .povLeft()
@@ -251,6 +252,9 @@ public class RobotContainer {
     joystick
         .povDown()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.AUTO)));
+
+    // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
+
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
