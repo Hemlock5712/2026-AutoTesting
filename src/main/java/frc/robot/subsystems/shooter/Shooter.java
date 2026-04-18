@@ -42,6 +42,9 @@ public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(1);
   private static final Angle HOOD_TOLERANCE = Degree.of(1);
+  private static final Angle MAX_HOOD_OUTSIDE_ZONE = Degrees.of(18);
+
+  private boolean inAllianceZone = false;
 
   private CANBus turretCanBus = new CANBus("turret");
 
@@ -168,7 +171,14 @@ public class Shooter extends SubsystemBase {
    * @param angle What position to go to
    */
   public void setPosition(Angle angle) {
+    if (!inAllianceZone && angle.gt(MAX_HOOD_OUTSIDE_ZONE)) {
+      angle = MAX_HOOD_OUTSIDE_ZONE;
+    }
     hood.setControl(rotationOut.withPosition(angle));
+  }
+
+  public void setInAllianceZone(boolean inZone) {
+    this.inAllianceZone = inZone;
   }
 
   /** Tuning mode: continuously set flywheel velocity and hood angle from dashboard values. */

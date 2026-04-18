@@ -4,7 +4,9 @@ import static edu.wpi.first.units.Units.Feet;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
@@ -17,7 +19,6 @@ import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 import frc.robot.utils.path.Paths.AlliancePath;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 public class AutoRoutines {
@@ -112,38 +113,29 @@ public class AutoRoutines {
   }
 
   private Command side2Passes(AlliancePath mainAlliancePath, AlliancePath cleanupAlliancePath) {
-    PathData mainPath = mainAlliancePath.get();
-    PathData cleanupBase = cleanupAlliancePath.get();
+    return autoCommands.deferCommand(
+        () -> {
+          PathData mainPath = mainAlliancePath.get();
+          PathData cleanupPath = cleanupAlliancePath.get();
+          Pose2d cleanupStart = cleanupPath.getStartingPose();
+          Pose2d driveTarget =
+              new Pose2d(
+                  cleanupStart
+                      .getTranslation()
+                      .plus(new Translation2d(0.25, cleanupStart.getRotation())),
+                  cleanupStart.getRotation());
 
-    PathData[] cleanupPath = new PathData[1];
-    Command[] prebuiltCleanup = new Command[1];
-    var pathReady = new AtomicBoolean(false);
-
-    return Commands.sequence(
-        autoCommands.resetPose(() -> mainPath.getStartingPose()),
-        intakeCoordinator.deployAndRunAUTO().deadlineFor(superstructure.prerollShooter(34)),
-        followPathWithEvents(mainPath, 0.15),
-        // Build cleanup path on background thread while shooting
-        Commands.parallel(
-            new WaitCommand(5).deadlineFor(superstructure.shoot()),
-            Commands.sequence(
-                Commands.runOnce(
-                    () -> {
-                      var robotPos = autoCommands.getRobotTranslation();
-                      new Thread(
-                              () -> {
-                                cleanupPath[0] = cleanupBase.withStartingPoint(robotPos);
-                                prebuiltCleanup[0] = followPathWithEvents(cleanupPath[0], 0.15);
-                                pathReady.set(true);
-                              })
-                          .start();
-                    }),
-                Commands.waitUntil(pathReady::get))),
-        superstructure.stopShoot(),
-        autoCommands.resetPose(() -> cleanupPath[0].getStartingPose()),
-        superstructure.prerollShooter(34),
-        autoCommands.deferCommand(() -> prebuiltCleanup[0]),
-        superstructure.shoot());
+          return Commands.sequence(
+              autoCommands.resetPose(() -> mainPath.getStartingPose()),
+              intakeCoordinator.deployAndRunAUTO().deadlineFor(superstructure.prerollShooter(34)),
+              followPathWithEvents(mainPath, 0.15),
+              new WaitCommand(5).deadlineFor(superstructure.shoot()),
+              superstructure.stopShoot(),
+              superstructure.prerollShooter(34),
+              autoCommands.driveTo(() -> driveTarget).withWaypoint(4.75),
+              followPathWithEvents(cleanupPath, 0.15),
+              superstructure.shoot());
+        });
   }
 
   public Command leftAutoFeed(double midlineX) {

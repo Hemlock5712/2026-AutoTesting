@@ -156,6 +156,8 @@ public class Superstructure {
       }
     }
 
+    shooter.setInAllianceZone(isInAllianceZone());
+
     Translation2d toTarget = targetPosition.minus(turretPose.getTranslation());
 
     distanceToHub = toTarget.getNorm();
