@@ -92,6 +92,7 @@ public class FollowPath extends Command {
   private double lastTime;
   private double lastCrossTrackError;
   private double lastProjectedS;
+  private boolean referencePathLogged;
 
   private final SwerveRequest.ApplyFieldSpeeds request =
       new SwerveRequest.ApplyFieldSpeeds()
@@ -137,6 +138,27 @@ public class FollowPath extends Command {
     this.path = path;
     this.velocityProfile = new VelocityProfile(path, constraints, constraintZones);
     this.endVelocity = constraints.getEndVelocity();
+    addRequirements(swerve);
+  }
+
+  /**
+   * Creates a FollowPath command with a pre-built velocity profile. Use this to avoid recomputing
+   * the profile when it has already been cached (e.g. via {@link PathData#getVelocityProfile()}).
+   *
+   * @param swerve The swerve drivetrain
+   * @param path The spline path to follow
+   * @param velocityProfile Pre-computed velocity profile
+   * @param endVelocity Target end velocity in m/s
+   */
+  public FollowPath(
+      CommandSwerveDrivetrain swerve,
+      SplinePath path,
+      VelocityProfile velocityProfile,
+      double endVelocity) {
+    this.swerve = swerve;
+    this.path = path;
+    this.velocityProfile = velocityProfile;
+    this.endVelocity = endVelocity;
     addRequirements(swerve);
   }
 
@@ -382,9 +404,8 @@ public class FollowPath extends Command {
     // Always start at the beginning of the path
     lastProjectedS = 0.0;
 
-    // Log the reference path as a Pose2d array (shows as trajectory in
-    // AdvantageScope)
-    logReferencePath();
+    // Defer reference path logging to first execute() to avoid blocking auto start
+    referencePathLogged = false;
   }
 
   @Override
@@ -392,6 +413,11 @@ public class FollowPath extends Command {
     double currentTime = Utils.getCurrentTimeSeconds();
     double dt = currentTime - lastTime;
     lastTime = currentTime;
+
+    if (!referencePathLogged) {
+      logReferencePath();
+      referencePathLogged = true;
+    }
 
     Pose2d robotPose = swerve.getPose();
     Translation2d robotPos = robotPose.getTranslation();

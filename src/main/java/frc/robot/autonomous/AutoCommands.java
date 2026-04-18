@@ -4,8 +4,6 @@ import static edu.wpi.first.units.Units.Meters;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
@@ -24,7 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
-import org.littletonrobotics.junction.Logger;
 
 /**
  * Utility class containing reusable command patterns for autonomous routines.
@@ -91,18 +88,10 @@ public class AutoCommands {
    * @return A FollowPath command
    */
   public FollowPath followPath(PathData data) {
-    double t0 = Timer.getFPGATimestamp();
-    SplinePath path = new SplinePath(data.controlPoints());
-    double t1 = Timer.getFPGATimestamp();
+    SplinePath path = data.getSplinePath();
     FollowPath cmd =
-        new FollowPath(drivetrain, path, data.globalConstraints(), data.constraintZones());
-    double t2 = Timer.getFPGATimestamp();
-
-    Logger.recordOutput("PathBench/SplinePathMs", (t1 - t0) * 1000);
-    Logger.recordOutput("PathBench/VelocityProfileMs", (t2 - t1) * 1000);
-    Logger.recordOutput("PathBench/TotalMs", (t2 - t0) * 1000);
-    Logger.recordOutput("PathBench/ControlPoints", data.controlPoints().size());
-    Logger.recordOutput("PathBench/PathLengthM", path.getTotalLength());
+        new FollowPath(
+            drivetrain, path, data.getVelocityProfile(), data.globalConstraints().getEndVelocity());
 
     if (!data.headingWaypoints().isEmpty()) {
       cmd.withRotationSupplier(
@@ -138,21 +127,6 @@ public class AutoCommands {
 
   public Command resetPose(Supplier<Pose2d> pose) {
     return drivetrain.runOnce(() -> drivetrain.resetPose(pose.get()));
-  }
-
-  public Command resetTranslation(Supplier<Translation2d> translation) {
-    return drivetrain.runOnce(
-        () ->
-            drivetrain.resetPose(
-                new Pose2d(translation.get(), drivetrain.getPose().getRotation())));
-  }
-
-  public Translation2d getRobotTranslation() {
-    return drivetrain.getPose().getTranslation();
-  }
-
-  public Command deferCommand(Supplier<Command> supplier) {
-    return Commands.defer(supplier, java.util.Set.of(drivetrain));
   }
 
   // ==================== Path Actions ====================
@@ -280,21 +254,16 @@ public class AutoCommands {
       List<PathAction> actions,
       double completionTolerance,
       Command... alongside) {
-    double t0 = Timer.getFPGATimestamp();
-    SplinePath path = new SplinePath(pathData.controlPoints());
-    double t1 = Timer.getFPGATimestamp();
+    SplinePath path = pathData.getSplinePath();
     FollowPath pathCmd =
-        new FollowPath(drivetrain, path, pathData.globalConstraints(), pathData.constraintZones());
+        new FollowPath(
+            drivetrain,
+            path,
+            pathData.getVelocityProfile(),
+            pathData.globalConstraints().getEndVelocity());
     if (completionTolerance > 0) {
       pathCmd.withCompletionTolerance(completionTolerance);
     }
-    double t2 = Timer.getFPGATimestamp();
-
-    Logger.recordOutput("PathBench/SplinePathMs", (t1 - t0) * 1000);
-    Logger.recordOutput("PathBench/VelocityProfileMs", (t2 - t1) * 1000);
-    Logger.recordOutput("PathBench/TotalMs", (t2 - t0) * 1000);
-    Logger.recordOutput("PathBench/ControlPoints", pathData.controlPoints().size());
-    Logger.recordOutput("PathBench/PathLengthM", path.getTotalLength());
 
     if (!pathData.headingWaypoints().isEmpty()) {
       pathCmd.withRotationSupplier(

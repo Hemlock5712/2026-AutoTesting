@@ -59,7 +59,7 @@ public class ShooterLookup {
     hoodMap.put(4.0, 20.0);
     hoodMap.put(4.5, 24.0);
     hoodMap.put(5.0, 25.0);
-    hoodMap.put(5.5, 20.0);
+    hoodMap.put(5.5, 25.0);
   }
 
   private static void buildToF() {

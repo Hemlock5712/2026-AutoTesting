@@ -7,8 +7,6 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -28,7 +26,6 @@ import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -92,7 +89,6 @@ public class RobotContainer {
   private final AutoRoutines autoRoutines;
   private Command cachedAutoCommand = Commands.none();
   private Supplier<Command> lastBuiltSupplier;
-  private Optional<Alliance> lastBuiltAlliance = Optional.empty();
 
   public RobotContainer() {
     autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
@@ -261,9 +257,6 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    // Force rebuild with current alliance at auto start
-    lastBuiltAlliance = Optional.empty();
-    updateAutoSelection();
     return cachedAutoCommand;
   }
 
@@ -299,38 +292,16 @@ public class RobotContainer {
   // }
 
   /**
-   * Polls for changes in auto selection or alliance during disabled. Rebuilds the cached auto
-   * command only when something changes. Call from {@code disabledPeriodic()}.
+   * Polls for changes in auto selection during disabled. Rebuilds the cached auto command only when
+   * the selection changes. Camera tag filters are updated independently when alliance changes. Call
+   * from {@code disabledPeriodic()}.
    */
   public void updateAutoSelection() {
     Supplier<Command> selected = autoChooser.getSelected();
-    Optional<Alliance> alliance = DriverStation.getAlliance();
 
-    if (alliance.equals(lastBuiltAlliance) && selected == lastBuiltSupplier) {
-      return;
+    if (selected != lastBuiltSupplier) {
+      lastBuiltSupplier = selected;
+      cachedAutoCommand = (selected != null) ? selected.get() : Commands.none();
     }
-
-    lastBuiltSupplier = selected;
-    lastBuiltAlliance = alliance;
-
-    // Update tag filters on rear cameras when alliance changes
-    updateRearCameraTagFilters(alliance);
-
-    if (selected == null) {
-      cachedAutoCommand = Commands.none();
-      return;
-    }
-
-    cachedAutoCommand = selected.get();
-  }
-
-  /**
-   * Sets fiducial ID filters on rear-facing cameras to only trust tags on our alliance side. Clears
-   * filters (accept all) when alliance is unknown.
-   */
-  private void updateRearCameraTagFilters(Optional<Alliance> alliance) {
-    int[] validIDs = FieldInfo.getAllianceTags(alliance);
-    limelightBL.setTagFilter(validIDs);
-    limelightBR.setTagFilter(validIDs);
   }
 }

@@ -7,10 +7,10 @@ import static edu.wpi.first.units.Units.Meters;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
-import frc.robot.autonomous.AutoCommands.PathAction;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
@@ -18,8 +18,6 @@ import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 import frc.robot.utils.path.Paths.AlliancePath;
-import java.util.List;
-import java.util.function.BooleanSupplier;
 
 public class AutoRoutines {
 
@@ -42,6 +40,20 @@ public class AutoRoutines {
     this.autoCommands = autoCommands;
     this.superstructure = superstructure;
     this.intakeCoordinator = intakeCoordinator;
+
+    // Precompute SplinePath + VelocityProfile for all path variants (both alliances)
+    leftToMiddle.blue().precompute();
+    leftToMiddle.red().precompute();
+    leftToMiddleCleanup.blue().precompute();
+    leftToMiddleCleanup.red().precompute();
+    rightToMiddle.blue().precompute();
+    rightToMiddle.red().precompute();
+    rightToMiddleCleanup.blue().precompute();
+    rightToMiddleCleanup.red().precompute();
+
+    // Warm up JVM class loading by building a throwaway command chain.
+    // Forces all command framework classes to load during robot init, not first auto.
+    autoCommands.followPath(leftToMiddle.blue());
   }
 
   /**
@@ -56,54 +68,6 @@ public class AutoRoutines {
     return Rotation2d.fromDegrees(snapped);
   }
 
-  /**
-   * Runs a path with a series of actions. Always shoots at the end.
-   *
-   * <p>Actions:
-   *
-   * <p>- HubShoot: Shoots at the hub - FeedShoot: Shoots in feeding mode - StopShoot: Stops the
-   * shooter
-   *
-   * @param path The path to run
-   * @return A command that runs the path with the actions
-   */
-  public Command autoBuilder(PathData path) {
-    return autoBuilder(path, () -> true);
-  }
-
-  public Command autoBuilder(PathData path, BooleanSupplier resetPose) {
-    PathData pathData = Paths.forAlliance(path);
-    return Commands.sequence(
-        Commands.either(
-            autoCommands.resetPose(() -> pathData.getStartingPose()), Commands.none(), resetPose),
-        intakeCoordinator.deployAndRunAUTO(),
-        followPathWithEvents(pathData),
-        superstructure.hubShoot());
-  }
-
-  private Command followPathWithEvents(PathData path) {
-    return autoCommands.followPathWithActions(
-        path,
-        List.of(
-            new PathAction("HubShoot", 0.5, superstructure::hubShoot),
-            new PathAction("FeedShoot", 0.5, superstructure::feedShoot),
-            new PathAction("StopShoot", 0.25, superstructure::stopShoot),
-            new PathAction("SlowRaiseIntake", 0.5, intakeCoordinator::slowUpAndRun),
-            new PathAction("RunIntake", 0.5, intakeCoordinator::deployAndRunAUTO)));
-  }
-
-  private Command followPathWithEvents(PathData path, double completionTolerance) {
-    return autoCommands.followPathWithActions(
-        path,
-        List.of(
-            new PathAction("HubShoot", 0.5, superstructure::hubShoot),
-            new PathAction("FeedShoot", 0.5, superstructure::feedShoot),
-            new PathAction("StopShoot", 0.25, superstructure::stopShoot),
-            new PathAction("SlowRaiseIntake", 0.5, intakeCoordinator::slowUpAndRun),
-            new PathAction("RunIntake", 0.5, intakeCoordinator::deployAndRunAUTO)),
-        completionTolerance);
-  }
-
   public Command leftSide2Passes() {
     return side2Passes(leftToMiddle, leftToMiddleCleanup);
   }
@@ -112,30 +76,35 @@ public class AutoRoutines {
     return side2Passes(rightToMiddle, rightToMiddleCleanup);
   }
 
-  private Command side2Passes(AlliancePath mainAlliancePath, AlliancePath cleanupAlliancePath) {
-    return autoCommands.deferCommand(
-        () -> {
-          PathData mainPath = mainAlliancePath.get();
-          PathData cleanupPath = cleanupAlliancePath.get();
-          Pose2d cleanupStart = cleanupPath.getStartingPose();
-          Pose2d driveTarget =
-              new Pose2d(
-                  cleanupStart
-                      .getTranslation()
-                      .plus(new Translation2d(0.25, cleanupStart.getRotation())),
-                  cleanupStart.getRotation());
+  private boolean isRedAlliance() {
+    return DriverStation.getAlliance().map(a -> a == DriverStation.Alliance.Red).orElse(false);
+  }
 
-          return Commands.sequence(
-              autoCommands.resetPose(() -> mainPath.getStartingPose()),
-              intakeCoordinator.deployAndRunAUTO().deadlineFor(superstructure.prerollShooter(34)),
-              followPathWithEvents(mainPath, 0.15),
-              new WaitCommand(5).deadlineFor(superstructure.shoot()),
-              superstructure.stopShoot(),
-              superstructure.prerollShooter(34),
-              autoCommands.driveTo(() -> driveTarget).withWaypoint(4.75),
-              followPathWithEvents(cleanupPath, 0.15),
-              superstructure.shoot());
-        });
+  private Command side2Passes(AlliancePath mainAlliancePath, AlliancePath cleanupAlliancePath) {
+    Command blueCmd = buildSide2Passes(mainAlliancePath.blue(), cleanupAlliancePath.blue());
+    Command redCmd = buildSide2Passes(mainAlliancePath.red(), cleanupAlliancePath.red());
+    return Commands.either(redCmd, blueCmd, this::isRedAlliance);
+  }
+
+  private Command buildSide2Passes(PathData mainPath, PathData cleanupPath) {
+    Pose2d cleanupStart = cleanupPath.getStartingPose();
+    Pose2d cleanupDriveTarget =
+        new Pose2d(
+            cleanupStart.getTranslation().plus(new Translation2d(0.25, cleanupStart.getRotation())),
+            cleanupStart.getRotation());
+
+    return Commands.sequence(
+        autoCommands.resetPose(() -> mainPath.getStartingPose()),
+        autoCommands
+            .followPath(mainPath)
+            .withCompletionTolerance(0.15)
+            .deadlineFor(intakeCoordinator.deployAndRunAUTO(), superstructure.prerollShooter(34)),
+        new WaitCommand(5).deadlineFor(superstructure.shoot()),
+        superstructure.stopShoot(),
+        superstructure.prerollShooter(34),
+        autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
+        autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15),
+        superstructure.shoot());
   }
 
   public Command leftAutoFeed(double midlineX) {

@@ -203,30 +203,16 @@ public final class RotationSuppliers {
   /**
    * Converts heading waypoints from fractional control point indices to arc-length positions.
    *
-   * <p>Uses path.getClosestPoint() to find the arc-length at each control point, then interpolates
-   * for fractional indices. This is done once at construction time.
+   * <p>Uses the arc-length lookup table via {@link SplinePath#getArcLengthAtWaypointIndex} for O(1)
+   * conversion instead of expensive closest-point projection. This is done once at construction
+   * time.
    */
   private static List<ArcLengthHeading> resolveWaypoints(
       SplinePath path, List<PathData.HeadingWaypoint> waypoints) {
 
-    // Get arc-length at each integer control point index
-    List<Translation2d> controlPoints = path.getControlPoints();
-    double[] controlPointS = new double[controlPoints.size()];
-    controlPointS[0] = 0;
-    controlPointS[controlPoints.size() - 1] = path.getTotalLength();
-    for (int i = 1; i < controlPoints.size() - 1; i++) {
-      controlPointS[i] = path.getClosestPoint(controlPoints.get(i)).s();
-    }
-
-    // Convert each waypoint's fractional index to arc-length
     List<ArcLengthHeading> resolved = new ArrayList<>();
     for (PathData.HeadingWaypoint wp : waypoints) {
-      double idx = wp.waypointIndex();
-      int lo = Math.max(0, Math.min((int) idx, controlPoints.size() - 1));
-      int hi = Math.min(lo + 1, controlPoints.size() - 1);
-      double frac = idx - lo;
-
-      double s = controlPointS[lo] + frac * (controlPointS[hi] - controlPointS[lo]);
+      double s = waypointIndexToArcLength(path, wp.waypointIndex());
       resolved.add(new ArcLengthHeading(s, wp.heading().getRadians()));
     }
 

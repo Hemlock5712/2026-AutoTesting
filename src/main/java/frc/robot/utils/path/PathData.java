@@ -3,6 +3,7 @@ package frc.robot.utils.path;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import java.util.IdentityHashMap;
 import java.util.List;
 
 /**
@@ -148,5 +149,30 @@ public record PathData(
         constraintZones,
         rotationZones,
         waypointFlags);
+  }
+
+  // ---- Precomputation cache (identity-based, since PathData objects are reused) ----
+
+  private static final IdentityHashMap<PathData, SplinePath> SPLINE_CACHE = new IdentityHashMap<>();
+  private static final IdentityHashMap<PathData, VelocityProfile> PROFILE_CACHE =
+      new IdentityHashMap<>();
+
+  /** Returns the SplinePath for this PathData, computing and caching on first call. */
+  public SplinePath getSplinePath() {
+    return SPLINE_CACHE.computeIfAbsent(this, pd -> new SplinePath(pd.controlPoints()));
+  }
+
+  /** Returns the VelocityProfile for this PathData, computing and caching on first call. */
+  public VelocityProfile getVelocityProfile() {
+    return PROFILE_CACHE.computeIfAbsent(
+        this,
+        pd ->
+            new VelocityProfile(pd.getSplinePath(), pd.globalConstraints(), pd.constraintZones()));
+  }
+
+  /** Eagerly computes and caches the SplinePath and VelocityProfile for this PathData. */
+  public void precompute() {
+    getSplinePath();
+    getVelocityProfile();
   }
 }

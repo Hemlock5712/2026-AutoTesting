@@ -1,5 +1,6 @@
 package frc.robot.utils.path;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -29,6 +30,13 @@ public final class Paths {
     }
   }
 
+  // Named field positions
+  public static final Pose2d START_LEFT =
+      new Pose2d(
+          new Translation2d(4.4474222222222215, 7.689296296296297), Rotation2d.fromDegrees(-90));
+  public static final Pose2d START_LEFT_MIRROR =
+      new Pose2d(
+          new Translation2d(4.4474222222222215, 0.5207037037037034), Rotation2d.fromDegrees(90));
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
@@ -357,12 +365,12 @@ public final class Paths {
   public static final PathData LEFT_TO_MIDDLE_CLEANUP =
       new PathData(
           List.of(
-              new Translation2d(5.4594318507244575, 7.586285106050246),
+              new Translation2d(6.05, 7.55),
               new Translation2d(8.000493199565913, 7.143524404479861),
               new Translation2d(8.250749241497267, 4.833468570199595),
               new Translation2d(6.537, 4.083),
               new Translation2d(6.520891569760011, 7.297184614934276),
-              new Translation2d(4.22740210583163, 7.586285106050246)),
+              new Translation2d(4.17, 7.586285106050246)),
           List.of(
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(0)),
               new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(-70)),
@@ -380,12 +388,12 @@ public final class Paths {
   public static final PathData LEFT_TO_MIDDLE =
       new PathData(
           List.of(
-              new Translation2d(4.447, 7.694),
+              new Translation2d(4.208151641067681, 7.701787897764259),
               new Translation2d(8.115995988149615, 7.085773008622855),
               new Translation2d(8.347001565317022, 4.871969500770933),
               new Translation2d(7.230474609007896, 5.025973223056283),
               new Translation2d(6.575958807033582, 7.3360290573365505),
-              new Translation2d(4.22740210583163, 7.586285106050246)),
+              new Translation2d(4.17, 7.586285106050246)),
           List.of(
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
               new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
@@ -406,7 +414,7 @@ public final class Paths {
               new Translation2d(8.250749241497267, 3.376531429800406),
               new Translation2d(6.53728945347439, 4.083199282140768),
               new Translation2d(6.520891569760011, 0.9128153850657252),
-              new Translation2d(4.22740210583163, 0.6237148939497548)),
+              new Translation2d(4.17, 0.6237148939497548)),
           List.of(
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(0)),
               new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(70)),
@@ -424,12 +432,12 @@ public final class Paths {
   public static final PathData RIGHT_TO_MIDDLE =
       new PathData(
           List.of(
-              new Translation2d(4.447, 0.5160000000000009),
+              new Translation2d(4.208151641067681, 0.508212102235742),
               new Translation2d(8.115995988149615, 1.1242269913771459),
               new Translation2d(8.347001565317022, 3.3380304992290677),
               new Translation2d(7.230474609007896, 3.1840267769437176),
               new Translation2d(6.575958807033582, 0.8739709426634503),
-              new Translation2d(4.22740210583163, 0.6237148939497548)),
+              new Translation2d(4.17, 0.6237148939497548)),
           List.of(
               new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90)),
               new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(90)),
