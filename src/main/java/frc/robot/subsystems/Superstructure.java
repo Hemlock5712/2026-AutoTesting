@@ -2,6 +2,7 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.Utils;
@@ -542,6 +543,11 @@ public class Superstructure {
   }
 
   @AutoLogOutput
+  public boolean isUnderTrench() {
+    return FieldInfo.isInAllianceZone(turretPose);
+  }
+
+  @AutoLogOutput
   public boolean isInNeutralZoneDeadzone() {
     return FieldInfo.isInNeutralZoneDeadzone(turretPose);
   }
@@ -631,5 +637,9 @@ public class Superstructure {
     Logger.recordOutput(
         "SWM/EndGoalPose3d",
         new Pose3d(targetPosition.getX(), targetPosition.getY(), 0.0, Rotation3d.kZero));
+  }
+
+  public void sethood() {
+    shooter.setPosition(Rotations.of(0));
   }
 }

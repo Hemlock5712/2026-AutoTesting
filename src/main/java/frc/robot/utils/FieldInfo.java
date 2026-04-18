@@ -270,6 +270,32 @@ public final class FieldInfo {
       new Rectangle2d(
           new Translation2d(0, 0), new Translation2d(Meters.of(4.5), FieldInfo.width()));
 
+  private static final double TRENCHTOLERANCE = 0.5;
+
+  private static final Rectangle2d LEFTALLIANCETRENCHZONE =
+      new Rectangle2d(
+          new Translation2d(4.625594 - TRENCHTOLERANCE, 1.27889),
+          new Translation2d(4.625594 + TRENCHTOLERANCE, 0));
+
+  private static final Rectangle2d RIGHTALLIANCETRENCHZONE =
+      new Rectangle2d(
+          new Translation2d(4.625594 - TRENCHTOLERANCE, FieldInfo.width().in(Meters) - 1.27889),
+          new Translation2d(4.625594 + TRENCHTOLERANCE, FieldInfo.width().in(Meters)));
+
+  private static final Rectangle2d LEFTOTHERTRENCHZONE =
+      new Rectangle2d(
+          new Translation2d(FieldInfo.length().in(Meters) - 4.625594 - TRENCHTOLERANCE, 1.27889),
+          new Translation2d(FieldInfo.length().in(Meters) - 4.625594 + TRENCHTOLERANCE, 0));
+
+  private static final Rectangle2d RIGHTOTHERTRENCHZONE =
+      new Rectangle2d(
+          new Translation2d(
+              FieldInfo.length().in(Meters) - 4.625594 - TRENCHTOLERANCE,
+              FieldInfo.width().in(Meters) - 1.27889),
+          new Translation2d(
+              FieldInfo.length().in(Meters) - 4.625594 + TRENCHTOLERANCE,
+              FieldInfo.width().in(Meters)));
+
   private static final Distance NEUTRAL_ZONE_DEADZONE_DEPTH = Meters.of(3);
   private static final Distance NEUTRAL_ZONE_DEADZONE_WIDTH = Meters.of(1.25);
 
@@ -304,6 +330,14 @@ public final class FieldInfo {
 
   public static boolean isInAllianceZone(Pose2d pose) {
     return isInAllianceZone(pose.getTranslation());
+  }
+
+  public static boolean isUnderaTrench(Translation2d translation) {
+    Translation2d flippedTranslation = flip(translation);
+    return LEFTALLIANCETRENCHZONE.contains(flippedTranslation)
+        || RIGHTALLIANCETRENCHZONE.contains(flippedTranslation)
+        || LEFTOTHERTRENCHZONE.contains(flippedTranslation)
+        || RIGHTOTHERTRENCHZONE.contains(flippedTranslation);
   }
 
   public static boolean isInNeutralZoneDeadzone(Translation2d translation) {

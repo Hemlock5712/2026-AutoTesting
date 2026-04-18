@@ -171,7 +171,7 @@ public class Shooter extends SubsystemBase {
    * @param angle What position to go to
    */
   public void setPosition(Angle angle) {
-    if (!inAllianceZone && angle.gt(MAX_HOOD_OUTSIDE_ZONE)) {
+    if (!inAllianceZone && angle.in(Degrees) > MAX_HOOD_OUTSIDE_ZONE.in(Degrees)) {
       angle = MAX_HOOD_OUTSIDE_ZONE;
     }
     hood.setControl(rotationOut.withPosition(angle));
@@ -259,8 +259,8 @@ public class Shooter extends SubsystemBase {
     boolean hoodOk =
         actualHoodDeg >= ShooterLookup.getFeedHoodMap().get(minDist)
             && actualHoodDeg <= ShooterLookup.getFeedHoodMap().get(maxDist);
-//&& hoodOk
-    return flywheelOk ;
+    // && hoodOk
+    return flywheelOk;
   }
 
   /**
