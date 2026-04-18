@@ -259,8 +259,8 @@ public class Shooter extends SubsystemBase {
     boolean hoodOk =
         actualHoodDeg >= ShooterLookup.getFeedHoodMap().get(minDist)
             && actualHoodDeg <= ShooterLookup.getFeedHoodMap().get(maxDist);
-
-    return flywheelOk && hoodOk;
+//&& hoodOk
+    return flywheelOk ;
   }
 
   /**
