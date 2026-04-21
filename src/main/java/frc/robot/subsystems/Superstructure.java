@@ -157,7 +157,7 @@ public class Superstructure {
       }
     }
 
-    shooter.setInAllianceZone(isInAllianceZone());
+    shooter.setInAllianceZone(isUnderaTrench());
 
     Translation2d toTarget = targetPosition.minus(turretPose.getTranslation());
 
@@ -538,13 +538,18 @@ public class Superstructure {
   }
 
   @AutoLogOutput
-  public boolean isInAllianceZone() {
+  public boolean isUnderaTrench() {
     return FieldInfo.isUnderaTrench(
         turretPose.getTranslation(),
         new Translation2d(
                 driveState.get().Speeds.vxMetersPerSecond,
                 driveState.get().Speeds.vyMetersPerSecond)
             .getNorm());
+  }
+
+  @AutoLogOutput
+  public boolean isInAllianceZone() {
+    return FieldInfo.isInAllianceZone(turretPose);
   }
 
   @AutoLogOutput

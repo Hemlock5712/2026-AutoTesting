@@ -171,14 +171,17 @@ public class Shooter extends SubsystemBase {
    * @param angle What position to go to
    */
   public void setPosition(Angle angle) {
-    if (inAllianceZone) {
+    if (inAllianceZone && angle.in(Degrees) >= MAX_HOOD_OUTSIDE_ZONE.in(Degrees)) {
       angle = MAX_HOOD_OUTSIDE_ZONE;
     }
     hood.setControl(rotationOut.withPosition(angle));
   }
 
   public void setInAllianceZone(boolean inZone) {
-    this.inAllianceZone = inZone;
+    if (inZone != this.inAllianceZone) {
+      this.inAllianceZone = inZone;
+      setPosition(getTargetPosition());
+    }
   }
 
   /** Tuning mode: continuously set flywheel velocity and hood angle from dashboard values. */
