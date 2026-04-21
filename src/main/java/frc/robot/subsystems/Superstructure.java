@@ -539,7 +539,12 @@ public class Superstructure {
 
   @AutoLogOutput
   public boolean isInAllianceZone() {
-    return FieldInfo.isUnderaTrench(turretPose.getTranslation());
+    return FieldInfo.isUnderaTrench(
+        turretPose.getTranslation(),
+        new Translation2d(
+                driveState.get().Speeds.vxMetersPerSecond,
+                driveState.get().Speeds.vyMetersPerSecond)
+            .getNorm());
   }
 
   @AutoLogOutput
