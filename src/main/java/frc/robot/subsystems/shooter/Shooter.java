@@ -171,7 +171,7 @@ public class Shooter extends SubsystemBase {
    * @param angle What position to go to
    */
   public void setPosition(Angle angle) {
-    if (!inAllianceZone && angle.in(Degrees) > MAX_HOOD_OUTSIDE_ZONE.in(Degrees)) {
+    if (inAllianceZone) {
       angle = MAX_HOOD_OUTSIDE_ZONE;
     }
     hood.setControl(rotationOut.withPosition(angle));

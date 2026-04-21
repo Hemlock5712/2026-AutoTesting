@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.utils.geometry.ExtTranslation;
 import java.util.List;
 import java.util.Optional;
+import org.littletonrobotics.junction.Logger;
 
 public final class FieldInfo {
 
@@ -270,31 +271,7 @@ public final class FieldInfo {
       new Rectangle2d(
           new Translation2d(0, 0), new Translation2d(Meters.of(4.5), FieldInfo.width()));
 
-  private static final double TRENCHTOLERANCE = 0.5;
-
-  private static final Rectangle2d LEFTALLIANCETRENCHZONE =
-      new Rectangle2d(
-          new Translation2d(4.625594 - TRENCHTOLERANCE, 1.27889),
-          new Translation2d(4.625594 + TRENCHTOLERANCE, 0));
-
-  private static final Rectangle2d RIGHTALLIANCETRENCHZONE =
-      new Rectangle2d(
-          new Translation2d(4.625594 - TRENCHTOLERANCE, FieldInfo.width().in(Meters) - 1.27889),
-          new Translation2d(4.625594 + TRENCHTOLERANCE, FieldInfo.width().in(Meters)));
-
-  private static final Rectangle2d LEFTOTHERTRENCHZONE =
-      new Rectangle2d(
-          new Translation2d(FieldInfo.length().in(Meters) - 4.625594 - TRENCHTOLERANCE, 1.27889),
-          new Translation2d(FieldInfo.length().in(Meters) - 4.625594 + TRENCHTOLERANCE, 0));
-
-  private static final Rectangle2d RIGHTOTHERTRENCHZONE =
-      new Rectangle2d(
-          new Translation2d(
-              FieldInfo.length().in(Meters) - 4.625594 - TRENCHTOLERANCE,
-              FieldInfo.width().in(Meters) - 1.27889),
-          new Translation2d(
-              FieldInfo.length().in(Meters) - 4.625594 + TRENCHTOLERANCE,
-              FieldInfo.width().in(Meters)));
+  
 
   private static final Distance NEUTRAL_ZONE_DEADZONE_DEPTH = Meters.of(3);
   private static final Distance NEUTRAL_ZONE_DEADZONE_WIDTH = Meters.of(1.25);
@@ -334,10 +311,75 @@ public final class FieldInfo {
 
   public static boolean isUnderaTrench(Translation2d translation) {
     Translation2d flippedTranslation = flip(translation);
+
+
+  double TRENCHTOLERANCE = 0.15;
+
+  Rectangle2d LEFTALLIANCETRENCHZONE =
+      new Rectangle2d(
+          new Translation2d(4.625594 - TRENCHTOLERANCE, 1.27889),
+          new Translation2d(4.625594 + TRENCHTOLERANCE, 0));
+
+  Rectangle2d RIGHTALLIANCETRENCHZONE =
+      new Rectangle2d(
+          new Translation2d(4.625594 - TRENCHTOLERANCE, FieldInfo.width().in(Meters) - 1.27889),
+          new Translation2d(4.625594 + TRENCHTOLERANCE, FieldInfo.width().in(Meters)));
+
+  Rectangle2d LEFTOTHERTRENCHZONE =
+      new Rectangle2d(
+          new Translation2d(FieldInfo.length().in(Meters) - 4.625594 - TRENCHTOLERANCE, 1.27889),
+          new Translation2d(FieldInfo.length().in(Meters) - 4.625594 + TRENCHTOLERANCE, 0));
+
+  Rectangle2d RIGHTOTHERTRENCHZONE =
+      new Rectangle2d(
+          new Translation2d(
+              FieldInfo.length().in(Meters) - 4.625594 - TRENCHTOLERANCE,
+              FieldInfo.width().in(Meters) - 1.27889),
+          new Translation2d(
+              FieldInfo.length().in(Meters) - 4.625594 + TRENCHTOLERANCE,
+              FieldInfo.width().in(Meters)));
+
+
+    logRectangle(LEFTALLIANCETRENCHZONE, "LEFTALLIANCETRENCHZONE");
+    logRectangle(RIGHTALLIANCETRENCHZONE, "RIGHTALLIANCETRENCHZONE");
+    logRectangle(LEFTOTHERTRENCHZONE, "LEFTOTHERTRENCHZONE");
+    logRectangle(RIGHTOTHERTRENCHZONE, "RIGHTOTHERTRENCHZONE");
+
     return LEFTALLIANCETRENCHZONE.contains(flippedTranslation)
         || RIGHTALLIANCETRENCHZONE.contains(flippedTranslation)
         || LEFTOTHERTRENCHZONE.contains(flippedTranslation)
         || RIGHTOTHERTRENCHZONE.contains(flippedTranslation);
+  }
+
+  public static void logRectangle(Rectangle2d rectangle, String name) {
+    Pose2d topLeft =
+        new Pose2d(
+            new Translation2d(
+                rectangle.getCenter().getX() - (rectangle.getXWidth() / 2),
+                rectangle.getCenter().getY() + rectangle.getYWidth() / 2),
+            new Rotation2d(0));
+
+    Pose2d topRight =
+        new Pose2d(
+            new Translation2d(
+                rectangle.getCenter().getX() + (rectangle.getXWidth() / 2),
+                rectangle.getCenter().getY() + rectangle.getYWidth() / 2),
+            new Rotation2d(0));
+
+    Pose2d bottomLeft =
+        new Pose2d(
+            new Translation2d(
+                rectangle.getCenter().getX() - (rectangle.getXWidth() / 2),
+                rectangle.getCenter().getY() - rectangle.getYWidth() / 2),
+            new Rotation2d(0));
+    Pose2d bottomRight =
+        new Pose2d(
+            new Translation2d(
+                rectangle.getCenter().getX() + (rectangle.getXWidth() / 2),
+                rectangle.getCenter().getY() - rectangle.getYWidth() / 2),
+            new Rotation2d(0));
+    Pose2d[] point = {topLeft, topRight, bottomRight, bottomLeft, topLeft};
+    Logger.recordOutput("Trench/" + name, point);
   }
 
   public static boolean isInNeutralZoneDeadzone(Translation2d translation) {

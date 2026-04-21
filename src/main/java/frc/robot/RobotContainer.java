@@ -134,23 +134,25 @@ public class RobotContainer {
         .leftBumper()
         .whileTrue(
             AxisLockDrive.lockY(
-                    drivetrain,
-                    () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
-                    () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
-                    () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
-                    () -> AutoRoutines.snapToNearest180Degrees(drivetrain.getRotation()))
-                .alongWith(Commands.run(() -> superstructure.sethood()))); // Lock to closest 180
+                drivetrain,
+                () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
+                () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
+                () ->
+                    AutoRoutines.snapToNearest180Degrees(
+                        drivetrain.getRotation()))); // Lock to closest 180
 
     joystick
         .rightBumper()
         .whileTrue(
             AxisLockDrive.lockY(
-                    drivetrain,
-                    () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
-                    () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
-                    () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
-                    () -> AutoRoutines.snapToNearest180Degrees(drivetrain.getRotation()))
-                .alongWith(Commands.run(() -> superstructure.sethood()))); // Lock to closest 180
+                drivetrain,
+                () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
+                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
+                () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
+                () ->
+                    AutoRoutines.snapToNearest180Degrees(
+                        drivetrain.getRotation()))); // Lock to closest 180
 
     joystick
         .x()
@@ -231,9 +233,9 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
-    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.start().onTrue(superstructure.recoverHopper()).onFalse(superstructure.stopHopper());
 

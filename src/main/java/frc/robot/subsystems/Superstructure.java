@@ -539,12 +539,7 @@ public class Superstructure {
 
   @AutoLogOutput
   public boolean isInAllianceZone() {
-    return FieldInfo.isInAllianceZone(turretPose);
-  }
-
-  @AutoLogOutput
-  public boolean isUnderTrench() {
-    return FieldInfo.isInAllianceZone(turretPose);
+    return FieldInfo.isUnderaTrench(turretPose.getTranslation());
   }
 
   @AutoLogOutput
