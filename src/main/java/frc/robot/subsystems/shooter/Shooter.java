@@ -31,8 +31,10 @@ import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.TalonFXUtil;
+import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -85,9 +87,9 @@ public class Shooter extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // Control values
-    config.Slot0.kS = 5.0; // Static friction
-    config.Slot0.kV = 0.16; // Velocity feedforward
-    config.Slot0.kP = 10; // Proportional gain
+    config.Slot0.kS = 7.0; // Static friction
+    config.Slot0.kV = 0.03; // Velocity feedforward
+    config.Slot0.kP = 20; // Proportional gain
     config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseVelocitySign;
 
     config.Feedback.SensorToMechanismRatio = 1.66666666666667;
@@ -125,7 +127,7 @@ public class Shooter extends SubsystemBase {
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
     hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
-    hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.069444;
+    hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.09;
     hoodConfig.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
     hoodConfig.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
 
@@ -353,9 +355,11 @@ public class Shooter extends SubsystemBase {
   }
 
   /** Command that continuously sets the hood position based on distance lookup. */
-  public Command runHoodDynamic(DoubleSupplier distance) {
-    return run(
-        () -> setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distance.getAsDouble()))));
+  public Command runHoodDynamic(DoubleSupplier distance, BooleanSupplier isShooting) {
+    return Commands.either(
+        run(() -> setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distance.getAsDouble())))),
+        run(() -> setPosition(Degrees.of(0))),
+        isShooting);
   }
 
   /** Command that continuously sets flywheel and hood for a feed shot based on distance. */

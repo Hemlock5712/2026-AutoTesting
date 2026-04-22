@@ -131,7 +131,7 @@ public class Superstructure {
     // Set turret tracking as default command - uses SWM-aware getters for seamless
     // mode switching
     turret.setDefaultCommand(turret.trackHubCommand(this::getTurretAngle));
-    shooter.setDefaultCommand(shooter.runHoodDynamic(this::getHoodDistance));
+    shooter.setDefaultCommand(shooter.runHoodDynamic(this::getHoodDistance, this::isShooting));
   }
 
   // ==================== Periodic ====================

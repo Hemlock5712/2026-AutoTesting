@@ -233,9 +233,9 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
-    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     joystick.start().onTrue(superstructure.recoverHopper()).onFalse(superstructure.stopHopper());
 
