@@ -70,6 +70,12 @@ public class FollowPath extends Command {
   /** Number of poses to sample for the logged path trajectory. */
   private static final int PATH_LOG_SAMPLES = 50;
 
+  /** Nominal command scheduler period, used so the first output is not integrated over ~0s. */
+  private static final double NOMINAL_LOOP_PERIOD = 0.02;
+
+  /** Cap for velocity-profile lookahead; keeps the launch boost from skipping far ahead. */
+  private static final double MAX_PROFILE_LOOKAHEAD = 0.15;
+
   // Per-axis speed overrides (null = use path-computed value)
   private DoubleSupplier overrideVx = null;
   private DoubleSupplier overrideVy = null;
@@ -92,6 +98,7 @@ public class FollowPath extends Command {
   private double lastTime;
   private double lastCrossTrackError;
   private double lastProjectedS;
+  private boolean firstExecute;
   private boolean referencePathLogged;
 
   private final SwerveRequest.ApplyFieldSpeeds request =
@@ -403,8 +410,9 @@ public class FollowPath extends Command {
 
     // Always start at the beginning of the path
     lastProjectedS = 0.0;
+    firstExecute = true;
 
-    // Defer reference path logging to first execute() to avoid blocking auto start
+    // Log the reference path after the first drivetrain request has been sent.
     referencePathLogged = false;
   }
 
@@ -413,10 +421,9 @@ public class FollowPath extends Command {
     double currentTime = Utils.getCurrentTimeSeconds();
     double dt = currentTime - lastTime;
     lastTime = currentTime;
-
-    if (!referencePathLogged) {
-      logReferencePath();
-      referencePathLogged = true;
+    if (firstExecute) {
+      dt = NOMINAL_LOOP_PERIOD;
+      firstExecute = false;
     }
 
     Pose2d robotPose = swerve.getPose();
@@ -450,7 +457,8 @@ public class FollowPath extends Command {
 
     // Step 3: Get target point and profiled velocity
     Translation2d targetPoint = path.getPoint(sTarget);
-    double profiledSpeed = velocityProfile.getVelocity(sRobot);
+    double profileS = getVelocityProfileSampleS(sRobot, currentSpeed, dt);
+    double profiledSpeed = velocityProfile.getVelocity(profileS);
 
     // Step 4: Velocity direction — toward lookahead point
     Translation2d toTarget = targetPoint.minus(robotPos);
@@ -560,6 +568,7 @@ public class FollowPath extends Command {
     Logger.recordOutput("FollowPath/CrossTrackError", crossTrackError);
     Logger.recordOutput("FollowPath/CrossTrackRate", crossTrackRate);
     Logger.recordOutput("FollowPath/ArcLengthS", sRobot);
+    Logger.recordOutput("FollowPath/ProfileArcLengthS", profileS);
     Logger.recordOutput("FollowPath/Progress", progress);
     Logger.recordOutput("FollowPath/ProfiledSpeed", profiledSpeed);
     Logger.recordOutput("FollowPath/ActualSpeed", currentSpeed);
@@ -579,6 +588,18 @@ public class FollowPath extends Command {
         "PathEditor/ClosestPoint", new double[] {proj.point().getX(), proj.point().getY()});
     Logger.recordOutput("PathEditor/CrossTrackError", crossTrackError);
     Logger.recordOutput("PathEditor/Progress", progress);
+
+    if (!referencePathLogged) {
+      logReferencePath();
+      referencePathLogged = true;
+    }
+  }
+
+  private double getVelocityProfileSampleS(double sRobot, double currentSpeed, double dt) {
+    double cycleDistance =
+        currentSpeed * dt + 0.5 * AccelerationLimiter.MAX_FRICTION_ACCEL * dt * dt;
+    double profileLookahead = MathUtil.clamp(cycleDistance, 0.0, MAX_PROFILE_LOOKAHEAD);
+    return Math.min(sRobot + profileLookahead, path.getTotalLength());
   }
 
   @Override
