@@ -42,7 +42,7 @@ public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(1);
   private static final Angle HOOD_TOLERANCE = Degree.of(1);
-  private static final Angle MAX_HOOD_OUTSIDE_ZONE = Degrees.of(18);
+  private static final Angle MAX_HOOD_OUTSIDE_ZONE = Degrees.of(0);
 
   private boolean inAllianceZone = false;
 
@@ -110,7 +110,7 @@ public class Shooter extends SubsystemBase {
     hoodConfig.Slot0.kS = 3; // Static friction
     hoodConfig.Slot0.kV = 0.0; // Velocity feedforward
     hoodConfig.Slot0.kP = 6400; // Proportional gain
-    hoodConfig.Slot0.kD = 5; // Proportional gain
+    hoodConfig.Slot0.kD = 175; // Proportional gain
     hoodConfig.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
     hoodConfig.Slot0.GravityType = GravityTypeValue.Elevator_Static;
 

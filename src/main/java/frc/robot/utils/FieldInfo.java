@@ -307,34 +307,66 @@ public final class FieldInfo {
     return isInAllianceZone(pose.getTranslation());
   }
 
-  public static boolean isUnderaTrench(Translation2d translation, double speed) {
+  public static boolean isUnderaTrench(Translation2d translation, double speedX) {
     Translation2d flippedTranslation = flip(translation);
 
-    double TRENCHTOLERANCE = 0.15 + (Math.abs(speed) / 4);
+    double TRENCHTOLERANCE = 0.25;
+
+    double speedMulti = 0.3;
+
+    double allianceSide =
+        Math.signum(Math.signum(4.625594 - translation.getX()) + Math.signum(speedX));
+
+    double otherSide =
+        Math.signum(
+            Math.signum(FieldInfo.length().in(Meters) - 4.625594 - translation.getX())
+                + Math.signum(speedX));
 
     Rectangle2d LEFTALLIANCETRENCHZONE =
         new Rectangle2d(
-            new Translation2d(4.625594 - TRENCHTOLERANCE, 1.27889),
-            new Translation2d(4.625594 + TRENCHTOLERANCE, 0));
+            new Translation2d(
+                4.625594 - TRENCHTOLERANCE - speedX * speedMulti * allianceSide, 1.27889),
+            new Translation2d(
+                4.625594 + TRENCHTOLERANCE + speedX * speedMulti * allianceSide, -999));
 
     Rectangle2d RIGHTALLIANCETRENCHZONE =
         new Rectangle2d(
-            new Translation2d(4.625594 - TRENCHTOLERANCE, FieldInfo.width().in(Meters) - 1.27889),
-            new Translation2d(4.625594 + TRENCHTOLERANCE, FieldInfo.width().in(Meters)));
+            new Translation2d(
+                4.625594 - TRENCHTOLERANCE - speedX * speedMulti * allianceSide,
+                FieldInfo.width().in(Meters) - 1.27889),
+            new Translation2d(
+                4.625594 + TRENCHTOLERANCE + speedX * speedMulti * allianceSide,
+                FieldInfo.width().in(Meters) + 999));
 
     Rectangle2d LEFTOTHERTRENCHZONE =
         new Rectangle2d(
-            new Translation2d(FieldInfo.length().in(Meters) - 4.625594 - TRENCHTOLERANCE, 1.27889),
-            new Translation2d(FieldInfo.length().in(Meters) - 4.625594 + TRENCHTOLERANCE, 0));
+            new Translation2d(
+                FieldInfo.length().in(Meters)
+                    - 4.625594
+                    - TRENCHTOLERANCE
+                    - speedX * speedMulti * otherSide,
+                1.27889),
+            new Translation2d(
+                FieldInfo.length().in(Meters)
+                    - 4.625594
+                    + TRENCHTOLERANCE
+                    + speedX * speedMulti * otherSide,
+                0 - 999));
 
     Rectangle2d RIGHTOTHERTRENCHZONE =
         new Rectangle2d(
             new Translation2d(
-                FieldInfo.length().in(Meters) - 4.625594 - TRENCHTOLERANCE,
+                FieldInfo.length().in(Meters)
+                    - 4.625594
+                    - TRENCHTOLERANCE
+                    - speedX * speedMulti * otherSide,
                 FieldInfo.width().in(Meters) - 1.27889),
             new Translation2d(
-                FieldInfo.length().in(Meters) - 4.625594 + TRENCHTOLERANCE,
-                FieldInfo.width().in(Meters)));
+                FieldInfo.length().in(Meters)
+                    - 4.625594
+                    + TRENCHTOLERANCE
+                    + speedX * speedMulti * otherSide,
+                FieldInfo.width().in(Meters) + 999));
 
     logRectangle(LEFTALLIANCETRENCHZONE, "LEFTALLIANCETRENCHZONE");
     logRectangle(RIGHTALLIANCETRENCHZONE, "RIGHTALLIANCETRENCHZONE");

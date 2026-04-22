@@ -541,10 +541,9 @@ public class Superstructure {
   public boolean isUnderaTrench() {
     return FieldInfo.isUnderaTrench(
         turretPose.getTranslation(),
-        new Translation2d(
-                driveState.get().Speeds.vxMetersPerSecond,
-                driveState.get().Speeds.vyMetersPerSecond)
-            .getNorm());
+        ChassisSpeeds.fromRobotRelativeSpeeds(
+                driveState.get().Speeds, driveState.get().Pose.getRotation())
+            .vxMetersPerSecond);
   }
 
   @AutoLogOutput
