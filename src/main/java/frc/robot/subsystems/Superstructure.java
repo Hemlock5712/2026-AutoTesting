@@ -159,20 +159,20 @@ public class Superstructure {
 
     shooter.setInAllianceZone(isUnderaTrench(state));
 
-    Translation2d toTarget = targetPosition.minus(turretPose.getTranslation());
-
-    distanceToHub = toTarget.getNorm();
+    // Primitive math to avoid Translation2d/Rotation2d allocations
+    distanceToHub =
+        Math.hypot(
+            targetPosition.getX() - turretPose.getX(), targetPosition.getY() - turretPose.getY());
 
     // Calculate SWM targeting values
     virtualTargetPosition = virtualTarget(state);
-    Translation2d toVirtualTarget = virtualTargetPosition.minus(turretPose.getTranslation());
-    distanceToVirtualTarget = toVirtualTarget.getNorm();
-    Rotation2d angleToVirtualTargetField = toVirtualTarget.getAngle();
+    double vdx = virtualTargetPosition.getX() - turretPose.getX();
+    double vdy = virtualTargetPosition.getY() - turretPose.getY();
+    distanceToVirtualTarget = Math.hypot(vdx, vdy);
+    double angleToVtFieldRad = Math.atan2(vdy, vdx);
+    double robotAngleRad = robotPose.getRotation().getRadians();
     angleToVirtualTarget =
-        MathUtil.inputModulus(
-            angleToVirtualTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
-
-    // logTelemetry(state);
+        MathUtil.inputModulus((angleToVtFieldRad - robotAngleRad) / (2.0 * Math.PI), -0.25, 0.75);
   }
 
   // ==================== Targeting Getters ====================
@@ -258,14 +258,9 @@ public class Superstructure {
   }
 
   private boolean isHubReady() {
-    // return true;
-    boolean turretTarget = turret.isAtTarget(distanceToVirtualTarget);
-    boolean shootTarget = shooter.isAtTarget(distanceToVirtualTarget);
-
-    Logger.recordOutput("SWM/IsTurretTarget", turretTarget);
-    Logger.recordOutput("SWM/IsshootTarget", shootTarget);
-
-    return shootTarget && turretTarget && swmSolutionFeasible;
+    return shooter.isAtTarget(distanceToVirtualTarget)
+        && turret.isAtTarget(distanceToVirtualTarget)
+        && swmSolutionFeasible;
   }
 
   private boolean isFeedReady() {
@@ -403,52 +398,47 @@ public class Superstructure {
     ChassisSpeeds fieldSpeeds =
         ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, advancedPose.getRotation());
 
-    Translation2d realTarget = getTargetPosition().getTranslation();
-    // The turret isn't at robot center -- apply the offset to get its real position
-    Pose2d turretPose = advancedPose.transformBy(TURRET_TRANSFORM);
-    Logger.recordOutput("SWM/TurretPose", turretPose);
-    Translation2d robotPosition = turretPose.getTranslation();
+    // Use targetPosition field directly (avoids getTargetPosition() Pose2d allocation)
+    double rtX = targetPosition.getX();
+    double rtY = targetPosition.getY();
+
+    // Turret position on the field via rigid-body offset (primitive math)
+    double cos = advancedPose.getRotation().getCos();
+    double sin = advancedPose.getRotation().getSin();
+    double txLocal = TURRET_TRANSFORM.getX();
+    double tyLocal = TURRET_TRANSFORM.getY();
+    double offsetX = txLocal * cos - tyLocal * sin;
+    double offsetY = txLocal * sin + tyLocal * cos;
+    double rpX = advancedPose.getX() + offsetX;
+    double rpY = advancedPose.getY() + offsetY;
 
     // --- Step 2: Turret velocity on the field ---
-    // The ball exits from the turret, not the robot center. state.Speeds reports
-    // robot-center velocity, so apply the rigid-body correction: v_turret =
-    // v_center + omega x r_{center->turret}.
-    Translation2d turretOffsetField =
-        TURRET_TRANSFORM.getTranslation().rotateBy(advancedPose.getRotation());
+    // v_turret = v_center + omega x r_{center->turret}
     double omega = fieldSpeeds.omegaRadiansPerSecond;
-    Translation2d velocity =
-        new Translation2d(
-            fieldSpeeds.vxMetersPerSecond - omega * turretOffsetField.getY(),
-            fieldSpeeds.vyMetersPerSecond + omega * turretOffsetField.getX());
-    Logger.recordOutput("SWM/TurretVelocity", velocity.getNorm());
+    double velX = fieldSpeeds.vxMetersPerSecond - omega * offsetY;
+    double velY = fieldSpeeds.vyMetersPerSecond + omega * offsetX;
 
     // --- Step 2b: Predict velocity at ball-release time ---
     // v_predicted = v_now + a * delay
-    // The pose is already advanced by "delay"; advance velocity by the same amount
-    // so the virtual target accounts for acceleration, not just constant velocity.
     ChassisSpeeds lastAccel = AccelerationLimiter.getLastAcceleration();
-    velocity =
-        velocity.plus(
-            new Translation2d(lastAccel.vxMetersPerSecond, lastAccel.vyMetersPerSecond)
-                .times(delay));
+    velX += lastAccel.vxMetersPerSecond * delay;
+    velY += lastAccel.vyMetersPerSecond * delay;
 
-    // --- Step 3: Find the virtual target (where to actually aim) ---
-    // Think of it like throwing a ball on a moving train: you aim behind your
-    // target so the train's motion carries the ball to the right spot.
-    // virtualTarget = where turret aims
-    // realTarget = where ball actually lands (the goal)
-    // The difference is how far the ball drifts during flight due to our velocity.
-    //
+    // --- Step 3: Iterative virtual target solver (all primitive math) ---
     // We iterate because time-of-flight depends on distance to virtualTarget,
     // but virtualTarget depends on time-of-flight. The loop finds the answer
     // where both agree (usually converges in 2-3 iterations).
     double maxRange = isHubShot ? 5.5 : 9.5;
-    Translation2d virtualTarget = realTarget;
-    Translation2d prev = virtualTarget;
+    double vtX = rtX;
+    double vtY = rtY;
+    double prevX = vtX;
+    double prevY = vtY;
     swmConverged = false;
 
     for (int i = 0; i < 20; i++) {
-      double dist = robotPosition.getDistance(virtualTarget);
+      double dx = vtX - rpX;
+      double dy = vtY - rpY;
+      double dist = Math.hypot(dx, dy);
       if (dist < 0.001) {
         swmConverged = true;
         break;
@@ -462,10 +452,14 @@ public class Superstructure {
               : ShooterLookup.getFeedTimeMap().get(lookupDist);
 
       // Decompose velocity into radial (along aim) and tangential (perpendicular)
-      Translation2d aim = virtualTarget.minus(robotPosition).div(dist);
-      double vRadialMag = velocity.dot(aim);
-      Translation2d vRadial = aim.times(vRadialMag);
-      Translation2d vTangential = velocity.minus(vRadial);
+      double invDist = 1.0 / dist;
+      double aimX = dx * invDist;
+      double aimY = dy * invDist;
+      double vRadialMag = velX * aimX + velY * aimY;
+      double vrX = aimX * vRadialMag;
+      double vrY = aimY * vRadialMag;
+      double vtanX = velX - vrX;
+      double vtanY = velY - vrY;
 
       double ballRadialSpeed = dist / tof;
       double effectiveRadialSpeed = ballRadialSpeed + vRadialMag;
@@ -480,28 +474,30 @@ public class Superstructure {
       // perturbation on the ball's own airspeed, so drag on it is second-order.
       // Tangential drift needs explicit drag correction (tofEff) because the
       // inherited velocity IS the entire tangential airspeed.
-      double vTangentialMag = vTangential.getNorm();
+      double vTangentialMag = Math.hypot(vtanX, vtanY);
       double vRef =
           Math.sqrt(effectiveRadialSpeed * effectiveRadialSpeed + vTangentialMag * vTangentialMag);
       double beta = K_DRAG * vRef / BallPhysicsSimulation.BALL_MASS_KG;
       double tofEff = (beta > 1e-8) ? (1.0 - Math.exp(-beta * tof)) / beta : tof;
 
-      virtualTarget = realTarget.minus(vRadial.times(tof)).minus(vTangential.times(tofEff));
+      prevX = vtX;
+      prevY = vtY;
+      vtX = rtX - vrX * tof - vtanX * tofEff;
+      vtY = rtY - vrY * tof - vtanY * tofEff;
 
-      if (virtualTarget.getDistance(prev) < 0.001) {
+      if (Math.hypot(vtX - prevX, vtY - prevY) < 0.001) {
         swmConverged = true;
         break;
       }
-      prev = virtualTarget;
     }
 
     // --- Step 4: Safety check ---
     // Reject if the virtual target is unreasonably close (shooter can't contribute)
     // or beyond our lookup table range (extrapolated values are unreliable).
-    double virtDist = robotPosition.getDistance(virtualTarget);
+    double virtDist = Math.hypot(rpX - vtX, rpY - vtY);
     swmSolutionFeasible = swmConverged && virtDist > 1 && virtDist <= maxRange;
 
-    return virtualTarget;
+    return new Translation2d(vtX, vtY);
   }
 
   @AutoLogOutput

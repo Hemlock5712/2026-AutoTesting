@@ -8,13 +8,13 @@ import static edu.wpi.first.units.Units.Meter;
 
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
 import frc.robot.utils.LoopProfiler;
-import org.littletonrobotics.junction.Logger;
 
 public class Limelight extends SubsystemBase {
 
@@ -46,6 +46,15 @@ public class Limelight extends SubsystemBase {
   private final double m_stdDevFactor;
   private PoseEstimate lastPoseEstimate = new PoseEstimate();
 
+  // Pre-computed profiler keys (avoids string concatenation every cycle)
+  private final String profilerKeySubsystem;
+  private final String profilerKeyPoseEstimate;
+  private final String profilerKeyAddVision;
+  private final String profilerKeyOrientation;
+
+  // Cached once per cycle in updateRobotOrientationNoFlush(), reused in periodic()
+  private double cachedOmegaDegPerSec = 0.0;
+
   /**
    * Creates a Limelight subsystem.
    *
@@ -60,6 +69,11 @@ public class Limelight extends SubsystemBase {
     m_limelightName = limelightName;
     m_drivetrain = drivetrain;
     m_stdDevFactor = stdDevFactor;
+
+    profilerKeySubsystem = "Subsystems/" + limelightName;
+    profilerKeyPoseEstimate = limelightName + "/PoseEstimate";
+    profilerKeyAddVision = limelightName + "/AddVisionMeasurement";
+    profilerKeyOrientation = limelightName + "/SetOrientationNoFlush";
   }
 
   public Limelight(String limelightName, CommandSwerveDrivetrain drivetrain) {
@@ -69,38 +83,28 @@ public class Limelight extends SubsystemBase {
   @Override
   public void periodic() {
     LoopProfiler.measure(
-        "Subsystems/" + m_limelightName,
+        profilerKeySubsystem,
         () -> {
           PoseEstimate poseEstimate =
-              LoopProfiler.measure(m_limelightName + "/PoseEstimate", this::getValidPoseEstimate);
+              LoopProfiler.measure(profilerKeyPoseEstimate, this::getValidPoseEstimate);
           if (poseEstimate != null) {
             lastPoseEstimate = poseEstimate;
-            LoopProfiler.measure(
-                m_limelightName + "/AddVisionMeasurement",
-                () -> addVisionMeasurement(poseEstimate));
+            LoopProfiler.measure(profilerKeyAddVision, () -> addVisionMeasurement(poseEstimate));
           }
-
-          LoopProfiler.measure(
-              m_limelightName + "/Logging",
-              () -> {
-                Logger.recordOutput(m_limelightName + "/Pose", lastPoseEstimate.pose);
-                Logger.recordOutput(
-                    m_limelightName + "/TimestampSeconds", lastPoseEstimate.timestampSeconds);
-                Logger.recordOutput(m_limelightName + "/AvgTagDist", lastPoseEstimate.avgTagDist);
-                Logger.recordOutput(m_limelightName + "/TagCount", lastPoseEstimate.tagCount);
-              });
-          // Logger.recordOutput(m_limelightName + "/TagFilter", lastPoseEstimate.)
         });
   }
 
   public void updateRobotOrientationNoFlush() {
+    // Cache angular velocity once - reused by rotation checks in periodic()
+    ChassisSpeeds speeds = m_drivetrain.getRobotSpeeds();
+    cachedOmegaDegPerSec = Math.toDegrees(speeds.omegaRadiansPerSecond);
     LoopProfiler.measure(
-        m_limelightName + "/SetOrientationNoFlush",
+        profilerKeyOrientation,
         () ->
             LimelightHelpers.SetRobotOrientation_NoFlush(
                 m_limelightName,
                 m_drivetrain.getPose().getRotation().getDegrees(),
-                Math.toDegrees(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond),
+                cachedOmegaDegPerSec,
                 0,
                 0,
                 0,
@@ -162,15 +166,11 @@ public class Limelight extends SubsystemBase {
   }
 
   private boolean isRotatingTooFastForMT1() {
-    double angularVelocityDegPerSec =
-        Math.toDegrees(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond);
-    return Math.abs(angularVelocityDegPerSec) > MAX_ANGULAR_VELOCITY_MT1_DEG_PER_SEC;
+    return Math.abs(cachedOmegaDegPerSec) > MAX_ANGULAR_VELOCITY_MT1_DEG_PER_SEC;
   }
 
   private boolean isRotatingTooFastForMT2() {
-    double angularVelocityDegPerSec =
-        Math.toDegrees(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond);
-    return Math.abs(angularVelocityDegPerSec) > MAX_ANGULAR_VELOCITY_MT2_DEG_PER_SEC;
+    return Math.abs(cachedOmegaDegPerSec) > MAX_ANGULAR_VELOCITY_MT2_DEG_PER_SEC;
   }
 
   private void addVisionMeasurement(PoseEstimate poseEstimate) {
