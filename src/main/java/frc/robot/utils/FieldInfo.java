@@ -310,6 +310,7 @@ public final class FieldInfo {
     Translation2d flippedTranslation = flip(translation);
 
     double trenchTolerance = 0.25;
+    double trenchToleranceFarSide = 0.5;
     double speedMulti = 0.3;
     double trenchX = 4.625594;
     double trenchY = 1.27889;
@@ -324,8 +325,10 @@ public final class FieldInfo {
 
     double allianceMinX = trenchX - trenchTolerance - speedX * speedMulti * allianceSide;
     double allianceMaxX = trenchX + trenchTolerance + speedX * speedMulti * allianceSide;
-    double otherMinX = fieldLength - trenchX - trenchTolerance - speedX * speedMulti * otherSide;
-    double otherMaxX = fieldLength - trenchX + trenchTolerance + speedX * speedMulti * otherSide;
+    double otherMinX =
+        fieldLength - trenchX - trenchToleranceFarSide - speedX * speedMulti * otherSide;
+    double otherMaxX =
+        fieldLength - trenchX + trenchToleranceFarSide + speedX * speedMulti * otherSide;
 
     return containsBounds(flippedTranslation, allianceMinX, -999, allianceMaxX, trenchY)
         || containsBounds(

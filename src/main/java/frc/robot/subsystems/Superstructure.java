@@ -539,11 +539,11 @@ public class Superstructure {
   }
 
   private boolean isUnderaTrench(SwerveDriveState state) {
-    return false;
-    // return FieldInfo.isUnderaTrench(
-    // turretPose.getTranslation(),
-    // ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation())
-    // .vxMetersPerSecond);
+    // return false;
+    return FieldInfo.isUnderaTrench(
+        turretPose.getTranslation(),
+        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation())
+            .vxMetersPerSecond);
   }
 
   @AutoLogOutput
