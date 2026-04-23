@@ -21,7 +21,6 @@ import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
 import frc.robot.utils.LoopProfiler;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
-import org.littletonrobotics.junction.Logger;
 
 /**
  * Class that extends the Phoenix 6 SwerveDrivetrain class and implements Subsystem so it can easily
@@ -142,12 +141,6 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                       m_hasAppliedOperatorPerspective = true;
                     });
           }
-
-          // Publish pose as double[] for path editor visualization (NT4-friendly format)
-          Pose2d pose = getPose();
-          Logger.recordOutput(
-              "PathEditor/RobotPose",
-              new double[] {pose.getX(), pose.getY(), pose.getRotation().getRadians()});
         });
   }
 

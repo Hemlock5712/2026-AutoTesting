@@ -40,7 +40,7 @@ public final class LoopProfiler {
   }
 
   private static void record(String key, long startNanos) {
-    Stats stat = stats.computeIfAbsent(key, unused -> new Stats());
+    Stats stat = stats.computeIfAbsent(key, Stats::new);
     double elapsedMs = (System.nanoTime() - startNanos) / 1e6;
 
     stat.calls++;
@@ -48,8 +48,8 @@ public final class LoopProfiler {
     stat.maxMs = Math.max(stat.maxMs, elapsedMs);
 
     if (stat.calls % REPORT_EVERY_N_CALLS == 0) {
-      Logger.recordOutput("LoopProfiler/" + key + "Ms", stat.latestMs);
-      Logger.recordOutput("LoopProfiler/" + key + "MaxMs", stat.maxMs);
+      Logger.recordOutput(stat.msKey, stat.latestMs);
+      Logger.recordOutput(stat.maxMsKey, stat.maxMs);
       stat.maxMs = 0.0;
     }
   }
@@ -58,5 +58,12 @@ public final class LoopProfiler {
     int calls = 0;
     double latestMs = 0.0;
     double maxMs = 0.0;
+    final String msKey;
+    final String maxMsKey;
+
+    Stats(String key) {
+      msKey = "LoopProfiler/" + key + "Ms";
+      maxMsKey = "LoopProfiler/" + key + "MaxMs";
+    }
   }
 }
