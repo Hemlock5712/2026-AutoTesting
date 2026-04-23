@@ -274,6 +274,14 @@ public class RobotContainer {
     return superstructure;
   }
 
+  public void updateLimelightOrientations() {
+    limelightBR.updateRobotOrientationNoFlush();
+    limelightBL.updateRobotOrientationNoFlush();
+    limelightFL.updateRobotOrientationNoFlush();
+    limelightFR.updateRobotOrientationNoFlush();
+    Limelight.flushOrientationUpdates();
+  }
+
   public Command fmsInitCommand() {
     return Commands.parallel(intakeCoordinator.deployAndRun(), superstructure.stopShoot());
   }

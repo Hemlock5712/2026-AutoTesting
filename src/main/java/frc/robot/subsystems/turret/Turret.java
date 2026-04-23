@@ -127,7 +127,8 @@ public class Turret extends SubsystemBase {
   }
 
   public void setAngle(double angle) {
-    leader.setControl(angleOut.withPosition(angle));
+    LoopProfiler.measure(
+        "Commands/TurretSetControl", () -> leader.setControl(angleOut.withPosition(angle)));
   }
 
   @AutoLogOutput
@@ -166,7 +167,14 @@ public class Turret extends SubsystemBase {
   /** Command that continuously tracks the hub using a supplied angle. */
   public Command trackHubCommand(Supplier<Double> angleSupplier) {
     return run(
-        () -> LoopProfiler.measure("Commands/TurretTrackHub", () -> setAngle(angleSupplier.get())));
+        () ->
+            LoopProfiler.measure(
+                "Commands/TurretTrackHub",
+                () -> {
+                  double angle =
+                      LoopProfiler.measure("Commands/TurretAngleSupplier", angleSupplier::get);
+                  setAngle(angle);
+                }));
   }
 
   public Command stopCommand() {

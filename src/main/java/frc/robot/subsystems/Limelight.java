@@ -71,8 +71,6 @@ public class Limelight extends SubsystemBase {
     LoopProfiler.measure(
         "Subsystems/" + m_limelightName,
         () -> {
-          LoopProfiler.measure(m_limelightName + "/SetOrientation", this::updateRobotOrientation);
-
           PoseEstimate poseEstimate =
               LoopProfiler.measure(m_limelightName + "/PoseEstimate", this::getValidPoseEstimate);
           if (poseEstimate != null) {
@@ -95,15 +93,22 @@ public class Limelight extends SubsystemBase {
         });
   }
 
-  private void updateRobotOrientation() {
-    LimelightHelpers.SetRobotOrientation(
-        m_limelightName,
-        m_drivetrain.getPose().getRotation().getDegrees(),
-        Math.toDegrees(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond),
-        0,
-        0,
-        0,
-        0);
+  public void updateRobotOrientationNoFlush() {
+    LoopProfiler.measure(
+        m_limelightName + "/SetOrientationNoFlush",
+        () ->
+            LimelightHelpers.SetRobotOrientation_NoFlush(
+                m_limelightName,
+                m_drivetrain.getPose().getRotation().getDegrees(),
+                Math.toDegrees(m_drivetrain.getRobotSpeeds().omegaRadiansPerSecond),
+                0,
+                0,
+                0,
+                0));
+  }
+
+  public static void flushOrientationUpdates() {
+    LoopProfiler.measure("Limelight/FlushOrientationUpdates", LimelightHelpers::Flush);
   }
 
   private PoseEstimate getValidPoseEstimate() {
