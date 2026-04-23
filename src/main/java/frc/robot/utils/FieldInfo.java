@@ -120,7 +120,7 @@ public final class FieldInfo {
 
   public static final Distance HUB_HEIGHT = Meters.of(1.828);
 
-  public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1.5, 1.625);
+  public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1, 2);
   public static final ExtTranslation LEFT_FEED_POSITION = FieldFlip.overWidth(RIGHT_FEED_POSITION);
 
   public static final ExtTranslation RIGHT_FEED_POSITION_AUTO = new ExtTranslation(1.5, 2.75);
