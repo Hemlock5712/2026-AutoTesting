@@ -39,7 +39,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
-import org.littletonrobotics.junction.Logger;
 
 public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
@@ -229,7 +228,6 @@ public class Shooter extends SubsystemBase {
     return getPosition().isNear(getTargetPosition(), HOOD_TOLERANCE);
   }
 
-  @AutoLogOutput
   public boolean isAtTarget() {
     return flywheelIsAtTarget() && hoodIsAtTarget();
   }
@@ -250,7 +248,6 @@ public class Shooter extends SubsystemBase {
         actualHoodDeg >= ShooterLookup.getHoodMap().get(minDist)
             && actualHoodDeg <= ShooterLookup.getHoodMap().get(maxDist);
     boolean debouncedTrue = atTargetDebouncer.calculate(flywheelOk);
-    Logger.recordOutput("SWM/DebounceAtTarget", debouncedTrue);
     return debouncedTrue;
   }
 
@@ -320,7 +317,6 @@ public class Shooter extends SubsystemBase {
    *
    * @return Speed tolerance
    */
-  @AutoLogOutput
   public AngularVelocity getTolerance() {
     return TOLERANCE;
   }
@@ -330,7 +326,6 @@ public class Shooter extends SubsystemBase {
    *
    * @return Position tolerance
    */
-  @AutoLogOutput
   public Angle getHoodTolerance() {
     return HOOD_TOLERANCE;
   }

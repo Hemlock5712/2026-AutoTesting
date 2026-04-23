@@ -205,12 +205,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     return getPose().getRotation();
   }
 
-  @AutoLogOutput
   public SwerveModuleState[] getModuleStates() {
     return getState().ModuleStates;
   }
 
-  @AutoLogOutput
   public SwerveModuleState[] getModuleTargets() {
     return getState().ModuleTargets;
   }
@@ -232,12 +230,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     return getRobotSpeeds().omegaRadiansPerSecond;
   }
 
-  @AutoLogOutput
   public ChassisSpeeds getFieldSpeeds() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(getRobotSpeeds(), getRotation());
   }
 
-  @AutoLogOutput
   public ChassisSpeeds getTargetFieldSpeeds() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(
         getKinematics().toChassisSpeeds(getModuleTargets()), getRotation());

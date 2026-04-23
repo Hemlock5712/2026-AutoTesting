@@ -184,7 +184,7 @@ public class Superstructure {
 
   @AutoLogOutput
   public Pose2d getTargetPosition() {
-    return new Pose2d(targetPosition, new Rotation2d());
+    return new Pose2d(targetPosition, Rotation2d.kZero);
   }
 
   // ==================== SWM-Aware Getters ====================

@@ -117,7 +117,6 @@ public class IntakeArm extends SubsystemBase {
     return positionOut.Position;
   }
 
-  @AutoLogOutput
   public Angle getTolerance() {
     return TOLERANCE;
   }
