@@ -9,6 +9,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.utils.HubShiftUtil;
+import frc.robot.utils.LoopProfiler;
 import frc.robot.utils.Tunables;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -47,9 +48,12 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void robotPeriodic() {
-    m_robotContainer.getSuperstructure().update();
-    CommandScheduler.getInstance().run();
-    Tunables.update();
+    long start = System.nanoTime();
+    LoopProfiler.measure(
+        "Robot/SuperstructureUpdate", () -> m_robotContainer.getSuperstructure().update());
+    LoopProfiler.measure("Robot/CommandScheduler", () -> CommandScheduler.getInstance().run());
+    LoopProfiler.measure("Robot/TunablesUpdate", Tunables::update);
+    Logger.recordOutput("LoopProfiler/Robot/TotalMs", (System.nanoTime() - start) / 1e6);
   }
 
   @Override
@@ -97,14 +101,20 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void teleopPeriodic() {
-    HubShiftUtil.update();
+    long start = System.nanoTime();
+    LoopProfiler.measure("Teleop/HubShiftUpdate", HubShiftUtil::update);
 
     // Rumble controller when a shift change is 5 seconds away
     double secondsUntilShift = HubShiftUtil.getSecondsUntilNextShift();
-    m_robotContainer.setRumble(
-        (secondsUntilShift <= RUMBLE_START_THRESHOLD && secondsUntilShift > RUMBLE_END_THRESHOLD)
-            ? 1.0
-            : 0.0);
+    LoopProfiler.measure(
+        "Teleop/Rumble",
+        () ->
+            m_robotContainer.setRumble(
+                (secondsUntilShift <= RUMBLE_START_THRESHOLD
+                        && secondsUntilShift > RUMBLE_END_THRESHOLD)
+                    ? 1.0
+                    : 0.0));
+    Logger.recordOutput("LoopProfiler/Teleop/TotalMs", (System.nanoTime() - start) / 1e6);
   }
 
   @Override

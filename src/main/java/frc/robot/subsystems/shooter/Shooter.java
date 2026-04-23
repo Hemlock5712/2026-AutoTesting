@@ -33,6 +33,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.utils.LoopProfiler;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
@@ -155,7 +156,11 @@ public class Shooter extends SubsystemBase {
 
   @Override
   public void periodic() {
-    BaseStatusSignal.refreshAll(flywheelVelocitySignal, hoodPositionSignal, hoodVelocitySignal);
+    LoopProfiler.measure(
+        "Subsystems/ShooterRefresh",
+        () ->
+            BaseStatusSignal.refreshAll(
+                flywheelVelocitySignal, hoodPositionSignal, hoodVelocitySignal));
   }
 
   /**
@@ -357,18 +362,34 @@ public class Shooter extends SubsystemBase {
   /** Command that continuously sets the hood position based on distance lookup. */
   public Command runHoodDynamic(DoubleSupplier distance, BooleanSupplier isShooting) {
     return Commands.either(
-        run(() -> setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distance.getAsDouble())))),
-        run(() -> setPosition(Degrees.of(0))),
+        run(
+            () ->
+                LoopProfiler.measure(
+                    "Commands/HoodDynamicShooting",
+                    () ->
+                        setPosition(
+                            Degrees.of(ShooterLookup.getHoodMap().get(distance.getAsDouble()))))),
+        run(
+            () ->
+                LoopProfiler.measure("Commands/HoodDynamicIdle", () -> setPosition(Degrees.of(0)))),
         isShooting);
   }
 
   /** Command that continuously sets flywheel and hood for a feed shot based on distance. */
   public Command runDynamicFeed(DoubleSupplier flywheelDist, DoubleSupplier hoodDist) {
-    return run(() -> setForFeedDistance(flywheelDist.getAsDouble(), hoodDist.getAsDouble()));
+    return run(
+        () ->
+            LoopProfiler.measure(
+                "Commands/ShooterDynamicFeed",
+                () -> setForFeedDistance(flywheelDist.getAsDouble(), hoodDist.getAsDouble())));
   }
 
   /** Command that sets shooter for SWM with separate flywheel and hood distances. */
   public Command runDynamicSWM(DoubleSupplier flywheelDist, DoubleSupplier hoodDist) {
-    return run(() -> setForDistanceSWM(flywheelDist.getAsDouble(), hoodDist.getAsDouble()));
+    return run(
+        () ->
+            LoopProfiler.measure(
+                "Commands/ShooterDynamicSWM",
+                () -> setForDistanceSWM(flywheelDist.getAsDouble(), hoodDist.getAsDouble())));
   }
 }

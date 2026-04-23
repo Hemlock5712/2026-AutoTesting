@@ -19,6 +19,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
+import frc.robot.utils.LoopProfiler;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -120,7 +121,9 @@ public class Turret extends SubsystemBase {
 
   @Override
   public void periodic() {
-    BaseStatusSignal.refreshAll(positionSignal, velocitySignal);
+    LoopProfiler.measure(
+        "Subsystems/TurretRefresh",
+        () -> BaseStatusSignal.refreshAll(positionSignal, velocitySignal));
   }
 
   public void setAngle(double angle) {
@@ -162,7 +165,8 @@ public class Turret extends SubsystemBase {
 
   /** Command that continuously tracks the hub using a supplied angle. */
   public Command trackHubCommand(Supplier<Double> angleSupplier) {
-    return run(() -> setAngle(angleSupplier.get()));
+    return run(
+        () -> LoopProfiler.measure("Commands/TurretTrackHub", () -> setAngle(angleSupplier.get())));
   }
 
   public Command stopCommand() {

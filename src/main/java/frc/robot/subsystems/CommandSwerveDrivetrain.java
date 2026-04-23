@@ -18,6 +18,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
+import frc.robot.utils.LoopProfiler;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -120,30 +121,34 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
   @Override
   public void periodic() {
-    /*
-     * Periodically try to apply the operator perspective.
-     * If we haven't applied the operator perspective before, then we should apply it regardless of DS state.
-     * This allows us to correct the perspective in case the robot code restarts mid-match.
-     * Otherwise, only check and apply the operator perspective if the DS is disabled.
-     * This ensures driving behavior doesn't change until an explicit disable event occurs during testing.
-     */
-    if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
-      DriverStation.getAlliance()
-          .ifPresent(
-              allianceColor -> {
-                setOperatorPerspectiveForward(
-                    allianceColor == Alliance.Red
-                        ? kRedAlliancePerspectiveRotation
-                        : kBlueAlliancePerspectiveRotation);
-                m_hasAppliedOperatorPerspective = true;
-              });
-    }
+    LoopProfiler.measure(
+        "Subsystems/SwervePeriodic",
+        () -> {
+          /*
+           * Periodically try to apply the operator perspective.
+           * If we haven't applied the operator perspective before, then we should apply it regardless of DS state.
+           * This allows us to correct the perspective in case the robot code restarts mid-match.
+           * Otherwise, only check and apply the operator perspective if the DS is disabled.
+           * This ensures driving behavior doesn't change until an explicit disable event occurs during testing.
+           */
+          if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
+            DriverStation.getAlliance()
+                .ifPresent(
+                    allianceColor -> {
+                      setOperatorPerspectiveForward(
+                          allianceColor == Alliance.Red
+                              ? kRedAlliancePerspectiveRotation
+                              : kBlueAlliancePerspectiveRotation);
+                      m_hasAppliedOperatorPerspective = true;
+                    });
+          }
 
-    // Publish pose as double[] for path editor visualization (NT4-friendly format)
-    Pose2d pose = getPose();
-    Logger.recordOutput(
-        "PathEditor/RobotPose",
-        new double[] {pose.getX(), pose.getY(), pose.getRotation().getRadians()});
+          // Publish pose as double[] for path editor visualization (NT4-friendly format)
+          Pose2d pose = getPose();
+          Logger.recordOutput(
+              "PathEditor/RobotPose",
+              new double[] {pose.getX(), pose.getY(), pose.getRotation().getRadians()});
+        });
   }
 
   private void startSimThread() {

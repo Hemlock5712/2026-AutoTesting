@@ -15,7 +15,6 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.utils.geometry.ExtTranslation;
 import java.util.List;
 import java.util.Optional;
-import org.littletonrobotics.junction.Logger;
 
 public final class FieldInfo {
 
@@ -310,104 +309,43 @@ public final class FieldInfo {
   public static boolean isUnderaTrench(Translation2d translation, double speedX) {
     Translation2d flippedTranslation = flip(translation);
 
-    double TRENCHTOLERANCE = 0.25;
-
+    double trenchTolerance = 0.25;
     double speedMulti = 0.3;
+    double trenchX = 4.625594;
+    double trenchY = 1.27889;
+    double fieldLength = FieldInfo.length().in(Meters);
+    double fieldWidth = FieldInfo.width().in(Meters);
 
     double allianceSide =
-        Math.signum(Math.signum(4.625594 - translation.getX()) + Math.signum(speedX));
+        Math.signum(Math.signum(trenchX - translation.getX()) + Math.signum(speedX));
 
     double otherSide =
-        Math.signum(
-            Math.signum(FieldInfo.length().in(Meters) - 4.625594 - translation.getX())
-                + Math.signum(speedX));
+        Math.signum(Math.signum(fieldLength - trenchX - translation.getX()) + Math.signum(speedX));
 
-    Rectangle2d LEFTALLIANCETRENCHZONE =
-        new Rectangle2d(
-            new Translation2d(
-                4.625594 - TRENCHTOLERANCE - speedX * speedMulti * allianceSide, 1.27889),
-            new Translation2d(
-                4.625594 + TRENCHTOLERANCE + speedX * speedMulti * allianceSide, -999));
+    double allianceMinX = trenchX - trenchTolerance - speedX * speedMulti * allianceSide;
+    double allianceMaxX = trenchX + trenchTolerance + speedX * speedMulti * allianceSide;
+    double otherMinX = fieldLength - trenchX - trenchTolerance - speedX * speedMulti * otherSide;
+    double otherMaxX = fieldLength - trenchX + trenchTolerance + speedX * speedMulti * otherSide;
 
-    Rectangle2d RIGHTALLIANCETRENCHZONE =
-        new Rectangle2d(
-            new Translation2d(
-                4.625594 - TRENCHTOLERANCE - speedX * speedMulti * allianceSide,
-                FieldInfo.width().in(Meters) - 1.27889),
-            new Translation2d(
-                4.625594 + TRENCHTOLERANCE + speedX * speedMulti * allianceSide,
-                FieldInfo.width().in(Meters) + 999));
-
-    Rectangle2d LEFTOTHERTRENCHZONE =
-        new Rectangle2d(
-            new Translation2d(
-                FieldInfo.length().in(Meters)
-                    - 4.625594
-                    - TRENCHTOLERANCE
-                    - speedX * speedMulti * otherSide,
-                1.27889),
-            new Translation2d(
-                FieldInfo.length().in(Meters)
-                    - 4.625594
-                    + TRENCHTOLERANCE
-                    + speedX * speedMulti * otherSide,
-                0 - 999));
-
-    Rectangle2d RIGHTOTHERTRENCHZONE =
-        new Rectangle2d(
-            new Translation2d(
-                FieldInfo.length().in(Meters)
-                    - 4.625594
-                    - TRENCHTOLERANCE
-                    - speedX * speedMulti * otherSide,
-                FieldInfo.width().in(Meters) - 1.27889),
-            new Translation2d(
-                FieldInfo.length().in(Meters)
-                    - 4.625594
-                    + TRENCHTOLERANCE
-                    + speedX * speedMulti * otherSide,
-                FieldInfo.width().in(Meters) + 999));
-
-    logRectangle(LEFTALLIANCETRENCHZONE, "LEFTALLIANCETRENCHZONE");
-    logRectangle(RIGHTALLIANCETRENCHZONE, "RIGHTALLIANCETRENCHZONE");
-    logRectangle(LEFTOTHERTRENCHZONE, "LEFTOTHERTRENCHZONE");
-    logRectangle(RIGHTOTHERTRENCHZONE, "RIGHTOTHERTRENCHZONE");
-
-    return LEFTALLIANCETRENCHZONE.contains(flippedTranslation)
-        || RIGHTALLIANCETRENCHZONE.contains(flippedTranslation)
-        || LEFTOTHERTRENCHZONE.contains(flippedTranslation)
-        || RIGHTOTHERTRENCHZONE.contains(flippedTranslation);
+    return containsBounds(flippedTranslation, allianceMinX, -999, allianceMaxX, trenchY)
+        || containsBounds(
+            flippedTranslation, allianceMinX, fieldWidth - trenchY, allianceMaxX, fieldWidth + 999)
+        || containsBounds(flippedTranslation, otherMinX, -999, otherMaxX, trenchY)
+        || containsBounds(
+            flippedTranslation, otherMinX, fieldWidth - trenchY, otherMaxX, fieldWidth + 999);
   }
 
-  public static void logRectangle(Rectangle2d rectangle, String name) {
-    Pose2d topLeft =
-        new Pose2d(
-            new Translation2d(
-                rectangle.getCenter().getX() - (rectangle.getXWidth() / 2),
-                rectangle.getCenter().getY() + rectangle.getYWidth() / 2),
-            new Rotation2d(0));
+  private static boolean containsBounds(
+      Translation2d translation, double x1, double y1, double x2, double y2) {
+    double minX = Math.min(x1, x2);
+    double maxX = Math.max(x1, x2);
+    double minY = Math.min(y1, y2);
+    double maxY = Math.max(y1, y2);
 
-    Pose2d topRight =
-        new Pose2d(
-            new Translation2d(
-                rectangle.getCenter().getX() + (rectangle.getXWidth() / 2),
-                rectangle.getCenter().getY() + rectangle.getYWidth() / 2),
-            new Rotation2d(0));
-
-    Pose2d bottomLeft =
-        new Pose2d(
-            new Translation2d(
-                rectangle.getCenter().getX() - (rectangle.getXWidth() / 2),
-                rectangle.getCenter().getY() - rectangle.getYWidth() / 2),
-            new Rotation2d(0));
-    Pose2d bottomRight =
-        new Pose2d(
-            new Translation2d(
-                rectangle.getCenter().getX() + (rectangle.getXWidth() / 2),
-                rectangle.getCenter().getY() - rectangle.getYWidth() / 2),
-            new Rotation2d(0));
-    Pose2d[] point = {topLeft, topRight, bottomRight, bottomLeft, topLeft};
-    Logger.recordOutput("Trench/" + name, point);
+    return translation.getX() >= minX
+        && translation.getX() <= maxX
+        && translation.getY() >= minY
+        && translation.getY() <= maxY;
   }
 
   public static boolean isInNeutralZoneDeadzone(Translation2d translation) {

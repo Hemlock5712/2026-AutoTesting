@@ -9,6 +9,7 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Superstructure;
+import frc.robot.utils.LoopProfiler;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -71,30 +72,36 @@ public class TurretDrive extends Command {
 
   @Override
   public void execute() {
-    double currentTime = Utils.getCurrentTimeSeconds();
-    double dt = currentTime - lastTime;
-    lastTime = currentTime;
+    LoopProfiler.measure(
+        "Commands/TurretDrive",
+        () -> {
+          double currentTime = Utils.getCurrentTimeSeconds();
+          double dt = currentTime - lastTime;
+          lastTime = currentTime;
 
-    // Get driver inputs
-    double velX = velocityXSupplier.getAsDouble();
-    double velY = velocityYSupplier.getAsDouble();
-    double omega = rotationalRateSupplier.getAsDouble();
+          // Get driver inputs
+          double velX = velocityXSupplier.getAsDouble();
+          double velY = velocityYSupplier.getAsDouble();
+          double omega = rotationalRateSupplier.getAsDouble();
 
-    // Normalize to prevent module saturation
-    ChassisSpeeds targetVelocity =
-        AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, omega));
+          // Normalize to prevent module saturation
+          ChassisSpeeds targetVelocity =
+              AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, omega));
 
-    // Integrate with shoot-mode acceleration and jerk caps
-    lastCommandedVelocity =
-        AccelerationLimiter.integrateVelocity(
-            lastCommandedVelocity,
-            targetVelocity,
-            dt,
-            MAX_SHOOT_ACCEL,
-            MAX_SHOOT_JERK,
-            MAX_SHOOT_JERK);
+          // Integrate with shoot-mode acceleration and jerk caps
+          lastCommandedVelocity =
+              AccelerationLimiter.integrateVelocity(
+                  lastCommandedVelocity,
+                  targetVelocity,
+                  dt,
+                  MAX_SHOOT_ACCEL,
+                  MAX_SHOOT_JERK,
+                  MAX_SHOOT_JERK);
 
-    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
+          LoopProfiler.measure(
+              "Commands/TurretDriveSetControl",
+              () -> swerve.setControl(request.withSpeeds(lastCommandedVelocity)));
+        });
   }
 
   @Override

@@ -8,6 +8,7 @@ import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.utils.LoopProfiler;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -64,25 +65,31 @@ public class OrbitDrive extends Command {
 
   @Override
   public void execute() {
-    // Calculate time since last execute
-    double currentTime = Utils.getCurrentTimeSeconds();
-    double dt = currentTime - lastTime;
-    lastTime = currentTime;
+    LoopProfiler.measure(
+        "Commands/OrbitDrive",
+        () -> {
+          // Calculate time since last execute
+          double currentTime = Utils.getCurrentTimeSeconds();
+          double dt = currentTime - lastTime;
+          lastTime = currentTime;
 
-    // Get driver inputs
-    double velX = velocityXSupplier.getAsDouble();
-    double velY = velocityYSupplier.getAsDouble();
-    double omega = rotationalRateSupplier.getAsDouble();
+          // Get driver inputs
+          double velX = velocityXSupplier.getAsDouble();
+          double velY = velocityYSupplier.getAsDouble();
+          double omega = rotationalRateSupplier.getAsDouble();
 
-    // Normalize to prevent module saturation
-    ChassisSpeeds targetVelocity =
-        AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, omega));
+          // Normalize to prevent module saturation
+          ChassisSpeeds targetVelocity =
+              AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, omega));
 
-    // Apply physics-based acceleration limiting
-    lastCommandedVelocity =
-        AccelerationLimiter.integrateVelocity(lastCommandedVelocity, targetVelocity, dt);
+          // Apply physics-based acceleration limiting
+          lastCommandedVelocity =
+              AccelerationLimiter.integrateVelocity(lastCommandedVelocity, targetVelocity, dt);
 
-    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
+          LoopProfiler.measure(
+              "Commands/OrbitDriveSetControl",
+              () -> swerve.setControl(request.withSpeeds(lastCommandedVelocity)));
+        });
   }
 
   @Override

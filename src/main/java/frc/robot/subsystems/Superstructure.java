@@ -157,7 +157,7 @@ public class Superstructure {
       }
     }
 
-    shooter.setInAllianceZone(isUnderaTrench());
+    shooter.setInAllianceZone(isUnderaTrench(state));
 
     Translation2d toTarget = targetPosition.minus(turretPose.getTranslation());
 
@@ -172,7 +172,7 @@ public class Superstructure {
         MathUtil.inputModulus(
             angleToVirtualTargetField.minus(robotPose.getRotation()).getRotations(), -0.25, 0.75);
 
-    logTelemetry(state);
+    // logTelemetry(state);
   }
 
   // ==================== Targeting Getters ====================
@@ -539,11 +539,15 @@ public class Superstructure {
 
   @AutoLogOutput
   public boolean isUnderaTrench() {
-    return FieldInfo.isUnderaTrench(
-        turretPose.getTranslation(),
-        ChassisSpeeds.fromRobotRelativeSpeeds(
-                driveState.get().Speeds, driveState.get().Pose.getRotation())
-            .vxMetersPerSecond);
+    return isUnderaTrench(driveState.get());
+  }
+
+  private boolean isUnderaTrench(SwerveDriveState state) {
+    return false;
+    // return FieldInfo.isUnderaTrench(
+    // turretPose.getTranslation(),
+    // ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation())
+    // .vxMetersPerSecond);
   }
 
   @AutoLogOutput

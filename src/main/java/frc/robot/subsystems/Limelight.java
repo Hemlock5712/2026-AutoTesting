@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
+import frc.robot.utils.LoopProfiler;
 import org.littletonrobotics.junction.Logger;
 
 public class Limelight extends SubsystemBase {
@@ -67,19 +68,31 @@ public class Limelight extends SubsystemBase {
 
   @Override
   public void periodic() {
-    updateRobotOrientation();
+    LoopProfiler.measure(
+        "Subsystems/" + m_limelightName,
+        () -> {
+          LoopProfiler.measure(m_limelightName + "/SetOrientation", this::updateRobotOrientation);
 
-    PoseEstimate poseEstimate = getValidPoseEstimate();
-    if (poseEstimate != null) {
-      lastPoseEstimate = poseEstimate;
-      addVisionMeasurement(poseEstimate);
-    }
+          PoseEstimate poseEstimate =
+              LoopProfiler.measure(m_limelightName + "/PoseEstimate", this::getValidPoseEstimate);
+          if (poseEstimate != null) {
+            lastPoseEstimate = poseEstimate;
+            LoopProfiler.measure(
+                m_limelightName + "/AddVisionMeasurement",
+                () -> addVisionMeasurement(poseEstimate));
+          }
 
-    Logger.recordOutput(m_limelightName + "/Pose", lastPoseEstimate.pose);
-    Logger.recordOutput(m_limelightName + "/TimestampSeconds", lastPoseEstimate.timestampSeconds);
-    Logger.recordOutput(m_limelightName + "/AvgTagDist", lastPoseEstimate.avgTagDist);
-    Logger.recordOutput(m_limelightName + "/TagCount", lastPoseEstimate.tagCount);
-    // Logger.recordOutput(m_limelightName + "/TagFilter", lastPoseEstimate.)
+          LoopProfiler.measure(
+              m_limelightName + "/Logging",
+              () -> {
+                Logger.recordOutput(m_limelightName + "/Pose", lastPoseEstimate.pose);
+                Logger.recordOutput(
+                    m_limelightName + "/TimestampSeconds", lastPoseEstimate.timestampSeconds);
+                Logger.recordOutput(m_limelightName + "/AvgTagDist", lastPoseEstimate.avgTagDist);
+                Logger.recordOutput(m_limelightName + "/TagCount", lastPoseEstimate.tagCount);
+              });
+          // Logger.recordOutput(m_limelightName + "/TagFilter", lastPoseEstimate.)
+        });
   }
 
   private void updateRobotOrientation() {

@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
+import frc.robot.utils.LoopProfiler;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
 
@@ -144,6 +145,8 @@ public class Spindexer extends SubsystemBase {
 
   @Override
   public void periodic() {
-    StatusSignal.refreshAll(kickerVelocity, spindexerCurrentDraw);
+    LoopProfiler.measure(
+        "Subsystems/SpindexerRefresh",
+        () -> StatusSignal.refreshAll(kickerVelocity, spindexerCurrentDraw));
   }
 }
