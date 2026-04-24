@@ -132,17 +132,10 @@ public class DriveToPoint extends Command {
       }
     }
 
-    // Normalize to prevent module saturation
-    ChassisSpeeds targetVelocity =
-        AccelerationLimiter.normalizeSpeeds(
-            new ChassisSpeeds(targetLinearVel.getX(), targetLinearVel.getY(), targetOmega));
-
-    // Apply physics-based acceleration limiting
-    ChassisSpeeds output =
-        AccelerationLimiter.integrateVelocity(lastCommandedVelocity, targetVelocity, dt);
-    swerve.setControl(request.withSpeeds(output));
-
-    lastCommandedVelocity = output;
+    // Apply physics-based acceleration limiting (normalizes desired speeds internally)
+    AccelerationLimiter.integrateVelocityInPlace(
+        lastCommandedVelocity, targetLinearVel.getX(), targetLinearVel.getY(), targetOmega, dt);
+    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
   }
 
   @Override

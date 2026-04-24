@@ -4,11 +4,12 @@
 
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.Meter;
-
+import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.numbers.N1;
+import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
@@ -45,6 +46,7 @@ public class Limelight extends SubsystemBase {
   private final CommandSwerveDrivetrain m_drivetrain;
   private final double m_stdDevFactor;
   private PoseEstimate lastPoseEstimate = new PoseEstimate();
+  private final Matrix<N3, N1> stdDevs = VecBuilder.fill(0, 0, 0);
 
   // Pre-computed profiler keys (avoids string concatenation every cycle)
   private final String profilerKeySubsystem;
@@ -160,9 +162,9 @@ public class Limelight extends SubsystemBase {
 
   private boolean isPoseOnField(Pose2d pose) {
     return pose.getX() >= -FIELD_BORDER_MARGIN_METERS
-        && pose.getX() <= FieldInfo.length().in(Meter) + FIELD_BORDER_MARGIN_METERS
+        && pose.getX() <= FieldInfo.lengthMeters() + FIELD_BORDER_MARGIN_METERS
         && pose.getY() >= -FIELD_BORDER_MARGIN_METERS
-        && pose.getY() <= FieldInfo.width().in(Meter) + FIELD_BORDER_MARGIN_METERS;
+        && pose.getY() <= FieldInfo.widthMeters() + FIELD_BORDER_MARGIN_METERS;
   }
 
   private boolean isRotatingTooFastForMT1() {
@@ -184,10 +186,10 @@ public class Limelight extends SubsystemBase {
             ? MEGATAG2_ROTATION_STD_DEV
             : ROTATION_STD_DEV_COEFFICIENT * distanceFactor / tagFactor * m_stdDevFactor;
 
-    m_drivetrain.addVisionMeasurement(
-        poseEstimate.pose,
-        poseEstimate.timestampSeconds,
-        VecBuilder.fill(xyStdDev, xyStdDev, rotationStdDev));
+    stdDevs.set(0, 0, xyStdDev);
+    stdDevs.set(1, 0, xyStdDev);
+    stdDevs.set(2, 0, rotationStdDev);
+    m_drivetrain.addVisionMeasurement(poseEstimate.pose, poseEstimate.timestampSeconds, stdDevs);
   }
 
   /**

@@ -26,6 +26,11 @@ public final class FieldInfo {
   private static AprilTagFieldLayout layout;
   private static SymmetryType symmetryType;
 
+  // Cached to avoid Optional + autoboxing allocations every 50Hz cycle
+  private static Boolean cachedShouldFlip = null;
+  private static Translation2d cachedNetLineCenter = null;
+  private static final double[] FLIP_JOYSTICK_RESULT = new double[2];
+
   static {
     setLayout(AprilTagFields.kDefaultField);
   }
@@ -72,15 +77,26 @@ public final class FieldInfo {
   public static void setLayout(AprilTagFieldLayout layout, SymmetryType symmetryType) {
     FieldInfo.layout = layout;
     FieldInfo.symmetryType = symmetryType;
+    cachedNetLineCenter = null;
   }
 
   public static Distance length() {
     return Meters.of(layout.getFieldLength());
   }
 
+  /** Returns the field length in meters as a primitive double. Zero allocations. */
+  public static double lengthMeters() {
+    return layout.getFieldLength();
+  }
+
   /** Returns the width (Y-axis) of the field in meters. */
   public static Distance width() {
     return Meters.of(layout.getFieldWidth());
+  }
+
+  /** Returns the field width in meters as a primitive double. Zero allocations. */
+  public static double widthMeters() {
+    return layout.getFieldWidth();
   }
 
   /** Returns the direction in which the field is symmetric. */
@@ -130,8 +146,10 @@ public final class FieldInfo {
   public static final Distance NET_INSET = Inches.of(58.0 + 31.0);
 
   public static Translation2d netLineCenter() {
-    double w = layout.getFieldWidth();
-    return new Translation2d(5.5, w / 2.0);
+    if (cachedNetLineCenter == null) {
+      cachedNetLineCenter = new Translation2d(5.5, layout.getFieldWidth() / 2.0);
+    }
+    return cachedNetLineCenter;
   }
 
   public static final double ALLIANCE_ZONE_X = 5.4;
@@ -164,9 +182,17 @@ public final class FieldInfo {
 
   // ==================== Flip Utilities ====================
 
-  /** Returns true if coordinates should be flipped (red alliance). */
+  /**
+   * Returns true if coordinates should be flipped (red alliance). Cached after first determination.
+   */
   public static boolean shouldFlip() {
-    return DriverStation.getAlliance().map(alliance -> alliance == Alliance.Red).orElse(false);
+    if (cachedShouldFlip != null) return cachedShouldFlip;
+    Optional<Alliance> alliance = DriverStation.getAlliance();
+    if (alliance.isPresent()) {
+      cachedShouldFlip = alliance.get() == Alliance.Red;
+      return cachedShouldFlip;
+    }
+    return false;
   }
 
   /**
@@ -179,9 +205,13 @@ public final class FieldInfo {
    */
   public static double[] flipJoystick(double x, double y) {
     if (shouldFlip()) {
-      return new double[] {-x, -y};
+      FLIP_JOYSTICK_RESULT[0] = -x;
+      FLIP_JOYSTICK_RESULT[1] = -y;
+    } else {
+      FLIP_JOYSTICK_RESULT[0] = x;
+      FLIP_JOYSTICK_RESULT[1] = y;
     }
-    return new double[] {x, y};
+    return FLIP_JOYSTICK_RESULT;
   }
 
   /** Flips rotation input for red alliance. */

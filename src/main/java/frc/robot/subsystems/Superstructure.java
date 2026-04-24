@@ -1,6 +1,5 @@
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
@@ -15,7 +14,6 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -102,7 +100,8 @@ public class Superstructure {
   private double distanceToVirtualTarget = 0;
   private double angleToVirtualTarget = 0;
 
-  // SWM feasibility
+  // SWM feasibility — pre-allocated Twist2d to avoid per-cycle allocation in virtualTarget()
+  private final Twist2d advanceTwist = new Twist2d();
   private boolean swmSolutionFeasible = true;
   private boolean swmConverged = true;
   private double swmDelay = 0;
@@ -210,8 +209,7 @@ public class Superstructure {
   /** Tuning mode: override flywheel/hood with dashboard tunables. */
   public Command tuningShoot() {
     return shooter
-        .runShooterTestMode(
-            () -> targetFlywheelVelocity.get(), () -> Degrees.of(targetHoodAngle.get()))
+        .runShooterTestModeDeg(() -> targetFlywheelVelocity.get(), () -> targetHoodAngle.get())
         .alongWith(Commands.runOnce(() -> isShooting = true))
         .alongWith(
             Commands.sequence(Commands.waitUntil(() -> shooter.isAtTarget()), hopper.start()));
@@ -390,24 +388,21 @@ public class Superstructure {
     double delay = (Utils.getCurrentTimeSeconds() - state.Timestamp) + swmPoseDelay.get();
     swmDelay = delay;
 
-    Pose2d advancedPose =
-        state.Pose.exp(
-            new Twist2d(
-                state.Speeds.vxMetersPerSecond * delay,
-                state.Speeds.vyMetersPerSecond * delay,
-                state.Speeds.omegaRadiansPerSecond * delay));
-    // Use advanced pose rotation so field speeds are consistent with the
-    // turret-offset rotation computed in Step 2.
-    ChassisSpeeds fieldSpeeds =
-        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, advancedPose.getRotation());
+    advanceTwist.dx = state.Speeds.vxMetersPerSecond * delay;
+    advanceTwist.dy = state.Speeds.vyMetersPerSecond * delay;
+    advanceTwist.dtheta = state.Speeds.omegaRadiansPerSecond * delay;
+    Pose2d advancedPose = state.Pose.exp(advanceTwist);
+    // Inline field speed rotation to avoid ChassisSpeeds allocation
+    double cos = advancedPose.getRotation().getCos();
+    double sin = advancedPose.getRotation().getSin();
+    double fieldVx = state.Speeds.vxMetersPerSecond * cos - state.Speeds.vyMetersPerSecond * sin;
+    double fieldVy = state.Speeds.vxMetersPerSecond * sin + state.Speeds.vyMetersPerSecond * cos;
 
     // Use targetPosition field directly (avoids getTargetPosition() Pose2d allocation)
     double rtX = targetPosition.getX();
     double rtY = targetPosition.getY();
 
     // Turret position on the field via rigid-body offset (primitive math)
-    double cos = advancedPose.getRotation().getCos();
-    double sin = advancedPose.getRotation().getSin();
     double txLocal = TURRET_TRANSFORM.getX();
     double tyLocal = TURRET_TRANSFORM.getY();
     double offsetX = txLocal * cos - tyLocal * sin;
@@ -417,15 +412,14 @@ public class Superstructure {
 
     // --- Step 2: Turret velocity on the field ---
     // v_turret = v_center + omega x r_{center->turret}
-    double omega = fieldSpeeds.omegaRadiansPerSecond;
-    double velX = fieldSpeeds.vxMetersPerSecond - omega * offsetY;
-    double velY = fieldSpeeds.vyMetersPerSecond + omega * offsetX;
+    double omega = state.Speeds.omegaRadiansPerSecond;
+    double velX = fieldVx - omega * offsetY;
+    double velY = fieldVy + omega * offsetX;
 
     // --- Step 2b: Predict velocity at ball-release time ---
     // v_predicted = v_now + a * delay
-    ChassisSpeeds lastAccel = AccelerationLimiter.getLastAcceleration();
-    velX += lastAccel.vxMetersPerSecond * delay;
-    velY += lastAccel.vyMetersPerSecond * delay;
+    velX += AccelerationLimiter.getLastAccelVx() * delay;
+    velY += AccelerationLimiter.getLastAccelVy() * delay;
 
     // --- Step 3: Iterative virtual target solver (all primitive math) ---
     // We iterate because time-of-flight depends on distance to virtualTarget,

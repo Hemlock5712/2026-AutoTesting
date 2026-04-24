@@ -158,6 +158,6 @@ public class Hopper extends SubsystemBase {
 
   public void setJamRecovery() {
     // Reverse kicker (main), forward sideways (side)
-    setVelocity(RotationsPerSecond.of(-30), RotationsPerSecond.of(-30));
+    setVelocityRPS(-30, -30);
   }
 }

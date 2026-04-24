@@ -71,6 +71,21 @@ public final class AccelerationLimiter {
     return new ChassisSpeeds(lastAccelVx, lastAccelVy, lastAccelOmega);
   }
 
+  /** Returns the X component of the last limited acceleration (m/s^2). */
+  public static double getLastAccelVx() {
+    return lastAccelVx;
+  }
+
+  /** Returns the Y component of the last limited acceleration (m/s^2). */
+  public static double getLastAccelVy() {
+    return lastAccelVy;
+  }
+
+  /** Returns the angular component of the last limited acceleration (rad/s^2). */
+  public static double getLastAccelOmega() {
+    return lastAccelOmega;
+  }
+
   /**
    * Applies motor torque and friction limits to acceleration using primitives.
    *
@@ -289,81 +304,172 @@ public final class AccelerationLimiter {
     }
   }
 
+  // ==================== Allocation-free in-place API ====================
+
   /**
-   * Integrates velocity with physics-based acceleration limits.
+   * Integrates velocity in place with physics-based limits. Normalizes desired speeds internally.
    *
-   * <p>This is the main entry point for the acceleration limiter. It calculates the acceleration
-   * needed to reach the desired velocity, applies motor and friction limits, then integrates to get
-   * the next velocity.
+   * <p>Reads current velocity from {@code currentAndOutput}, computes the limited next velocity,
+   * and writes the result back into {@code currentAndOutput}. Zero allocations.
    *
-   * <p>Optimized to minimize object allocations by using primitive operations internally.
-   *
-   * @param current Current velocity (field-centric)
-   * @param desired Desired velocity (field-centric)
+   * @param currentAndOutput Current velocity on entry, limited next velocity on exit
+   * @param desiredVx Desired X velocity (will be normalized)
+   * @param desiredVy Desired Y velocity (will be normalized)
+   * @param desiredOmega Desired angular velocity (will be normalized)
    * @param dt Time step in seconds
-   * @return Limited velocity after integration
    */
-  public static ChassisSpeeds integrateVelocity(
-      ChassisSpeeds current, ChassisSpeeds desired, double dt) {
-    return integrateVelocity(current, desired, dt, MAX_FRICTION_ACCEL);
+  public static void integrateVelocityInPlace(
+      ChassisSpeeds currentAndOutput,
+      double desiredVx,
+      double desiredVy,
+      double desiredOmega,
+      double dt) {
+    integrateVelocityCore(
+        currentAndOutput,
+        currentAndOutput.vxMetersPerSecond,
+        currentAndOutput.vyMetersPerSecond,
+        currentAndOutput.omegaRadiansPerSecond,
+        desiredVx,
+        desiredVy,
+        desiredOmega,
+        dt,
+        MAX_FRICTION_ACCEL,
+        Double.MAX_VALUE,
+        Double.MAX_VALUE);
   }
 
   /**
-   * Integrates velocity with physics-based acceleration limits and an external acceleration cap.
+   * Integrates velocity in place with an external acceleration cap.
    *
-   * <p>Same as {@link #integrateVelocity(ChassisSpeeds, ChassisSpeeds, double)} but applies an
-   * additional acceleration limit (e.g., for shoot-mode driving). The effective limit is the
-   * minimum of the external cap and the physics-based friction limit.
-   *
-   * @param current Current velocity (field-centric)
-   * @param desired Desired velocity (field-centric)
-   * @param dt Time step in seconds
-   * @param maxAccel Maximum allowed acceleration in m/s^2 (clamped to friction limit)
-   * @return Limited velocity after integration
+   * @see #integrateVelocityInPlace(ChassisSpeeds, double, double, double, double)
    */
-  public static ChassisSpeeds integrateVelocity(
-      ChassisSpeeds current, ChassisSpeeds desired, double dt, double maxAccel) {
-    return integrateVelocity(current, desired, dt, maxAccel, Double.MAX_VALUE, Double.MAX_VALUE);
+  public static void integrateVelocityInPlace(
+      ChassisSpeeds currentAndOutput,
+      double desiredVx,
+      double desiredVy,
+      double desiredOmega,
+      double dt,
+      double maxAccel) {
+    integrateVelocityCore(
+        currentAndOutput,
+        currentAndOutput.vxMetersPerSecond,
+        currentAndOutput.vyMetersPerSecond,
+        currentAndOutput.omegaRadiansPerSecond,
+        desiredVx,
+        desiredVy,
+        desiredOmega,
+        dt,
+        maxAccel,
+        Double.MAX_VALUE,
+        Double.MAX_VALUE);
   }
 
   /**
-   * Integrates velocity with physics-based acceleration and jerk limits.
+   * Integrates velocity in place with acceleration and jerk limits.
    *
-   * <p>Same as {@link #integrateVelocity(ChassisSpeeds, ChassisSpeeds, double, double)} but also
-   * applies jerk limiting (rate of change of acceleration). Linear jerk (vx, vy) is limited as a
-   * combined vector magnitude for direction-independent behavior. Angular jerk is limited
-   * independently.
-   *
-   * @param current Current velocity (field-centric)
-   * @param desired Desired velocity (field-centric)
-   * @param dt Time step in seconds
-   * @param maxAccel Maximum allowed acceleration in m/s^2 (clamped to friction limit)
-   * @param maxLinearJerk Maximum linear jerk in m/s^3 (combined vx/vy vector magnitude)
-   * @param maxOmegaJerk Maximum angular jerk in rad/s^3
-   * @return Limited velocity after integration
+   * @see #integrateVelocityInPlace(ChassisSpeeds, double, double, double, double)
    */
-  public static ChassisSpeeds integrateVelocity(
-      ChassisSpeeds current,
-      ChassisSpeeds desired,
+  public static void integrateVelocityInPlace(
+      ChassisSpeeds currentAndOutput,
+      double desiredVx,
+      double desiredVy,
+      double desiredOmega,
       double dt,
       double maxAccel,
       double maxLinearJerk,
       double maxOmegaJerk) {
+    integrateVelocityCore(
+        currentAndOutput,
+        currentAndOutput.vxMetersPerSecond,
+        currentAndOutput.vyMetersPerSecond,
+        currentAndOutput.omegaRadiansPerSecond,
+        desiredVx,
+        desiredVy,
+        desiredOmega,
+        dt,
+        maxAccel,
+        maxLinearJerk,
+        maxOmegaJerk);
+  }
+
+  /**
+   * Integrates velocity with separate current and output, all primitives. Zero allocations.
+   *
+   * <p>For cases where the current velocity differs from the output object (e.g., FollowPath
+   * zeroing unlimited axes). Normalizes desired speeds internally.
+   *
+   * @param output Pre-allocated ChassisSpeeds to write the result into
+   * @param curVx Current X velocity
+   * @param curVy Current Y velocity
+   * @param curOmega Current angular velocity
+   * @param desiredVx Desired X velocity (will be normalized)
+   * @param desiredVy Desired Y velocity (will be normalized)
+   * @param desiredOmega Desired angular velocity (will be normalized)
+   * @param dt Time step in seconds
+   */
+  public static void integrateVelocity(
+      ChassisSpeeds output,
+      double curVx,
+      double curVy,
+      double curOmega,
+      double desiredVx,
+      double desiredVy,
+      double desiredOmega,
+      double dt) {
+    integrateVelocityCore(
+        output,
+        curVx,
+        curVy,
+        curOmega,
+        desiredVx,
+        desiredVy,
+        desiredOmega,
+        dt,
+        MAX_FRICTION_ACCEL,
+        Double.MAX_VALUE,
+        Double.MAX_VALUE);
+  }
+
+  // ==================== Core implementation ====================
+
+  /**
+   * Core integration logic. All public methods delegate here. Zero allocations.
+   *
+   * <p>Normalizes desired speeds, computes acceleration, applies motor/friction/jerk limits,
+   * integrates, and normalizes the output — all using primitives.
+   */
+  private static void integrateVelocityCore(
+      ChassisSpeeds output,
+      double curVx,
+      double curVy,
+      double curOmega,
+      double desVx,
+      double desVy,
+      double desOmega,
+      double dt,
+      double maxAccel,
+      double maxLinearJerk,
+      double maxOmegaJerk) {
+
+    // Normalize desired speeds (replaces caller's normalizeSpeeds call)
+    double transSpeed = Math.hypot(desVx, desVy);
+    double maxModSpeed = transSpeed + Math.abs(desOmega) * DRIVE_BASE_RADIUS;
+    if (maxModSpeed > MAX_VELOCITY) {
+      double scale = MAX_VELOCITY / maxModSpeed;
+      desVx *= scale;
+      desVy *= scale;
+      desOmega *= scale;
+    }
 
     // Guard against zero or negative time step (can happen on first frame)
     if (dt < MIN_DT) {
       dt = MIN_DT;
     }
 
-    // Extract primitives to avoid repeated field access
-    double curVx = current.vxMetersPerSecond;
-    double curVy = current.vyMetersPerSecond;
-    double curOmega = current.omegaRadiansPerSecond;
-
     // Calculate wanted acceleration: (desired - current) / dt
-    double accelX = (desired.vxMetersPerSecond - curVx) / dt;
-    double accelY = (desired.vyMetersPerSecond - curVy) / dt;
-    double accelOmega = (desired.omegaRadiansPerSecond - curOmega) / dt;
+    double accelX = (desVx - curVx) / dt;
+    double accelY = (desVy - curVy) / dt;
+    double accelOmega = (desOmega - curOmega) / dt;
 
     // Apply motor torque and friction limits (result stored in ACCEL_RESULT)
     applyLimits(accelX, accelY, accelOmega, curVx, curVy, curOmega, maxAccel, ACCEL_RESULT);
@@ -387,11 +493,9 @@ public final class AccelerationLimiter {
     lastAccelOmega = ACCEL_RESULT[2];
 
     // Integrate to get next velocity: current + limitedAccel * dt
-    double nextVx = curVx + ACCEL_RESULT[0] * dt;
-    double nextVy = curVy + ACCEL_RESULT[1] * dt;
-    double nextOmega = curOmega + ACCEL_RESULT[2] * dt;
-
-    // Final check: ensure no module exceeds max velocity
-    return normalizeSpeeds(new ChassisSpeeds(nextVx, nextVy, nextOmega));
+    output.vxMetersPerSecond = curVx + ACCEL_RESULT[0] * dt;
+    output.vyMetersPerSecond = curVy + ACCEL_RESULT[1] * dt;
+    output.omegaRadiansPerSecond = curOmega + ACCEL_RESULT[2] * dt;
+    normalizeSpeedsInPlace(output);
   }
 }

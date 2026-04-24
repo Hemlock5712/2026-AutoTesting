@@ -8,6 +8,7 @@ import frc.robot.subsystems.Superstructure.FeedMode;
 
 public final class FeedTargetSelector {
   public static final Distance CLEAR_PATH_SENTINEL = Meters.of(1000.0);
+  private static final Distance ZERO_DISTANCE = Meters.of(0.0);
 
   public enum FeedSide {
     LEFT,
@@ -37,14 +38,14 @@ public final class FeedTargetSelector {
     Translation2d target = side == FeedSide.LEFT ? leftFeedTarget : rightFeedTarget;
     Distance clearance = netClearance(turretPosition, target, netCenter);
     boolean blocked = clearance.in(Meters) <= 0.0;
-    return new FeedSelection(target, target, side, Meters.of(0.0), blocked, clearance);
+    return new FeedSelection(target, target, side, ZERO_DISTANCE, blocked, clearance);
   }
 
   public static FeedSelection selectAutoTarget(
       Translation2d robotPosition, Translation2d leftFeedTarget, Translation2d rightFeedTarget) {
     FeedSide side = resolveAutoSide(robotPosition, leftFeedTarget, rightFeedTarget);
     Translation2d target = side == FeedSide.LEFT ? leftFeedTarget : rightFeedTarget;
-    return new FeedSelection(target, target, side, Meters.of(0.0), false, CLEAR_PATH_SENTINEL);
+    return new FeedSelection(target, target, side, ZERO_DISTANCE, false, CLEAR_PATH_SENTINEL);
   }
 
   public static Distance netClearance(
@@ -70,7 +71,7 @@ public final class FeedTargetSelector {
 
     double crossY = sy + t * (ty - sy);
     if (crossY >= lineMinY && crossY <= lineMaxY) {
-      return Meters.of(0.0);
+      return ZERO_DISTANCE;
     }
 
     return Meters.of(Math.min(Math.abs(crossY - lineMinY), Math.abs(crossY - lineMaxY)));

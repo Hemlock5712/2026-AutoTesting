@@ -5,7 +5,7 @@ import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
-import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
@@ -116,23 +116,15 @@ public class GamePieceDrive extends Command {
           Math.hypot(robotSpeeds.vxMetersPerSecond, robotSpeeds.vyMetersPerSecond)
               / AccelerationLimiter.MAX_VELOCITY;
 
-      // Convert robot-relative correction to field coordinates
-      Translation2d fieldCorrection =
-          new Translation2d(0, strafeCorrection)
-              .times(speedScale)
-              .rotateBy(swerve.getPose().getRotation().plus(swerve.getOperatorForwardDirection()));
-
-      vx += fieldCorrection.getX();
-      vy += fieldCorrection.getY();
+      // Convert robot-relative correction to field coordinates using primitive math
+      double corrScaled = strafeCorrection * speedScale;
+      Rotation2d rot = swerve.getPose().getRotation().plus(swerve.getOperatorForwardDirection());
+      vx += -corrScaled * rot.getSin();
+      vy += corrScaled * rot.getCos();
     }
 
-    // Normalize to prevent module saturation
-    ChassisSpeeds targetVelocity =
-        AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(vx, vy, omega));
-
-    // Apply physics-based acceleration limiting
-    lastCommandedVelocity =
-        AccelerationLimiter.integrateVelocity(lastCommandedVelocity, targetVelocity, dt);
+    // Apply physics-based acceleration limiting (normalizes desired speeds internally)
+    AccelerationLimiter.integrateVelocityInPlace(lastCommandedVelocity, vx, vy, omega, dt);
 
     swerve.setControl(request.withSpeeds(lastCommandedVelocity));
   }

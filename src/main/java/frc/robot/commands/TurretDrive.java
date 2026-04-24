@@ -84,19 +84,16 @@ public class TurretDrive extends Command {
           double velY = velocityYSupplier.getAsDouble();
           double omega = rotationalRateSupplier.getAsDouble();
 
-          // Normalize to prevent module saturation
-          ChassisSpeeds targetVelocity =
-              AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, omega));
-
-          // Integrate with shoot-mode acceleration and jerk caps
-          lastCommandedVelocity =
-              AccelerationLimiter.integrateVelocity(
-                  lastCommandedVelocity,
-                  targetVelocity,
-                  dt,
-                  MAX_SHOOT_ACCEL,
-                  MAX_SHOOT_JERK,
-                  MAX_SHOOT_JERK);
+          // Apply shoot-mode acceleration and jerk limits (normalizes desired speeds internally)
+          AccelerationLimiter.integrateVelocityInPlace(
+              lastCommandedVelocity,
+              velX,
+              velY,
+              omega,
+              dt,
+              MAX_SHOOT_ACCEL,
+              MAX_SHOOT_JERK,
+              MAX_SHOOT_JERK);
 
           LoopProfiler.measure(
               "Commands/TurretDriveSetControl",

@@ -479,7 +479,8 @@ public class FollowPath extends Command {
     double crossTrackRate = (dt > 1e-6) ? (crossTrackError - lastCrossTrackError) / dt : 0;
     double correction = crossTrackKp * crossTrackError + crossTrackKd * crossTrackRate;
     // Normal vector: 90 degrees CCW from tangent (points left of path direction)
-    Translation2d normal = new Translation2d(-tangent.getY(), tangent.getX());
+    double nx = -tangent.getY();
+    double ny = tangent.getX();
     // Curvature feedforward: proactively push toward center of curvature before
     // error builds.
     // Signed curvature: positive = turning left = center is in +normal direction.
@@ -487,14 +488,15 @@ public class FollowPath extends Command {
     double curvatureFf = curvatureFfGain * profiledSpeed * profiledSpeed * signedKappa;
     // -correction pushes toward path, +curvatureFf pushes toward center of
     // curvature
-    Translation2d correctionVec = normal.times(-correction + curvatureFf);
+    double corrScale = -correction + curvatureFf;
 
-    // Step 6: Combine path velocity + correction
-    Translation2d desiredVel = direction.times(profiledSpeed).plus(correctionVec);
+    // Step 6: Combine path velocity + correction (primitive vector math)
+    double desiredVx = direction.getX() * profiledSpeed + nx * corrScale;
+    double desiredVy = direction.getY() * profiledSpeed + ny * corrScale;
 
     // Step 6.5: Apply per-axis overrides
-    double vx = (overrideVx != null) ? overrideVx.getAsDouble() : desiredVel.getX();
-    double vy = (overrideVy != null) ? overrideVy.getAsDouble() : desiredVel.getY();
+    double vx = (overrideVx != null) ? overrideVx.getAsDouble() : desiredVx;
+    double vy = (overrideVy != null) ? overrideVy.getAsDouble() : desiredVy;
     boolean vxUnlimited = (overrideVx != null && !limitOverrideVx);
     boolean vyUnlimited = (overrideVy != null && !limitOverrideVy);
     boolean omegaUnlimited = (overrideOmega != null && !limitOverrideOmega);
@@ -542,20 +544,22 @@ public class FollowPath extends Command {
     double currentOmegaForLimiter =
         omegaUnlimited ? 0 : lastCommandedVelocity.omegaRadiansPerSecond;
 
-    ChassisSpeeds targetSpeeds =
-        AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(limitedVx, limitedVy, limitedOmega));
-    ChassisSpeeds limitedOutput =
-        AccelerationLimiter.integrateVelocity(
-            new ChassisSpeeds(currentVxForLimiter, currentVyForLimiter, currentOmegaForLimiter),
-            targetSpeeds,
-            dt);
+    // Integrate with primitive overload (normalizes desired internally, zero allocations)
+    AccelerationLimiter.integrateVelocity(
+        lastCommandedVelocity,
+        currentVxForLimiter,
+        currentVyForLimiter,
+        currentOmegaForLimiter,
+        limitedVx,
+        limitedVy,
+        limitedOmega,
+        dt);
 
     // Inject raw unlimited values back into the output
-    ChassisSpeeds output =
-        new ChassisSpeeds(
-            vxUnlimited ? vx : limitedOutput.vxMetersPerSecond,
-            vyUnlimited ? vy : limitedOutput.vyMetersPerSecond,
-            omegaUnlimited ? omega : limitedOutput.omegaRadiansPerSecond);
+    if (vxUnlimited) lastCommandedVelocity.vxMetersPerSecond = vx;
+    if (vyUnlimited) lastCommandedVelocity.vyMetersPerSecond = vy;
+    if (omegaUnlimited) lastCommandedVelocity.omegaRadiansPerSecond = omega;
+
     // Apply center of rotation if within a configured zone
     Translation2d activeCenter = Translation2d.kZero;
     for (int i = 0; i < centerOfRotationZones.size(); i++) {
@@ -564,10 +568,7 @@ public class FollowPath extends Command {
         break;
       }
     }
-    swerve.setControl(request.withCenterOfRotation(activeCenter).withSpeeds(output));
-
-    // Update state for next cycle
-    lastCommandedVelocity = output;
+    swerve.setControl(request.withCenterOfRotation(activeCenter).withSpeeds(lastCommandedVelocity));
     lastCrossTrackError = crossTrackError;
     lastProjectedS = sRobot;
 

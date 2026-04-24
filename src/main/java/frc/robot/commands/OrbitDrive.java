@@ -22,6 +22,7 @@ public class OrbitDrive extends Command {
   private final DoubleSupplier rotationalRateSupplier;
 
   private final AccelerationLimitedFieldSpeeds request = new AccelerationLimitedFieldSpeeds();
+  private final ChassisSpeeds targetSpeeds = new ChassisSpeeds();
 
   /**
    * Creates an OrbitDrive command for teleop control.
@@ -55,12 +56,14 @@ public class OrbitDrive extends Command {
     double velY = velocityYSupplier.getAsDouble();
     double omega = rotationalRateSupplier.getAsDouble();
 
-    ChassisSpeeds normalized =
-        AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, omega));
+    targetSpeeds.vxMetersPerSecond = velX;
+    targetSpeeds.vyMetersPerSecond = velY;
+    targetSpeeds.omegaRadiansPerSecond = omega;
+    AccelerationLimiter.normalizeSpeedsInPlace(targetSpeeds);
     request.setTargetSpeeds(
-        normalized.vxMetersPerSecond,
-        normalized.vyMetersPerSecond,
-        normalized.omegaRadiansPerSecond);
+        targetSpeeds.vxMetersPerSecond,
+        targetSpeeds.vyMetersPerSecond,
+        targetSpeeds.omegaRadiansPerSecond);
   }
 
   @Override

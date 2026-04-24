@@ -204,13 +204,9 @@ public class AxisLockDrive extends Command {
             targetOmega = calculateHeadingLockedOmega(flippedOmega);
           }
 
-          // Normalize to prevent module saturation
-          ChassisSpeeds targetVelocity =
-              AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, targetOmega));
-
-          // Apply physics-based acceleration limiting
-          lastCommandedVelocity =
-              AccelerationLimiter.integrateVelocity(lastCommandedVelocity, targetVelocity, dt);
+          // Apply physics-based acceleration limiting (normalizes desired speeds internally)
+          AccelerationLimiter.integrateVelocityInPlace(
+              lastCommandedVelocity, velX, velY, targetOmega, dt);
 
           LoopProfiler.measure(
               "Commands/AxisLockDriveSetControl",

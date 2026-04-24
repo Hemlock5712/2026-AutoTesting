@@ -216,6 +216,15 @@ public class Shooter extends SubsystemBase {
         });
   }
 
+  /** Primitive overload — velocity in RPS, hood angle in degrees. Zero allocations. */
+  public Command runShooterTestModeDeg(DoubleSupplier velocity, DoubleSupplier angleDeg) {
+    return run(
+        () -> {
+          setVelocity(velocity.getAsDouble());
+          setPositionDeg(angleDeg.getAsDouble());
+        });
+  }
+
   /**
    * Command to stop the motors.
    *
