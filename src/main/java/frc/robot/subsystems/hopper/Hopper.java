@@ -99,6 +99,12 @@ public class Hopper extends SubsystemBase {
     side.setControl(sideVelocityOut.withVelocity(sideVelocity));
   }
 
+  /** Primitive overload — velocity in rotations per second. Zero allocations. */
+  public void setVelocityRPS(double mainRPS, double sideRPS) {
+    main.setControl(mainVelocityOut.withVelocity(mainRPS));
+    side.setControl(sideVelocityOut.withVelocity(sideRPS));
+  }
+
   public Command start() {
     return runOnce(() -> setVelocity(RotationsPerSecond.of(34), RotationsPerSecond.of(10)));
   }

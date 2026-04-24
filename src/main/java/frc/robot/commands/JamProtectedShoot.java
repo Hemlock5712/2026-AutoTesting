@@ -1,7 +1,5 @@
 package frc.robot.commands;
 
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.hopper.Hopper;
@@ -21,6 +19,14 @@ public class JamProtectedShoot extends Command {
   private static final double SIDEWAYS_CONFIRM_TIME = 0.2; // 0.5s to confirm ball in sideways
   private static final double KICKER_TIMEOUT = 0.2; // 0.33s for ball to reach kicker
   private static final double RECOVERY_TIME = 0.05; // 0.5s recovery sequence
+
+  // Hopper speeds in rotations per second (CTRE native unit)
+  private static final double HOPPER_MAIN_RPS = 34;
+  private static final double HOPPER_SIDE_RPS = 30;
+
+  // Pre-built state names to avoid String allocation from .name()
+  private static final String[] STATE_NAMES =
+      java.util.Arrays.stream(State.values()).map(Enum::name).toArray(String[]::new);
 
   private final Hopper hopper;
   private final BooleanSupplier isReadyToFeed;
@@ -56,7 +62,7 @@ public class JamProtectedShoot extends Command {
 
   @Override
   public void execute() {
-    Logger.recordOutput("JamProtection/State", state.name());
+    Logger.recordOutput("JamProtection/State", STATE_NAMES[state.ordinal()]);
     Logger.recordOutput("JamProtection/IsReadyToFeed", isReadyToFeed.getAsBoolean());
 
     switch (state) {
@@ -78,7 +84,7 @@ public class JamProtectedShoot extends Command {
   private void executeNormal() {
     // Normal hopper control: start if ready, stop if not
     if (isReadyToFeed.getAsBoolean()) {
-      hopper.setVelocity(RotationsPerSecond.of(34), RotationsPerSecond.of(30));
+      hopper.setVelocityRPS(HOPPER_MAIN_RPS, HOPPER_SIDE_RPS);
 
       // Start monitoring for jams if ball is in sideways
       if (hopper.hasBallInSideways()) {
@@ -86,13 +92,13 @@ public class JamProtectedShoot extends Command {
         sidewaysTimer.restart();
       }
     } else {
-      hopper.setVelocity(RotationsPerSecond.of(0), RotationsPerSecond.of(0));
+      hopper.setVelocityRPS(0, 0);
     }
   }
 
   private void executeMonitoringSideways() {
     // Keep hopper running while monitoring
-    hopper.setVelocity(RotationsPerSecond.of(34), RotationsPerSecond.of(30));
+    hopper.setVelocityRPS(HOPPER_MAIN_RPS, HOPPER_SIDE_RPS);
 
     // If ball leaves sideways, go back to normal
     if (!hopper.hasBallInSideways()) {
@@ -121,7 +127,7 @@ public class JamProtectedShoot extends Command {
 
   private void executeWaitingForKicker() {
     // Keep hopper running while waiting for ball to reach kicker
-    hopper.setVelocity(RotationsPerSecond.of(34), RotationsPerSecond.of(30));
+    hopper.setVelocityRPS(HOPPER_MAIN_RPS, HOPPER_SIDE_RPS);
 
     // If we're no longer ready to feed, go back to normal
     if (!isReadyToFeed.getAsBoolean()) {
@@ -172,7 +178,7 @@ public class JamProtectedShoot extends Command {
     recoveryTimer.stop();
 
     // Stop hopper
-    hopper.setVelocity(RotationsPerSecond.of(0), RotationsPerSecond.of(0));
+    hopper.setVelocityRPS(0, 0);
   }
 
   @Override
