@@ -87,12 +87,12 @@ public class Shooter extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // Control values
-    config.Slot0.kS = 7.0; // Static friction
+    config.Slot0.kS = 10.0; // Static friction
     config.Slot0.kV = 0.03; // Velocity feedforward
-    config.Slot0.kP = 20; // Proportional gain
+    config.Slot0.kP = 6; // Proportional gain
     config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseVelocitySign;
 
-    config.Feedback.SensorToMechanismRatio = 1.66666666666667;
+    config.Feedback.SensorToMechanismRatio = 1.33333333333;
 
     // Speed limits (CTRE uses rotations per second for velocity, RPS² for acceleration)
     config.MotionMagic.MotionMagicCruiseVelocity = 0.0; // RPS
@@ -127,7 +127,7 @@ public class Shooter extends SubsystemBase {
 
     // Soft limits to prevent exceeding -90 to +270 degree physical range
     hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
-    hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.09;
+    hoodConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 0.22;
     hoodConfig.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
     hoodConfig.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
 

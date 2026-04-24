@@ -112,17 +112,17 @@ public class ShooterLookup {
 
   private static void buildFeedFlywheel() {
     feedShootMap.put(0.0, 20.0);
-    feedShootMap.put(9.5, 52.0);
+    feedShootMap.put(10.0, 45.0);
   }
 
   private static void buildFeedHood() {
-    feedHoodMap.put(0.0, 0.00);
-    feedHoodMap.put(9.5, 30.0);
+    feedHoodMap.put(0.0, 32.0);
+    feedHoodMap.put(10.0, 32.0);
   }
 
   private static void buildFeedTime() {
     feedTime.put(0.0, 0.00);
-    feedTime.put(9.5, 1.67);
+    feedTime.put(10.0, 1.67);
   }
 
   public static InterpolatingDoubleTreeMap getFlywheelMap() {

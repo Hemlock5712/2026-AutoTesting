@@ -173,6 +173,8 @@ public class Superstructure {
     double robotAngleRad = robotPose.getRotation().getRadians();
     angleToVirtualTarget =
         MathUtil.inputModulus((angleToVtFieldRad - robotAngleRad) / (2.0 * Math.PI), -0.25, 0.75);
+
+    logTelemetry(state);
   }
 
   // ==================== Targeting Getters ====================
@@ -613,6 +615,9 @@ public class Superstructure {
     boolean shootReady = isShooting && (isHubShot ? isHubReady() : isFeedReady());
     Logger.recordOutput("SWM/ShootReady", shootReady);
     Logger.recordOutput("SWM/IsHubShot", isHubShot);
+    //
+    Logger.recordOutput("SWM/IsShootAtTarget", shooter.isAtTarget(distanceToVirtualTarget));
+
     Logger.recordOutput("SWM/IsTurretAtTarget", turret.isAtTarget(distanceToHub));
     Logger.recordOutput("SWM/FeedMode", teleopFeedMode.name());
 

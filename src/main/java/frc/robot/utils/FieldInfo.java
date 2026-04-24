@@ -116,14 +116,14 @@ public final class FieldInfo {
   // alliance-correct values.
 
   /** Hub/target position for turret tracking (blue alliance coordinates). */
-  public static final Translation2d HUB_POSITION = new Translation2d(4.625594 + 0.152, 4.034);
+  public static final Translation2d HUB_POSITION = new Translation2d(4.625594, 4.034);
 
   public static final Distance HUB_HEIGHT = Meters.of(1.828);
 
   public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1, 2);
   public static final ExtTranslation LEFT_FEED_POSITION = FieldFlip.overWidth(RIGHT_FEED_POSITION);
 
-  public static final ExtTranslation RIGHT_FEED_POSITION_AUTO = new ExtTranslation(1.5, 2.75);
+  public static final ExtTranslation RIGHT_FEED_POSITION_AUTO = new ExtTranslation(2.85, 2.01);
   public static final ExtTranslation LEFT_FEED_POSITION_AUTO =
       FieldFlip.overWidth(RIGHT_FEED_POSITION_AUTO);
 

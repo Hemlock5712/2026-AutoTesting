@@ -1,6 +1,8 @@
 package frc.robot;
 
-import static edu.wpi.first.units.Units.*;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
@@ -58,9 +60,9 @@ public class RobotContainer {
       RotationsPerSecond.of(1)
           .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
 
-  private double maxShootSpeed = 1.5;
+  private double maxShootSpeed = 1.0;
   private double maxFeedSpeed = 3.0;
-  private double maxShootAngularRate = maxAngularRate * 0.75;
+  private double maxShootAngularRate = maxAngularRate * 0.5;
 
   private final CommandXboxController joystick = new CommandXboxController(0);
 
