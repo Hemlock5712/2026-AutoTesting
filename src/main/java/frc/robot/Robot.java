@@ -51,8 +51,6 @@ public class Robot extends LoggedRobot {
     long start = System.nanoTime();
     LoopProfiler.measure(
         "Robot/SuperstructureUpdate", () -> m_robotContainer.getSuperstructure().update());
-    LoopProfiler.measure(
-        "Robot/LimelightOrientations", () -> m_robotContainer.updateLimelightOrientations());
     LoopProfiler.measure("Robot/CommandScheduler", () -> CommandScheduler.getInstance().run());
     LoopProfiler.measure("Robot/TunablesUpdate", Tunables::update);
     Logger.recordOutput("LoopProfiler/Robot/TotalMs", (System.nanoTime() - start) / 1e6);

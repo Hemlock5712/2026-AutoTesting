@@ -98,10 +98,10 @@ public class AutoRoutines {
         autoCommands
             .followPath(mainPath)
             .withCompletionTolerance(0.15)
-            .deadlineFor(intakeCoordinator.deployAndRunAUTO(), superstructure.prerollShooter(34)),
-        new WaitCommand(5).deadlineFor(superstructure.shoot()),
+            .deadlineFor(intakeCoordinator.deployAndRunAUTO(), superstructure.prerollShooter(30)),
+        new WaitCommand(3).deadlineFor(superstructure.shoot()),
         superstructure.stopShoot(),
-        superstructure.prerollShooter(34),
+        superstructure.prerollShooter(30),
         autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
         autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15),
         superstructure.shoot());

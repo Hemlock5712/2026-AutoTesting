@@ -28,6 +28,7 @@ import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -75,12 +76,10 @@ public class RobotContainer {
 
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 
-  // Vision camera for tracking robot position
-  public final Limelight limelightBR = new Limelight("limelight-br", drivetrain, 1.0);
-  public final Limelight limelightBL = new Limelight("limelight-bl", drivetrain, 1.0);
-  public final Limelight limelightFL = new Limelight("limelight-fl", drivetrain);
-  public final Limelight limelightFR = new Limelight("limelight-fr", drivetrain);
-  // public final Limelight limelightMM = new Limelight("limelight-mm", drivetrain);
+  // Vision cameras for tracking robot position
+  public final Limelight limelight =
+      new Limelight(
+          List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr"), drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -251,8 +250,6 @@ public class RobotContainer {
         .povDown()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.AUTO)));
 
-    // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
-
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
@@ -274,14 +271,6 @@ public class RobotContainer {
 
   public Superstructure getSuperstructure() {
     return superstructure;
-  }
-
-  public void updateLimelightOrientations() {
-    limelightBR.updateRobotOrientationNoFlush();
-    limelightBL.updateRobotOrientationNoFlush();
-    limelightFL.updateRobotOrientationNoFlush();
-    limelightFR.updateRobotOrientationNoFlush();
-    Limelight.flushOrientationUpdates();
   }
 
   public Command fmsInitCommand() {

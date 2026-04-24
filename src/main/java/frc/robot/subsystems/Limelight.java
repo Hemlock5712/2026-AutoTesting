@@ -16,11 +16,12 @@ import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
 import frc.robot.utils.LoopProfiler;
+import java.util.List;
 
 public class Limelight extends SubsystemBase {
 
   // --- Standard Deviation Formula ---
-  // Formula: coefficient * pow(avgTagDist, 1.2) / pow(tagCount, 2.0) * stdDevFactor
+  // Formula: coefficient * pow(avgTagDist, 1.2) / pow(tagCount, 2.0)
   //
   // Coefficients are scaled to match 6328 Mechanical Advantage's trust ratio
   // while using WPILib default odometry std devs [0.1, 0.1, 0.1].
@@ -42,83 +43,82 @@ public class Limelight extends SubsystemBase {
   private static final double MAX_ANGULAR_VELOCITY_MT1_DEG_PER_SEC = 360;
   private static final double MAX_ANGULAR_VELOCITY_MT2_DEG_PER_SEC = 200;
 
-  private final String m_limelightName;
-  private final CommandSwerveDrivetrain m_drivetrain;
-  private final double m_stdDevFactor;
-  private PoseEstimate lastPoseEstimate = new PoseEstimate();
-  private final Matrix<N3, N1> stdDevs = VecBuilder.fill(0, 0, 0);
+  private static final class CameraState {
+    final String name;
+    final String profilerKeyPoseEstimate;
+    final String profilerKeyAddVision;
+    final String profilerKeyOrientation;
+    final Matrix<N3, N1> stdDevs;
 
-  // Pre-computed profiler keys (avoids string concatenation every cycle)
-  private final String profilerKeySubsystem;
-  private final String profilerKeyPoseEstimate;
-  private final String profilerKeyAddVision;
-  private final String profilerKeyOrientation;
+    CameraState(String name) {
+      this.name = name;
+      this.profilerKeyPoseEstimate = name + "/PoseEstimate";
+      this.profilerKeyAddVision = name + "/AddVisionMeasurement";
+      this.profilerKeyOrientation = name + "/SetOrientationNoFlush";
+      this.stdDevs = VecBuilder.fill(0, 0, 0);
+    }
+  }
+
+  private final CommandSwerveDrivetrain m_drivetrain;
+  private final CameraState[] cameras;
+  private final int cameraCount;
 
   // Cached once per cycle in updateRobotOrientationNoFlush(), reused in periodic()
   private double cachedOmegaDegPerSec = 0.0;
 
   /**
-   * Creates a Limelight subsystem.
+   * Creates a Limelight subsystem managing multiple cameras.
    *
-   * @param limelightName NetworkTables name (e.g., "limelight-front").
+   * @param cameraNames NetworkTables names for each camera (e.g., "limelight-br").
    * @param drivetrain Swerve drivetrain for pose estimation and gyro data.
-   * @param stdDevFactor Per-camera trust multiplier. 1.0 = normal trust. Higher = less trust. Use
-   *     to account for camera quality or mounting position (e.g., 2.0 for a camera with a worse
-   *     viewing angle).
    */
-  public Limelight(String limelightName, CommandSwerveDrivetrain drivetrain, double stdDevFactor) {
-    super(limelightName);
-    m_limelightName = limelightName;
+  public Limelight(List<String> cameraNames, CommandSwerveDrivetrain drivetrain) {
+    super("Limelight");
     m_drivetrain = drivetrain;
-    m_stdDevFactor = stdDevFactor;
-
-    profilerKeySubsystem = "Subsystems/" + limelightName;
-    profilerKeyPoseEstimate = limelightName + "/PoseEstimate";
-    profilerKeyAddVision = limelightName + "/AddVisionMeasurement";
-    profilerKeyOrientation = limelightName + "/SetOrientationNoFlush";
-  }
-
-  public Limelight(String limelightName, CommandSwerveDrivetrain drivetrain) {
-    this(limelightName, drivetrain, 1.0);
+    cameraCount = cameraNames.size();
+    cameras = new CameraState[cameraCount];
+    for (int i = 0; i < cameraCount; i++) {
+      cameras[i] = new CameraState(cameraNames.get(i));
+    }
   }
 
   @Override
   public void periodic() {
     LoopProfiler.measure(
-        profilerKeySubsystem,
+        "Subsystems/Limelight",
         () -> {
-          PoseEstimate poseEstimate =
-              LoopProfiler.measure(profilerKeyPoseEstimate, this::getValidPoseEstimate);
-          if (poseEstimate != null) {
-            lastPoseEstimate = poseEstimate;
-            LoopProfiler.measure(profilerKeyAddVision, () -> addVisionMeasurement(poseEstimate));
+          // Read drivetrain state once for all cameras
+          ChassisSpeeds speeds = m_drivetrain.getRobotSpeeds();
+          cachedOmegaDegPerSec = Math.toDegrees(speeds.omegaRadiansPerSecond);
+          double yawDegrees = m_drivetrain.getPose().getRotation().getDegrees();
+
+          // Set orientation for all cameras, then flush once
+          for (int i = 0; i < cameraCount; i++) {
+            CameraState camera = cameras[i];
+            LoopProfiler.measure(
+                camera.profilerKeyOrientation,
+                () ->
+                    LimelightHelpers.SetRobotOrientation_NoFlush(
+                        camera.name, yawDegrees, cachedOmegaDegPerSec, 0, 0, 0, 0));
+          }
+          LoopProfiler.measure("Limelight/FlushOrientationUpdates", LimelightHelpers::Flush);
+
+          // Read pose estimates and add vision measurements
+          for (int i = 0; i < cameraCount; i++) {
+            CameraState camera = cameras[i];
+            PoseEstimate poseEstimate =
+                LoopProfiler.measure(
+                    camera.profilerKeyPoseEstimate, () -> getValidPoseEstimate(camera));
+            if (poseEstimate != null) {
+              LoopProfiler.measure(
+                  camera.profilerKeyAddVision, () -> addVisionMeasurement(camera, poseEstimate));
+            }
           }
         });
   }
 
-  public void updateRobotOrientationNoFlush() {
-    // Cache angular velocity once - reused by rotation checks in periodic()
-    ChassisSpeeds speeds = m_drivetrain.getRobotSpeeds();
-    cachedOmegaDegPerSec = Math.toDegrees(speeds.omegaRadiansPerSecond);
-    LoopProfiler.measure(
-        profilerKeyOrientation,
-        () ->
-            LimelightHelpers.SetRobotOrientation_NoFlush(
-                m_limelightName,
-                m_drivetrain.getPose().getRotation().getDegrees(),
-                cachedOmegaDegPerSec,
-                0,
-                0,
-                0,
-                0));
-  }
-
-  public static void flushOrientationUpdates() {
-    LoopProfiler.measure("Limelight/FlushOrientationUpdates", LimelightHelpers::Flush);
-  }
-
-  private PoseEstimate getValidPoseEstimate() {
-    PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiBlue(m_limelightName);
+  private PoseEstimate getValidPoseEstimate(CameraState camera) {
+    PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiBlue(camera.name);
 
     if (!LimelightHelpers.validPoseEstimate(poseEstimate)) {
       return null;
@@ -140,7 +140,7 @@ public class Limelight extends SubsystemBase {
       if (isRotatingTooFastForMT2()) {
         return null;
       }
-      PoseEstimate megaTag2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(m_limelightName);
+      PoseEstimate megaTag2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(camera.name);
       if (!LimelightHelpers.validPoseEstimate(megaTag2)) {
         return null;
       }
@@ -175,46 +175,21 @@ public class Limelight extends SubsystemBase {
     return Math.abs(cachedOmegaDegPerSec) > MAX_ANGULAR_VELOCITY_MT2_DEG_PER_SEC;
   }
 
-  private void addVisionMeasurement(PoseEstimate poseEstimate) {
+  private void addVisionMeasurement(CameraState camera, PoseEstimate poseEstimate) {
     double distanceFactor = Math.pow(poseEstimate.avgTagDist, 1.2);
     double effectiveTags = Math.min(MAX_EFFECTIVE_TAG_COUNT, poseEstimate.tagCount);
     double tagFactor = Math.pow(effectiveTags, 2.0);
 
-    double xyStdDev = XY_STD_DEV_COEFFICIENT * distanceFactor / tagFactor * m_stdDevFactor;
+    double xyStdDev = XY_STD_DEV_COEFFICIENT * distanceFactor / tagFactor;
     double rotationStdDev =
         poseEstimate.isMegaTag2
             ? MEGATAG2_ROTATION_STD_DEV
-            : ROTATION_STD_DEV_COEFFICIENT * distanceFactor / tagFactor * m_stdDevFactor;
+            : ROTATION_STD_DEV_COEFFICIENT * distanceFactor / tagFactor;
 
-    stdDevs.set(0, 0, xyStdDev);
-    stdDevs.set(1, 0, xyStdDev);
-    stdDevs.set(2, 0, rotationStdDev);
-    m_drivetrain.addVisionMeasurement(poseEstimate.pose, poseEstimate.timestampSeconds, stdDevs);
-  }
-
-  /**
-   * Sets which AprilTag IDs this Limelight will use for pose estimation. Tags not in the list will
-   * be ignored. Pass an empty array to clear the filter (accept all).
-   *
-   * @param validIDs Array of valid AprilTag IDs, or empty array to accept all.
-   */
-  public void setTagFilter(int[] validIDs) {
-    LimelightHelpers.SetFiducialIDFiltersOverride(m_limelightName, validIDs);
-  }
-
-  public Pose2d getPose() {
-    return lastPoseEstimate.pose;
-  }
-
-  public double getTimestampSeconds() {
-    return lastPoseEstimate.timestampSeconds;
-  }
-
-  public double getAvgTagDist() {
-    return lastPoseEstimate.avgTagDist;
-  }
-
-  public int getTagCount() {
-    return lastPoseEstimate.tagCount;
+    camera.stdDevs.set(0, 0, xyStdDev);
+    camera.stdDevs.set(1, 0, xyStdDev);
+    camera.stdDevs.set(2, 0, rotationStdDev);
+    m_drivetrain.addVisionMeasurement(
+        poseEstimate.pose, poseEstimate.timestampSeconds, camera.stdDevs);
   }
 }

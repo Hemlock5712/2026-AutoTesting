@@ -389,8 +389,8 @@ public final class Paths {
       new PathData(
           List.of(
               new Translation2d(4.208151641067681, 7.701787897764259),
-              new Translation2d(8.115995988149615, 7.085773008622855),
-              new Translation2d(8.347001565317022, 4.871969500770933),
+              new Translation2d(8, 7.085773008622855),
+              new Translation2d(8.25, 4.871969500770933),
               new Translation2d(7.230474609007896, 5.025973223056283),
               new Translation2d(6.575958807033582, 7.3360290573365505),
               new Translation2d(4.17, 7.586285106050246)),
@@ -433,8 +433,8 @@ public final class Paths {
       new PathData(
           List.of(
               new Translation2d(4.208151641067681, 0.508212102235742),
-              new Translation2d(8.115995988149615, 1.1242269913771459),
-              new Translation2d(8.347001565317022, 3.3380304992290677),
+              new Translation2d(8, 1.1242269913771459),
+              new Translation2d(8.25, 3.3380304992290677),
               new Translation2d(7.230474609007896, 3.1840267769437176),
               new Translation2d(6.575958807033582, 0.8739709426634503),
               new Translation2d(4.17, 0.6237148939497548)),
