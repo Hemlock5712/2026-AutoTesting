@@ -14,7 +14,6 @@ import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.ProjectionResult;
 import frc.robot.utils.path.RotationSupplier;
-import frc.robot.utils.path.RotationSuppliers;
 import frc.robot.utils.path.SplinePath;
 import frc.robot.utils.path.VelocityConstraints;
 import java.util.ArrayList;
@@ -95,7 +94,7 @@ public class AutoCommands {
 
     if (!data.headingWaypoints().isEmpty()) {
       cmd.withRotationSupplier(
-          RotationSuppliers.interpolateAlongPath(path, data.headingWaypoints()));
+          RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
     }
 
     return cmd;
@@ -267,7 +266,7 @@ public class AutoCommands {
 
     if (!pathData.headingWaypoints().isEmpty()) {
       pathCmd.withRotationSupplier(
-          RotationSuppliers.interpolateAlongPath(path, pathData.headingWaypoints()));
+          RotationSupplier.interpolateAlongPath(path, pathData.headingWaypoints()));
     }
 
     List<ResolvedPathAction> resolvedActions = resolvePathActions(pathData, actions);

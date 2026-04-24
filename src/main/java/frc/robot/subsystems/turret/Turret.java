@@ -1,6 +1,5 @@
 package frc.robot.subsystems.turret;
 
-import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.BaseStatusSignal;
@@ -119,11 +118,18 @@ public class Turret extends SubsystemBase {
     crtInitAlert.set(!success);
   }
 
+  // Cached primitive values updated in periodic()
+  private double cachedPositionRot;
+
   @Override
   public void periodic() {
     LoopProfiler.measure(
         "Subsystems/TurretRefresh",
-        () -> BaseStatusSignal.refreshAll(positionSignal, velocitySignal));
+        () -> {
+          BaseStatusSignal.refreshAll(positionSignal, velocitySignal);
+          cachedPositionRot =
+              BaseStatusSignal.getLatencyCompensatedValueAsDouble(positionSignal, velocitySignal);
+        });
   }
 
   public void setAngle(double angle) {
@@ -132,12 +138,19 @@ public class Turret extends SubsystemBase {
   }
 
   @AutoLogOutput
+  public double getAngleRot() {
+    return cachedPositionRot;
+  }
+
   public Angle getAngle() {
-    return Rotations.of(
-        BaseStatusSignal.getLatencyCompensatedValueAsDouble(positionSignal, velocitySignal));
+    return Rotations.of(cachedPositionRot);
   }
 
   @AutoLogOutput
+  public double getTargetAngleRot() {
+    return angleOut.Position;
+  }
+
   public Angle getTargetAngle() {
     return angleOut.getPositionMeasure();
   }
@@ -147,21 +160,26 @@ public class Turret extends SubsystemBase {
     return velocitySignal.getValueAsDouble();
   }
 
+  private double getPositionError() {
+    return Math.abs(cachedPositionRot - angleOut.Position);
+  }
+
   /** Distance-dependent shoot gate: tighter position tolerance at longer range. */
   public boolean isAtTarget(double distanceToTarget) {
-    double maxAngleRot = Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
-    return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
+    return getPositionError() <= Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
   }
 
   /** Looser check for feed shots - wider tolerance than hub shots. */
   public boolean isAtFeedTarget(double distanceToTarget) {
-    double maxAngleRot = Math.atan(FEED_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
-    return getAngle().isNear(getTargetAngle(), Rotations.of(maxAngleRot));
+    return getPositionError()
+        <= Math.atan(FEED_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
   }
 
   /** Loose check: turret is not way off target (e.g. mid-slew). */
+  private static final double NOT_FLIPPING_TOLERANCE_ROT = 10.0 / 360.0;
+
   public boolean isNotFlipping() {
-    return getAngle().isNear(getTargetAngle(), Degrees.of(10));
+    return getPositionError() <= NOT_FLIPPING_TOLERANCE_ROT;
   }
 
   /** Command that continuously tracks the hub using a supplied angle. */

@@ -1,14 +1,9 @@
 package frc.robot.commands;
 
-import com.ctre.phoenix6.Utils;
-import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
-import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
-import frc.robot.utils.LoopProfiler;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -26,15 +21,7 @@ public class OrbitDrive extends Command {
   private final DoubleSupplier velocityYSupplier;
   private final DoubleSupplier rotationalRateSupplier;
 
-  // State tracking between execute cycles
-  private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
-  private double lastTime;
-
-  private final SwerveRequest.ApplyFieldSpeeds request =
-      new SwerveRequest.ApplyFieldSpeeds()
-          .withDriveRequestType(DriveRequestType.Velocity)
-          .withSteerRequestType(SteerRequestType.MotionMagicExpo)
-          .withForwardPerspective(ForwardPerspectiveValue.OperatorPerspective);
+  private final AccelerationLimitedFieldSpeeds request = new AccelerationLimitedFieldSpeeds();
 
   /**
    * Creates an OrbitDrive command for teleop control.
@@ -58,38 +45,22 @@ public class OrbitDrive extends Command {
 
   @Override
   public void initialize() {
-    // Start from current velocity for smooth transitions
-    lastCommandedVelocity = swerve.getFieldSpeeds();
-    lastTime = Utils.getCurrentTimeSeconds();
+    request.requestInit();
+    swerve.setControl(request);
   }
 
   @Override
   public void execute() {
-    LoopProfiler.measure(
-        "Commands/OrbitDrive",
-        () -> {
-          // Calculate time since last execute
-          double currentTime = Utils.getCurrentTimeSeconds();
-          double dt = currentTime - lastTime;
-          lastTime = currentTime;
+    double velX = velocityXSupplier.getAsDouble();
+    double velY = velocityYSupplier.getAsDouble();
+    double omega = rotationalRateSupplier.getAsDouble();
 
-          // Get driver inputs
-          double velX = velocityXSupplier.getAsDouble();
-          double velY = velocityYSupplier.getAsDouble();
-          double omega = rotationalRateSupplier.getAsDouble();
-
-          // Normalize to prevent module saturation
-          ChassisSpeeds targetVelocity =
-              AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, omega));
-
-          // Apply physics-based acceleration limiting
-          lastCommandedVelocity =
-              AccelerationLimiter.integrateVelocity(lastCommandedVelocity, targetVelocity, dt);
-
-          LoopProfiler.measure(
-              "Commands/OrbitDriveSetControl",
-              () -> swerve.setControl(request.withSpeeds(lastCommandedVelocity)));
-        });
+    ChassisSpeeds normalized =
+        AccelerationLimiter.normalizeSpeeds(new ChassisSpeeds(velX, velY, omega));
+    request.setTargetSpeeds(
+        normalized.vxMetersPerSecond,
+        normalized.vyMetersPerSecond,
+        normalized.omegaRadiansPerSecond);
   }
 
   @Override

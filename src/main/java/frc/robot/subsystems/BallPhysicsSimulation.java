@@ -1,10 +1,7 @@
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
-import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -256,7 +253,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
    */
   private Translation3d getLaunchVelocity() {
     // Get flywheel speed in rotations per second
-    double flywheelRPS = superstructure.getTargetFlywheel().in(RotationsPerSecond);
+    double flywheelRPS = superstructure.getTargetFlywheelRPS();
 
     // Scale down speed in sim. Scales down more as the flywheel speed is higher.
     // At 50 RPS, the speed is scaled down to 0.65.
@@ -274,7 +271,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
     double flywheelLinearVel = flywheelRPS * 2.0 * Math.PI * flywheelRadius;
 
     // Get turret angle (relative to robot forward)
-    double turretAngleRad = superstructure.getTargetTurretAngle().in(Radians);
+    double turretAngleRad = superstructure.getTargetTurretAngleRot() * 2.0 * Math.PI;
 
     // Calculate launch direction in robot frame
     // Turret angle is yaw (rotation around Z axis)
@@ -287,7 +284,7 @@ public class BallPhysicsSimulation extends SubsystemBase {
     double sinYaw = Math.sin(turretAngleRad);
 
     // Then apply hood pitch (rotation around Y)
-    double hoodAngleRad = Degrees.of(75).minus(superstructure.getTargetHoodAngle()).in(Radians);
+    double hoodAngleRad = Math.toRadians(75.0 - superstructure.getTargetHoodAngleDeg());
     // This tilts the velocity up/down
     double cosPitch = Math.cos(hoodAngleRad);
     double sinPitch = Math.sin(hoodAngleRad);

@@ -34,15 +34,15 @@ public final class AccelerationLimiter {
   public static final double MAX_FRICTION_ACCEL = 1.1 * GRAVITY;
 
   // Robot parameters for motor torque calculations
-  private static final Motor MOTOR = Motor.KRAKEN_X60_FOC;
-  private static final double GEAR_RATIO = TunerConstants.FrontLeft.DriveMotorGearRatio;
-  private static final double WHEEL_RADIUS = TunerConstants.FrontLeft.WheelRadius;
-  private static final double ROBOT_MASS = 60; // kg, including bumpers and battery
-  private static final int NUM_DRIVE_MOTORS = 4;
+  static final Motor MOTOR = Motor.KRAKEN_X60_FOC;
+  static final double GEAR_RATIO = TunerConstants.FrontLeft.DriveMotorGearRatio;
+  static final double WHEEL_RADIUS = TunerConstants.FrontLeft.WheelRadius;
+  static final double ROBOT_MASS = 60; // kg, including bumpers and battery
+  static final int NUM_DRIVE_MOTORS = 4;
 
   // Stator current limit for torque model (150A per motor, 600A total max)
   // More conservative than the 200A hardware limit in TunerConstants
-  private static final double STATOR_CURRENT_LIMIT = 150.0;
+  static final double STATOR_CURRENT_LIMIT = 150.0;
 
   // Minimum time step to prevent division by zero
   private static final double MIN_DT = 1e-9;
@@ -266,6 +266,27 @@ public final class AccelerationLimiter {
       return speeds.times(MAX_VELOCITY / maxModuleSpeed);
     }
     return speeds;
+  }
+
+  /**
+   * Normalizes speeds in place so no swerve module exceeds max velocity.
+   *
+   * <p>Same logic as {@link #normalizeSpeeds(ChassisSpeeds)} but mutates the input object instead
+   * of allocating a new one. Use this on hot paths (e.g., 250Hz odometry thread).
+   *
+   * @param speeds The chassis speeds to normalize (mutated in place)
+   */
+  public static void normalizeSpeedsInPlace(ChassisSpeeds speeds) {
+    double translationSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
+    double maxModuleSpeed =
+        translationSpeed + Math.abs(speeds.omegaRadiansPerSecond) * DRIVE_BASE_RADIUS;
+
+    if (maxModuleSpeed > MAX_VELOCITY) {
+      double scale = MAX_VELOCITY / maxModuleSpeed;
+      speeds.vxMetersPerSecond *= scale;
+      speeds.vyMetersPerSecond *= scale;
+      speeds.omegaRadiansPerSecond *= scale;
+    }
   }
 
   /**

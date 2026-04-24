@@ -1,7 +1,5 @@
 package frc.robot.subsystems.intake;
 
-import static edu.wpi.first.units.Units.Rotations;
-
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -107,7 +105,7 @@ public class IntakeCoordinator {
 
   @AutoLogOutput
   public double getPositionRotations() {
-    return arm.getPosition().in(Rotations);
+    return arm.getPositionRotations();
   }
 
   @AutoLogOutput

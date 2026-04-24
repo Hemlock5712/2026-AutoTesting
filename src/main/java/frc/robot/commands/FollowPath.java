@@ -38,8 +38,12 @@ public class FollowPath extends Command {
   private final SplinePath path;
   private final VelocityProfile velocityProfile;
 
-  // Rotation supplier: returns desired omega (rad/s). Null = no rotation.
+  // Rotation supplier: returns target heading in radians. Null = hold current heading.
   private RotationSupplier rotationSupplier;
+
+  // Rotation tolerance for isFinished() (radians). Default = don't check heading.
+  private double rotationTolerance = Double.POSITIVE_INFINITY;
+  private double lastHeadingError;
 
   // Maximum fraction of friction budget that rotation can consume (0 to 1)
   private double maxRotationBudgetFraction = 0.30;
@@ -93,6 +97,10 @@ public class FollowPath extends Command {
   private double lastCrossTrackError;
   private double lastProjectedS;
   private boolean referencePathLogged;
+
+  // Cached logging arrays to avoid per-cycle allocations
+  private final double[] logEditorTarget = new double[2];
+  private final double[] logEditorClosest = new double[2];
 
   private final SwerveRequest.ApplyFieldSpeeds request =
       new SwerveRequest.ApplyFieldSpeeds()
@@ -243,9 +251,9 @@ public class FollowPath extends Command {
   }
 
   /**
-   * Sets a path-aware rotation supplier.
+   * Sets a path-aware rotation supplier that provides target heading.
    *
-   * @param supplier Supplies desired angular velocity given robot pose and path context
+   * @param supplier Supplies target heading in radians given robot pose and path context
    * @return This command for chaining
    */
   public FollowPath withRotationSupplier(RotationSupplier supplier) {
@@ -254,13 +262,17 @@ public class FollowPath extends Command {
   }
 
   /**
-   * Sets an external rotation supplier (backward-compatible with simple DoubleSupplier).
+   * Sets the rotation tolerance for path completion. The command will not finish until the heading
+   * error is within this tolerance (in addition to position and speed checks).
    *
-   * @param supplier Supplies desired angular velocity in rad/s
+   * <p>Default is {@code Double.POSITIVE_INFINITY} (no heading check). For turret robots, a wide
+   * tolerance like {@code Math.toRadians(30)} is typical.
+   *
+   * @param radians Rotation tolerance in radians
    * @return This command for chaining
    */
-  public FollowPath withRotationSupplier(DoubleSupplier supplier) {
-    this.rotationSupplier = (pose, s, tangent) -> supplier.getAsDouble();
+  public FollowPath withRotationTolerance(double radians) {
+    this.rotationTolerance = radians;
     return this;
   }
 
@@ -388,8 +400,9 @@ public class FollowPath extends Command {
     // told to)
     if (rotationSupplier == null) {
       Rotation2d currentHeading = swerve.getPose().getRotation();
-      rotationSupplier = frc.robot.utils.path.RotationSuppliers.holdHeading(currentHeading);
+      rotationSupplier = RotationSupplier.holdHeading(currentHeading);
     }
+    lastHeadingError = 0;
 
     // Pre-compute arc-length ranges for center of rotation zones
     corZoneStartS = new double[centerOfRotationZones.size()];
@@ -486,13 +499,16 @@ public class FollowPath extends Command {
     boolean vyUnlimited = (overrideVy != null && !limitOverrideVy);
     boolean omegaUnlimited = (overrideOmega != null && !limitOverrideOmega);
 
-    // Step 7: Determine omega (override > rotationSupplier > 0) and rotation budget
-    // allocation
+    // Step 7: Determine omega (override > heading supplier > 0) and rotation budget allocation
     double omega;
     if (overrideOmega != null) {
       omega = overrideOmega.getAsDouble();
     } else if (rotationSupplier != null) {
-      omega = rotationSupplier.getOmega(robotPose, sRobot, tangent);
+      double targetHeading = rotationSupplier.getTargetHeading(robotPose, sRobot, tangent);
+      double headingError =
+          MathUtil.angleModulus(targetHeading - robotPose.getRotation().getRadians());
+      lastHeadingError = Math.abs(headingError);
+      omega = angleErrorToOmega(headingError);
     } else {
       omega = 0.0;
     }
@@ -565,18 +581,16 @@ public class FollowPath extends Command {
     Logger.recordOutput("FollowPath/ActualSpeed", currentSpeed);
     Logger.recordOutput("FollowPath/LookaheadDist", lookaheadDist);
     Logger.recordOutput("FollowPath/Curvature", kappa);
-    Logger.recordOutput("FollowPath/CurvatureFeedforward", curvatureFf);
-    Logger.recordOutput("FollowPath/SpeedError", currentSpeed - profiledSpeed);
     Logger.recordOutput("FollowPath/Omega", omega);
-    Logger.recordOutput("FollowPath/TargetPoint", new Pose2d(targetPoint, Rotation2d.kZero));
-    Logger.recordOutput("FollowPath/ClosestPoint", new Pose2d(proj.point(), Rotation2d.kZero));
-    Logger.recordOutput("FollowPath/RobotPose", new Pose2d(robotPos, robotPose.getRotation()));
+    Logger.recordOutput("FollowPath/HeadingError", lastHeadingError);
 
     // Publish as double[] for path editor (NT4-friendly format)
-    Logger.recordOutput(
-        "PathEditor/TargetPoint", new double[] {targetPoint.getX(), targetPoint.getY()});
-    Logger.recordOutput(
-        "PathEditor/ClosestPoint", new double[] {proj.point().getX(), proj.point().getY()});
+    logEditorTarget[0] = targetPoint.getX();
+    logEditorTarget[1] = targetPoint.getY();
+    logEditorClosest[0] = proj.point().getX();
+    logEditorClosest[1] = proj.point().getY();
+    Logger.recordOutput("PathEditor/TargetPoint", logEditorTarget);
+    Logger.recordOutput("PathEditor/ClosestPoint", logEditorClosest);
     Logger.recordOutput("PathEditor/CrossTrackError", crossTrackError);
     Logger.recordOutput("PathEditor/Progress", progress);
   }
@@ -587,9 +601,6 @@ public class FollowPath extends Command {
 
     // Clear logged path on end so it doesn't persist in AdvantageScope
     Logger.recordOutput("FollowPath/ReferencePath", new Pose2d[0]);
-    Logger.recordOutput("FollowPath/TargetPoint", new Pose2d[0]);
-    Logger.recordOutput("FollowPath/ClosestPoint", new Pose2d[0]);
-    Logger.recordOutput("FollowPath/RobotPose", new Pose2d[0]);
   }
 
   /**
@@ -614,6 +625,38 @@ public class FollowPath extends Command {
     Logger.recordOutput("FollowPath/TotalLength", path.getTotalLength());
   }
 
+  /** Maximum angular deceleration in rad/s² (friction-limited). */
+  private static final double MAX_ANGULAR_DECEL =
+      AccelerationLimiter.MAX_FRICTION_ACCEL / AccelerationLimiter.DRIVE_BASE_RADIUS;
+
+  /** Conservative fraction of MAX_ANGULAR_DECEL for stopping-profile planning. */
+  private static final double DECEL_BUDGET_FACTOR = 0.25;
+
+  /** Max omega achievable under default 30% rotation budget. */
+  private static final double BUDGET_MAX_OMEGA =
+      0.30 * AccelerationLimiter.MAX_FRICTION_ACCEL / AccelerationLimiter.DRIVE_BASE_RADIUS;
+
+  /** Proportional gain for near-target linear taper (replaces hard dead zone). */
+  private static final double HEADING_KP = 8.0;
+
+  /**
+   * Converts heading error to angular velocity using a stopping profile with linear taper.
+   *
+   * <p>Far from target: uses kinematic stopping profile {@code sqrt(2 * alpha * |error|)}. Near
+   * target: uses linear {@code kP * error} which smoothly approaches zero. The minimum of both is
+   * used, eliminating the hard dead zone that caused oscillation.
+   */
+  private static double angleErrorToOmega(double headingError) {
+    double absError = Math.abs(headingError);
+    if (absError < 1e-4) {
+      return 0.0;
+    }
+    double stoppingOmega = Math.sqrt(2.0 * MAX_ANGULAR_DECEL * DECEL_BUDGET_FACTOR * absError);
+    double linearOmega = HEADING_KP * absError;
+    double omega = Math.min(Math.min(stoppingOmega, linearOmega), BUDGET_MAX_OMEGA);
+    return Math.copySign(omega, headingError);
+  }
+
   @Override
   public boolean isFinished() {
     // Finished when projected near path end and speed is low (if stopping)
@@ -625,6 +668,7 @@ public class FollowPath extends Command {
     double speed =
         Math.hypot(
             lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
-    return nearEnd && speed < 0.1;
+    boolean headingOk = lastHeadingError <= rotationTolerance;
+    return nearEnd && speed < 0.1 && headingOk;
   }
 }

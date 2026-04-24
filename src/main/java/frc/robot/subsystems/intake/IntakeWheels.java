@@ -1,11 +1,14 @@
 package frc.robot.subsystems.intake;
 
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
+import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -16,6 +19,7 @@ import org.littletonrobotics.junction.AutoLogOutput;
 public class IntakeWheels extends SubsystemBase {
 
   private final TalonFX wheel = new TalonFX(23, CANBus.roboRIO());
+  private final StatusSignal<AngularVelocity> wheelVelSignal = wheel.getVelocity();
 
   private TalonFXConfiguration wheelConfig = new TalonFXConfiguration();
 
@@ -39,7 +43,9 @@ public class IntakeWheels extends SubsystemBase {
   }
 
   @Override
-  public void periodic() {}
+  public void periodic() {
+    BaseStatusSignal.refreshAll(wheelVelSignal);
+  }
 
   public Command runIntakeAuto() {
     return runOnce(() -> wheel.setControl(voltageOut.withVelocity(15)));
@@ -63,7 +69,7 @@ public class IntakeWheels extends SubsystemBase {
 
   @AutoLogOutput
   public double getVelocity() {
-    return wheel.getVelocity().getValueAsDouble();
+    return wheelVelSignal.getValueAsDouble();
   }
 
   @AutoLogOutput

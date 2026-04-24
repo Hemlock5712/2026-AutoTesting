@@ -307,15 +307,19 @@ public final class FieldInfo {
   }
 
   public static boolean isUnderaTrench(Translation2d translation, double speedX) {
-    Translation2d flippedTranslation = flip(translation);
+    double flipX = shouldFlip() ? layout.getFieldLength() - translation.getX() : translation.getX();
+    double flipY =
+        shouldFlip() && symmetryType == SymmetryType.ROTATE
+            ? layout.getFieldWidth() - translation.getY()
+            : translation.getY();
 
     double trenchTolerance = 0.25;
     double trenchToleranceFarSide = 0.5;
     double speedMulti = 0.3;
     double trenchX = 4.625594;
     double trenchY = 1.27889;
-    double fieldLength = FieldInfo.length().in(Meters);
-    double fieldWidth = FieldInfo.width().in(Meters);
+    double fieldLength = layout.getFieldLength();
+    double fieldWidth = layout.getFieldWidth();
 
     double allianceSide =
         Math.signum(Math.signum(trenchX - translation.getX()) + Math.signum(speedX));
@@ -330,25 +334,22 @@ public final class FieldInfo {
     double otherMaxX =
         fieldLength - trenchX + trenchToleranceFarSide + speedX * speedMulti * otherSide;
 
-    return containsBounds(flippedTranslation, allianceMinX, -999, allianceMaxX, trenchY)
+    return containsBounds(flipX, flipY, allianceMinX, -999, allianceMaxX, trenchY)
         || containsBounds(
-            flippedTranslation, allianceMinX, fieldWidth - trenchY, allianceMaxX, fieldWidth + 999)
-        || containsBounds(flippedTranslation, otherMinX, -999, otherMaxX, trenchY)
+            flipX, flipY, allianceMinX, fieldWidth - trenchY, allianceMaxX, fieldWidth + 999)
+        || containsBounds(flipX, flipY, otherMinX, -999, otherMaxX, trenchY)
         || containsBounds(
-            flippedTranslation, otherMinX, fieldWidth - trenchY, otherMaxX, fieldWidth + 999);
+            flipX, flipY, otherMinX, fieldWidth - trenchY, otherMaxX, fieldWidth + 999);
   }
 
   private static boolean containsBounds(
-      Translation2d translation, double x1, double y1, double x2, double y2) {
+      double px, double py, double x1, double y1, double x2, double y2) {
     double minX = Math.min(x1, x2);
     double maxX = Math.max(x1, x2);
     double minY = Math.min(y1, y2);
     double maxY = Math.max(y1, y2);
 
-    return translation.getX() >= minX
-        && translation.getX() <= maxX
-        && translation.getY() >= minY
-        && translation.getY() <= maxY;
+    return px >= minX && px <= maxX && py >= minY && py <= maxY;
   }
 
   public static boolean isInNeutralZoneDeadzone(Translation2d translation) {

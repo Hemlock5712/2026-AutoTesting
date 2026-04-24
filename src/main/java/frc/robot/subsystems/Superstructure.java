@@ -16,8 +16,6 @@ import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -110,6 +108,7 @@ public class Superstructure {
   private double swmDelay = 0;
 
   private boolean isHubShot = true;
+  private boolean cachedUnderTrench = false;
 
   public boolean isHubShot() {
     return isHubShot;
@@ -157,7 +156,8 @@ public class Superstructure {
       }
     }
 
-    shooter.setInAllianceZone(isUnderaTrench(state));
+    cachedUnderTrench = isUnderaTrench(state);
+    shooter.setInAllianceZone(cachedUnderTrench);
 
     // Primitive math to avoid Translation2d/Rotation2d allocations
     distanceToHub =
@@ -174,7 +174,7 @@ public class Superstructure {
     angleToVirtualTarget =
         MathUtil.inputModulus((angleToVtFieldRad - robotAngleRad) / (2.0 * Math.PI), -0.25, 0.75);
 
-    logTelemetry(state);
+    // logTelemetry(state);
   }
 
   // ==================== Targeting Getters ====================
@@ -184,9 +184,8 @@ public class Superstructure {
     return distanceToHub;
   }
 
-  @AutoLogOutput
-  public Pose2d getTargetPosition() {
-    return new Pose2d(targetPosition, Rotation2d.kZero);
+  public Translation2d getTargetPosition() {
+    return targetPosition;
   }
 
   // ==================== SWM-Aware Getters ====================
@@ -318,9 +317,10 @@ public class Superstructure {
     return Commands.sequence(
             Commands.runOnce(() -> isAutoShootEnabled = true),
             Commands.sequence(
-                    Commands.waitUntil(this::shouldShoot),
+                    spinUpShooter().until(this::shouldShoot),
                     shoot().until(() -> !shouldShoot()),
-                    stopShoot())
+                    Commands.runOnce(() -> isShooting = false),
+                    hopper.stop())
                 .repeatedly())
         .finallyDo(
             () -> {
@@ -389,6 +389,7 @@ public class Superstructure {
     // pose forward in time by "delay" seconds using the current velocity.
     double delay = (Utils.getCurrentTimeSeconds() - state.Timestamp) + swmPoseDelay.get();
     swmDelay = delay;
+
     Pose2d advancedPose =
         state.Pose.exp(
             new Twist2d(
@@ -438,9 +439,9 @@ public class Superstructure {
     swmConverged = false;
 
     for (int i = 0; i < 20; i++) {
-      double dx = vtX - rpX;
-      double dy = vtY - rpY;
-      double dist = Math.hypot(dx, dy);
+      double ldx = vtX - rpX;
+      double ldy = vtY - rpY;
+      double dist = Math.hypot(ldx, ldy);
       if (dist < 0.001) {
         swmConverged = true;
         break;
@@ -455,8 +456,8 @@ public class Superstructure {
 
       // Decompose velocity into radial (along aim) and tangential (perpendicular)
       double invDist = 1.0 / dist;
-      double aimX = dx * invDist;
-      double aimY = dy * invDist;
+      double aimX = ldx * invDist;
+      double aimY = ldy * invDist;
       double vRadialMag = velX * aimX + velY * aimY;
       double vrX = aimX * vRadialMag;
       double vrY = aimY * vRadialMag;
@@ -503,18 +504,18 @@ public class Superstructure {
   }
 
   @AutoLogOutput
-  public Angle getTargetTurretAngle() {
-    return turret.getTargetAngle();
+  public double getTargetTurretAngleRot() {
+    return turret.getTargetAngleRot();
   }
 
   @AutoLogOutput
-  public Angle getTargetHoodAngle() {
-    return shooter.getTargetPosition();
+  public double getTargetHoodAngleDeg() {
+    return shooter.getTargetPositionDeg();
   }
 
   @AutoLogOutput
-  public AngularVelocity getTargetFlywheel() {
-    return shooter.getTargetVelocity();
+  public double getTargetFlywheelRPS() {
+    return shooter.getTargetVelocityRPS();
   }
 
   @AutoLogOutput
@@ -537,15 +538,14 @@ public class Superstructure {
 
   @AutoLogOutput
   public boolean isUnderaTrench() {
-    return isUnderaTrench(driveState.get());
+    return cachedUnderTrench;
   }
 
   private boolean isUnderaTrench(SwerveDriveState state) {
-    // return false;
-    return FieldInfo.isUnderaTrench(
-        turretPose.getTranslation(),
-        ChassisSpeeds.fromRobotRelativeSpeeds(state.Speeds, state.Pose.getRotation())
-            .vxMetersPerSecond);
+    double cos = state.Pose.getRotation().getCos();
+    double sin = state.Pose.getRotation().getSin();
+    double fieldVx = state.Speeds.vxMetersPerSecond * cos - state.Speeds.vyMetersPerSecond * sin;
+    return FieldInfo.isUnderaTrench(turretPose.getTranslation(), fieldVx);
   }
 
   @AutoLogOutput

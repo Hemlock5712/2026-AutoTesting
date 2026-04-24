@@ -2,18 +2,23 @@ package frc.robot.subsystems.hopper;
 
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.CANrange;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.Current;
+import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
+import frc.robot.utils.LoopProfiler;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
 
@@ -29,6 +34,13 @@ public class Hopper extends SubsystemBase {
 
   private final CANrange sidewaysRange = new CANrange(40, new CANBus("turret"));
   private final CANrange kickerRange = new CANrange(41, new CANBus("turret"));
+
+  // Cached status signals — refreshed once per periodic()
+  private final StatusSignal<Distance> sidewaysDistSignal = sidewaysRange.getDistance();
+  private final StatusSignal<Distance> kickerDistSignal = kickerRange.getDistance();
+  private final StatusSignal<Current> mainStatorSignal = main.getStatorCurrent();
+  private final StatusSignal<AngularVelocity> mainVelSignal = main.getVelocity();
+  private final StatusSignal<AngularVelocity> sideVelSignal = side.getVelocity();
 
   protected TalonFXConfiguration mainConfig = new TalonFXConfiguration();
 
@@ -69,6 +81,19 @@ public class Hopper extends SubsystemBase {
     side.optimizeBusUtilization();
   }
 
+  @Override
+  public void periodic() {
+    LoopProfiler.measure(
+        "Subsystems/HopperRefresh",
+        () ->
+            BaseStatusSignal.refreshAll(
+                sidewaysDistSignal,
+                kickerDistSignal,
+                mainStatorSignal,
+                mainVelSignal,
+                sideVelSignal));
+  }
+
   public void setVelocity(AngularVelocity mainVelocity, AngularVelocity sideVelocity) {
     main.setControl(mainVelocityOut.withVelocity(mainVelocity));
     side.setControl(sideVelocityOut.withVelocity(sideVelocity));
@@ -92,37 +117,37 @@ public class Hopper extends SubsystemBase {
 
   @AutoLogOutput
   public double leaderStator() {
-    return main.getStatorCurrent().getValueAsDouble();
+    return mainStatorSignal.getValueAsDouble();
   }
 
   @AutoLogOutput
   public boolean hasBallInSideways() {
-    return sidewaysRange.getDistance().getValueAsDouble() < SIDEWAYS_BALL_THRESHOLD_M;
+    return sidewaysDistance() < SIDEWAYS_BALL_THRESHOLD_M;
   }
 
   @AutoLogOutput
   public boolean hasBallInKicker() {
-    return kickerRange.getDistance().getValueAsDouble() < KICKER_BALL_THRESHOLD_M;
+    return kickerDistance() < KICKER_BALL_THRESHOLD_M;
   }
 
   @AutoLogOutput
   public double sidewaysDistance() {
-    return sidewaysRange.getDistance().getValueAsDouble();
+    return sidewaysDistSignal.getValueAsDouble();
   }
 
   @AutoLogOutput
   public double kickerDistance() {
-    return kickerRange.getDistance().getValueAsDouble();
+    return kickerDistSignal.getValueAsDouble();
   }
 
   @AutoLogOutput
-  public AngularVelocity getAngularVelocityMain() {
-    return main.getVelocity().getValue();
+  public double getVelocityMainRPS() {
+    return mainVelSignal.getValueAsDouble();
   }
 
   @AutoLogOutput
-  public AngularVelocity getAngularVelocitySide() {
-    return side.getVelocity().getValue();
+  public double getVelocitySideRPS() {
+    return sideVelSignal.getValueAsDouble();
   }
 
   public void setJamRecovery() {

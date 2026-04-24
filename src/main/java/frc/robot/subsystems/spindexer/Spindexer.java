@@ -1,5 +1,6 @@
 package frc.robot.subsystems.spindexer;
 
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
@@ -37,8 +38,9 @@ public class Spindexer extends SubsystemBase {
 
   protected TalonFXConfiguration kickerConfig = new TalonFXConfiguration();
 
-  private StatusSignal<AngularVelocity> kickerVelocity = kicker.getVelocity();
-  private final StatusSignal<Current> spindexerCurrentDraw = spindexer.getSupplyCurrent();
+  private final StatusSignal<AngularVelocity> spindexerVelSignal = spindexer.getVelocity();
+  private final StatusSignal<AngularVelocity> kickerVelSignal = kicker.getVelocity();
+  private final StatusSignal<Current> spindexerCurrentSignal = spindexer.getSupplyCurrent();
 
   Alert motorConfigAlert = new Alert("Spindexer Motor Configuration Failed", AlertType.kError);
 
@@ -80,12 +82,12 @@ public class Spindexer extends SubsystemBase {
 
   @AutoLogOutput
   public boolean isAtTarget() {
-    return spindexer.getVelocity().isNear(spindexerVelocityOut.Velocity, VELOCITY_TOLERANCE);
+    return spindexerVelSignal.isNear(spindexerVelocityOut.Velocity, VELOCITY_TOLERANCE);
   }
 
   @AutoLogOutput
-  public AngularVelocity getSpindexerVelocity() {
-    return spindexer.getVelocity().getValue();
+  public double getSpindexerVelocityRPS() {
+    return spindexerVelSignal.getValueAsDouble();
   }
 
   public void applyConfigs() {
@@ -129,24 +131,26 @@ public class Spindexer extends SubsystemBase {
   }
 
   @AutoLogOutput
-  public AngularVelocity getTargetKickerVelocity() {
-    return kickerVelocityOut.getVelocityMeasure();
+  public double getTargetKickerVelocityRPS() {
+    return kickerVelocityOut.Velocity;
   }
 
   @AutoLogOutput
-  public AngularVelocity getKickerVelocity() {
-    return kickerVelocity.getValue();
+  public double getKickerVelocityRPS() {
+    return kickerVelSignal.getValueAsDouble();
   }
 
   @AutoLogOutput
-  public Current getSpindexerCurrentDraw() {
-    return spindexerCurrentDraw.getValue();
+  public double getSpindexerCurrentAmps() {
+    return spindexerCurrentSignal.getValueAsDouble();
   }
 
   @Override
   public void periodic() {
     LoopProfiler.measure(
         "Subsystems/SpindexerRefresh",
-        () -> StatusSignal.refreshAll(kickerVelocity, spindexerCurrentDraw));
+        () ->
+            BaseStatusSignal.refreshAll(
+                spindexerVelSignal, kickerVelSignal, spindexerCurrentSignal));
   }
 }

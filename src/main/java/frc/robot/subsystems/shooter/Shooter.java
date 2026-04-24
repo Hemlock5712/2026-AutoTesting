@@ -44,9 +44,12 @@ public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
   private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(1);
   private static final Angle HOOD_TOLERANCE = Degree.of(1);
-  private static final Angle MAX_HOOD_OUTSIDE_ZONE = Degrees.of(0);
+  private static final double MAX_HOOD_OUTSIDE_ZONE_DEG = 0.0;
 
   private boolean inAllianceZone = false;
+
+  // Cached — latency compensation involves computation, not just a field read
+  private double cachedHoodPositionDeg;
 
   private CANBus turretCanBus = new CANBus("turret");
 
@@ -157,9 +160,14 @@ public class Shooter extends SubsystemBase {
   public void periodic() {
     LoopProfiler.measure(
         "Subsystems/ShooterRefresh",
-        () ->
-            BaseStatusSignal.refreshAll(
-                flywheelVelocitySignal, hoodPositionSignal, hoodVelocitySignal));
+        () -> {
+          BaseStatusSignal.refreshAll(
+              flywheelVelocitySignal, hoodPositionSignal, hoodVelocitySignal);
+          cachedHoodPositionDeg =
+              BaseStatusSignal.getLatencyCompensatedValueAsDouble(
+                      hoodPositionSignal, hoodVelocitySignal)
+                  * 360.0;
+        });
   }
 
   /**
@@ -177,10 +185,19 @@ public class Shooter extends SubsystemBase {
    * @param angle What position to go to
    */
   public void setPosition(Angle angle) {
-    if (inAllianceZone && angle.in(Degrees) >= MAX_HOOD_OUTSIDE_ZONE.in(Degrees)) {
-      angle = MAX_HOOD_OUTSIDE_ZONE;
+    double angleDeg = angle.in(Degrees);
+    if (inAllianceZone && angleDeg >= MAX_HOOD_OUTSIDE_ZONE_DEG) {
+      angleDeg = MAX_HOOD_OUTSIDE_ZONE_DEG;
     }
-    hood.setControl(rotationOut.withPosition(angle));
+    hood.setControl(rotationOut.withPosition(angleDeg / 360.0));
+  }
+
+  /** Primitive-degrees overload to avoid Degrees.of() allocations in hot loops. */
+  public void setPositionDeg(double angleDeg) {
+    if (inAllianceZone && angleDeg >= MAX_HOOD_OUTSIDE_ZONE_DEG) {
+      angleDeg = MAX_HOOD_OUTSIDE_ZONE_DEG;
+    }
+    hood.setControl(rotationOut.withPosition(angleDeg / 360.0));
   }
 
   public void setInAllianceZone(boolean inZone) {
@@ -213,9 +230,8 @@ public class Shooter extends SubsystemBase {
    *
    * @return true if close enough to target speed, false otherwise
    */
-  @AutoLogOutput
   public boolean flywheelIsAtTarget() {
-    return getVelocity().isNear(getTargetVelocity(), TOLERANCE);
+    return flywheelVelocitySignal.isNear(velocityOut.Velocity, 1.0);
   }
 
   /**
@@ -223,9 +239,8 @@ public class Shooter extends SubsystemBase {
    *
    * @return true if close enough to target position, false otherwise
    */
-  @AutoLogOutput
   public boolean hoodIsAtTarget() {
-    return getPosition().isNear(getTargetPosition(), HOOD_TOLERANCE);
+    return Math.abs(cachedHoodPositionDeg - rotationOut.Position * 360.0) <= 1.0;
   }
 
   public boolean isAtTarget() {
@@ -238,15 +253,14 @@ public class Shooter extends SubsystemBase {
     double minDist = Math.max(1.5, distance - margin);
     double maxDist = Math.min(5.5, distance + margin);
 
-    double actualRPS = getVelocity().in(RotationsPerSecond);
+    double flywheelRPS = flywheelVelocitySignal.getValueAsDouble();
     boolean flywheelOk =
-        actualRPS >= ShooterLookup.getFlywheelMap().get(minDist)
-            && actualRPS <= ShooterLookup.getFlywheelMap().get(maxDist);
+        flywheelRPS >= ShooterLookup.getFlywheelMap().get(minDist)
+            && flywheelRPS <= ShooterLookup.getFlywheelMap().get(maxDist);
 
-    double actualHoodDeg = getPosition().in(Degrees);
     boolean hoodOk =
-        actualHoodDeg >= ShooterLookup.getHoodMap().get(minDist)
-            && actualHoodDeg <= ShooterLookup.getHoodMap().get(maxDist);
+        cachedHoodPositionDeg >= ShooterLookup.getHoodMap().get(minDist)
+            && cachedHoodPositionDeg <= ShooterLookup.getHoodMap().get(maxDist);
     boolean debouncedTrue = atTargetDebouncer.calculate(flywheelOk);
     return debouncedTrue;
   }
@@ -257,15 +271,11 @@ public class Shooter extends SubsystemBase {
     double minDist = Math.max(1.5, distance - margin);
     double maxDist = Math.min(9.5, distance + margin); // Feed range is longer
 
-    double actualRPS = getVelocity().in(RotationsPerSecond);
+    double flywheelRPS = flywheelVelocitySignal.getValueAsDouble();
     boolean flywheelOk =
-        actualRPS >= ShooterLookup.getFeedFlywheelMap().get(minDist)
-            && actualRPS <= ShooterLookup.getFeedFlywheelMap().get(maxDist);
+        flywheelRPS >= ShooterLookup.getFeedFlywheelMap().get(minDist)
+            && flywheelRPS <= ShooterLookup.getFeedFlywheelMap().get(maxDist);
 
-    double actualHoodDeg = getPosition().in(Degrees);
-    boolean hoodOk =
-        actualHoodDeg >= ShooterLookup.getFeedHoodMap().get(minDist)
-            && actualHoodDeg <= ShooterLookup.getFeedHoodMap().get(maxDist);
     // && hoodOk
     return flywheelOk;
   }
@@ -275,9 +285,13 @@ public class Shooter extends SubsystemBase {
    *
    * @return Current flywheel speed
    */
-  @AutoLogOutput
   public AngularVelocity getVelocity() {
     return flywheelVelocitySignal.getValue();
+  }
+
+  @AutoLogOutput
+  public double getVelocityRPS() {
+    return flywheelVelocitySignal.getValueAsDouble();
   }
 
   /**
@@ -286,6 +300,10 @@ public class Shooter extends SubsystemBase {
    * @return Current hood position (latency-compensated)
    */
   @AutoLogOutput
+  public double getPositionDeg() {
+    return cachedHoodPositionDeg;
+  }
+
   public Angle getPosition() {
     return Rotations.of(
         BaseStatusSignal.getLatencyCompensatedValueAsDouble(
@@ -297,9 +315,13 @@ public class Shooter extends SubsystemBase {
    *
    * @return Target flywheel speed
    */
-  @AutoLogOutput
   public AngularVelocity getTargetVelocity() {
     return velocityOut.getVelocityMeasure();
+  }
+
+  @AutoLogOutput
+  public double getTargetVelocityRPS() {
+    return velocityOut.Velocity;
   }
 
   /**
@@ -307,9 +329,13 @@ public class Shooter extends SubsystemBase {
    *
    * @return Target hood position
    */
-  @AutoLogOutput
   public Angle getTargetPosition() {
     return rotationOut.getPositionMeasure();
+  }
+
+  @AutoLogOutput
+  public double getTargetPositionDeg() {
+    return rotationOut.Position * 360.0;
   }
 
   /**
@@ -341,17 +367,17 @@ public class Shooter extends SubsystemBase {
    */
   private void setForDistanceSWM(double flywheelDist, double hoodDist) {
     setVelocity(ShooterLookup.getFlywheelMap().get(flywheelDist));
-    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(hoodDist)));
+    setPositionDeg(ShooterLookup.getHoodMap().get(hoodDist));
   }
 
   public void setForDistance(double distanceMeters) {
     setVelocity(ShooterLookup.getFlywheelMap().get(distanceMeters));
-    setPosition(Degrees.of(ShooterLookup.getHoodMap().get(distanceMeters)));
+    setPositionDeg(ShooterLookup.getHoodMap().get(distanceMeters));
   }
 
   public void setForFeedDistance(double flywheelDist, double hoodDist) {
     setVelocity(ShooterLookup.getFeedFlywheelMap().get(flywheelDist));
-    setPosition(Degrees.of(ShooterLookup.getFeedHoodMap().get(hoodDist)));
+    setPositionDeg(ShooterLookup.getFeedHoodMap().get(hoodDist));
   }
 
   /** Command that continuously sets the hood position based on distance lookup. */
@@ -361,12 +387,8 @@ public class Shooter extends SubsystemBase {
             () ->
                 LoopProfiler.measure(
                     "Commands/HoodDynamicShooting",
-                    () ->
-                        setPosition(
-                            Degrees.of(ShooterLookup.getHoodMap().get(distance.getAsDouble()))))),
-        run(
-            () ->
-                LoopProfiler.measure("Commands/HoodDynamicIdle", () -> setPosition(Degrees.of(0)))),
+                    () -> setPositionDeg(ShooterLookup.getHoodMap().get(distance.getAsDouble())))),
+        run(() -> LoopProfiler.measure("Commands/HoodDynamicIdle", () -> setPositionDeg(0))),
         isShooting);
   }
 

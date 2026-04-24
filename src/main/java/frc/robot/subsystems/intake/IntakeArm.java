@@ -3,6 +3,8 @@ package frc.robot.subsystems.intake;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
 
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.DynamicMotionMagicTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -30,6 +32,9 @@ public class IntakeArm extends SubsystemBase {
       new DynamicMotionMagicTorqueCurrentFOC(0, 4, 8);
 
   private static final Angle TOLERANCE = Degrees.of(3);
+  private static final double TOLERANCE_ROT = TOLERANCE.in(Rotations);
+
+  private final StatusSignal<Angle> armPositionSignal = armEncoder.getPosition();
 
   Alert motorConfigAlert = new Alert("Intake Arm Motor Configuration Failed", AlertType.kError);
 
@@ -61,7 +66,9 @@ public class IntakeArm extends SubsystemBase {
   }
 
   @Override
-  public void periodic() {}
+  public void periodic() {
+    BaseStatusSignal.refreshAll(armPositionSignal);
+  }
 
   private void setPosition(Angle position) {
     arm.setControl(
@@ -95,7 +102,7 @@ public class IntakeArm extends SubsystemBase {
 
   @AutoLogOutput
   public boolean isAtBumpHeight() {
-    return getPosition().in(Rotations) >= .1;
+    return armPositionSignal.getValueAsDouble() >= .1;
   }
 
   public Command stopArm() {
@@ -104,17 +111,21 @@ public class IntakeArm extends SubsystemBase {
 
   @AutoLogOutput
   public boolean isAtTarget() {
-    return getPosition().isNear(Rotations.of(getTargetPosition()), TOLERANCE);
+    return armPositionSignal.isNear(positionOut.Position, TOLERANCE_ROT);
   }
 
   @AutoLogOutput
-  public Angle getPosition() {
-    return armEncoder.getPosition().getValue();
+  public double getPositionRotations() {
+    return armPositionSignal.getValueAsDouble();
   }
 
   @AutoLogOutput
   public double getTargetPosition() {
     return positionOut.Position;
+  }
+
+  public Angle getPosition() {
+    return armEncoder.getPosition().getValue();
   }
 
   public Angle getTolerance() {

@@ -26,7 +26,7 @@ public class HubShiftUtil {
   public static void setupNTValues() {
     Logger.recordOutput("Hub/HubActive", true);
     Logger.recordOutput("Hub/TimeUntilShift", 10.0);
-    Logger.recordOutput("Hub/TimeUntilShiftHumanDisplay", "10.0");
+    Logger.recordOutput("Hub/TimeUntilShiftHumanDisplay", 10.0);
   }
 
   /** Starts the timer. Call at the beginning of teleop. */
@@ -54,9 +54,7 @@ public class HubShiftUtil {
 
     Logger.recordOutput("Hub/HubActive", hubActive);
     Logger.recordOutput("Hub/TimeUntilShift", timeUntilShift);
-    Logger.recordOutput(
-        "Hub/TimeUntilShiftHumanDisplay",
-        ((int) timeUntilShift) + "." + ((int) (timeUntilShift * 10) % 10));
+    Logger.recordOutput("Hub/TimeUntilShiftHumanDisplay", timeUntilShift);
   }
 
   /** Returns whether our hub is currently active. */
