@@ -155,7 +155,7 @@ public class Limelight extends SubsystemBase {
     Optional<Pose2d> odomAtRefOpt = m_drivetrain.samplePoseAt(refTimeCurrent);
 
     // Inverse-variance weighted fusion of time-synchronized poses
-    double sumX = 0, sumY = 0, sumTheta = 0;
+    double sumX = 0, sumY = 0, sumSin = 0, sumCos = 0;
     double sumInvVarXY = 0, sumInvVarTheta = 0;
 
     for (int i = 0; i < validCount; i++) {
@@ -179,7 +179,9 @@ public class Limelight extends SubsystemBase {
 
       if (Double.isFinite(validRotStdDevs[i])) {
         double invVarTheta = 1.0 / (validRotStdDevs[i] * validRotStdDevs[i]);
-        sumTheta += visionPose.getRotation().getRadians() * invVarTheta;
+        double theta = visionPose.getRotation().getRadians();
+        sumSin += Math.sin(theta) * invVarTheta;
+        sumCos += Math.cos(theta) * invVarTheta;
         sumInvVarTheta += invVarTheta;
       }
 
@@ -193,7 +195,7 @@ public class Limelight extends SubsystemBase {
     double fusedThetaStdDev;
     double fusedThetaRad;
     if (sumInvVarTheta > 0) {
-      fusedThetaRad = sumTheta / sumInvVarTheta;
+      fusedThetaRad = Math.atan2(sumSin, sumCos);
       fusedThetaStdDev = 1.0 / Math.sqrt(sumInvVarTheta);
     } else {
       fusedThetaRad = m_drivetrain.getPose().getRotation().getRadians();
