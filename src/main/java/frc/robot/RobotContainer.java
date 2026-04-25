@@ -7,6 +7,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
+import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
@@ -206,8 +207,8 @@ public class RobotContainer {
     // Right trigger toggles auto-shoot mode on/off.
     // Debounce prevents analog trigger noise from causing multiple toggles.
     joystick
-        .rightTrigger()
-        .debounce(0.1)
+        .rightTrigger(0.1)
+        .debounce(0.1, DebounceType.kFalling)
         .toggleOnTrue(
             Commands.parallel(
                 superstructure.autoShootMode(),
@@ -249,6 +250,8 @@ public class RobotContainer {
     joystick
         .povDown()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.AUTO)));
+
+    // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
 
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
