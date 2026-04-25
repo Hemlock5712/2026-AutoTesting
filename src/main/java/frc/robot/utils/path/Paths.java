@@ -33,10 +33,14 @@ public final class Paths {
   // Named field positions
   public static final Pose2d START_LEFT =
       new Pose2d(
-          new Translation2d(4.4474222222222215, 7.689296296296297), Rotation2d.fromDegrees(-90));
+          new Translation2d(4.455046439628482, 7.697925696594428), Rotation2d.fromDegrees(-90));
   public static final Pose2d START_LEFT_MIRROR =
       new Pose2d(
-          new Translation2d(4.4474222222222215, 0.5207037037037034), Rotation2d.fromDegrees(90));
+          new Translation2d(4.455046439628482, 0.5120743034055728), Rotation2d.fromDegrees(90));
+  public static final Translation2d JOSH_CENTER =
+      new Translation2d(8.13344685242518, 0.7766460268317852);
+  public static final Translation2d JOSH_CENTER_MIRROR =
+      new Translation2d(8.13344685242518, 7.433353973168216);
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
@@ -447,6 +451,28 @@ public final class Paths {
               .withMaxVelocity(5.1033118205322285)
               .withMaxAcceleration(10.791000000000002),
           List.of(new PathData.ConstraintZone(1, 2, 2, 10.791000000000002)),
+          List.of(),
+          List.of());
+
+  public static final PathData LEFT_TO_BUMP =
+      new PathData(
+          List.of(
+              new Translation2d(4.208151641067681, 7.701787897764259),
+              new Translation2d(8, 7.085773008622855),
+              new Translation2d(8.25, 4.871969500770933),
+              new Translation2d(5.803508771929824, 5.649628482972137),
+              new Translation2d(3.3626212590299276, 5.7008359133126945)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(-45)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(-45))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(
+              new PathData.ConstraintZone(1, 2, 2, 10.791000000000002),
+              new PathData.ConstraintZone(3, 4, 1.67, 10.791000000000002)),
           List.of(),
           List.of());
 
