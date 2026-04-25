@@ -9,7 +9,6 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.utils.HubShiftUtil;
-import frc.robot.utils.LoopProfiler;
 import frc.robot.utils.Tunables;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -49,11 +48,18 @@ public class Robot extends LoggedRobot {
   @Override
   public void robotPeriodic() {
     long start = System.nanoTime();
-    LoopProfiler.measure(
-        "Robot/SuperstructureUpdate", () -> m_robotContainer.getSuperstructure().update());
-    LoopProfiler.measure("Robot/CommandScheduler", () -> CommandScheduler.getInstance().run());
-    LoopProfiler.measure("Robot/TunablesUpdate", Tunables::update);
-    Logger.recordOutput("LoopProfiler/Robot/TotalMs", (System.nanoTime() - start) / 1e6);
+
+    m_robotContainer.getSuperstructure().update();
+    long afterSuper = System.nanoTime();
+
+    CommandScheduler.getInstance().run();
+    long afterScheduler = System.nanoTime();
+
+    Tunables.update();
+
+    Logger.recordOutput("Timing/SuperstructureMs", (afterSuper - start) / 1e6);
+    Logger.recordOutput("Timing/CommandSchedulerMs", (afterScheduler - afterSuper) / 1e6);
+    Logger.recordOutput("Timing/TotalMs", (System.nanoTime() - start) / 1e6);
   }
 
   @Override

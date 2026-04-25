@@ -273,8 +273,9 @@ public class RobotContainer {
       scaledTranslation[1] = 0;
       return scaledTranslation;
     }
-    // Deadband: remap [deadband, 1] → [0, 1], then square magnitude for fine control
+    // Deadband: remap [deadband, 1] → [0, 1], clamp, then square for fine control
     double deadbanded = (mag - JOYSTICK_DEADBAND) / (1.0 - JOYSTICK_DEADBAND);
+    if (deadbanded > 1.0) deadbanded = 1.0;
     double factor = deadbanded * deadbanded / mag;
     scaledTranslation[0] = x * factor;
     scaledTranslation[1] = y * factor;

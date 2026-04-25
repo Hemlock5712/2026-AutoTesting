@@ -13,7 +13,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.LoopProfiler;
+
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
@@ -161,57 +161,51 @@ public class AxisLockDrive extends Command {
 
   @Override
   public void execute() {
-    LoopProfiler.measure(
-        "Commands/AxisLockDrive",
-        () -> {
-          // Calculate time since last execute
-          double currentTime = Utils.getCurrentTimeSeconds();
-          double dt = currentTime - lastTime;
-          lastTime = currentTime;
+    // Calculate time since last execute
+    double currentTime = Utils.getCurrentTimeSeconds();
+    double dt = currentTime - lastTime;
+    lastTime = currentTime;
 
-          // Get current pose
-          Pose2d currentPose = swerve.getPose();
+    // Get current pose
+    Pose2d currentPose = swerve.getPose();
 
-          // Get driver inputs and flip for BlueAlliance perspective
-          // This ensures "forward on joystick" = positive field X on both alliances
-          double[] flippedInputs =
-              FieldInfo.flipJoystick(
-                  velocityXSupplier.getAsDouble(), velocityYSupplier.getAsDouble());
-          double flippedOmega =
-              FieldInfo.flipJoystickRotation(rotationalRateSupplier.getAsDouble());
+    // Get driver inputs and flip for BlueAlliance perspective
+    // This ensures "forward on joystick" = positive field X on both alliances
+    double[] flippedInputs =
+        FieldInfo.flipJoystick(
+            velocityXSupplier.getAsDouble(), velocityYSupplier.getAsDouble());
+    double flippedOmega =
+        FieldInfo.flipJoystickRotation(rotationalRateSupplier.getAsDouble());
 
-          // Calculate X velocity (locked or driver-controlled)
-          double velX;
-          if (lockedXTarget != null) {
-            velX = calculateLockedAxisVelocity(currentPose.getX(), lockedXTarget.getAsDouble());
-          } else {
-            velX = flippedInputs[0];
-          }
+    // Calculate X velocity (locked or driver-controlled)
+    double velX;
+    if (lockedXTarget != null) {
+      velX = calculateLockedAxisVelocity(currentPose.getX(), lockedXTarget.getAsDouble());
+    } else {
+      velX = flippedInputs[0];
+    }
 
-          // Calculate Y velocity (locked or driver-controlled)
-          double velY;
-          if (lockedYTarget != null) {
-            velY = calculateLockedAxisVelocity(currentPose.getY(), lockedYTarget.getAsDouble());
-          } else {
-            velY = flippedInputs[1];
-          }
+    // Calculate Y velocity (locked or driver-controlled)
+    double velY;
+    if (lockedYTarget != null) {
+      velY = calculateLockedAxisVelocity(currentPose.getY(), lockedYTarget.getAsDouble());
+    } else {
+      velY = flippedInputs[1];
+    }
 
-          // Calculate rotation (locked, heading lock, or driver-controlled)
-          double targetOmega;
-          if (lockedRotationTarget != null) {
-            targetOmega = calculateLockedRotationOmega(currentPose.getRotation());
-          } else {
-            targetOmega = calculateHeadingLockedOmega(flippedOmega);
-          }
+    // Calculate rotation (locked, heading lock, or driver-controlled)
+    double targetOmega;
+    if (lockedRotationTarget != null) {
+      targetOmega = calculateLockedRotationOmega(currentPose.getRotation());
+    } else {
+      targetOmega = calculateHeadingLockedOmega(flippedOmega);
+    }
 
-          // Apply physics-based acceleration limiting (normalizes desired speeds internally)
-          AccelerationLimiter.integrateVelocityInPlace(
-              lastCommandedVelocity, velX, velY, targetOmega, dt);
+    // Apply physics-based acceleration limiting (normalizes desired speeds internally)
+    AccelerationLimiter.integrateVelocityInPlace(
+        lastCommandedVelocity, velX, velY, targetOmega, dt);
 
-          LoopProfiler.measure(
-              "Commands/AxisLockDriveSetControl",
-              () -> swerve.setControl(request.withSpeeds(lastCommandedVelocity)));
-        });
+    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
   }
 
   /**

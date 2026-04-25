@@ -358,10 +358,6 @@ public class Superstructure {
             });
   }
 
-  public Command stopSpindexer() {
-    return hopper.stop();
-  }
-
   // Hopper commands
   public Command startHopper() {
     return hopper.start();
