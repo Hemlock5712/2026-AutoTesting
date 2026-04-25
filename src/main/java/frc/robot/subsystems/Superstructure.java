@@ -211,7 +211,8 @@ public class Superstructure {
     Translation2d transOff = targetPosition.minus(pose.getTranslation());
     double distanceToHub = transOff.getNorm();
     double angleToVtFieldRot = transOff.getAngle().getRotations();
-    double angleToVirtualTarget = MathUtil.inputModulus(angleToVtFieldRot, -0.25, 0.75);
+    double robotAngleRot = pose.getRotation().getRotations();
+    double angleToVirtualTarget = MathUtil.inputModulus(angleToVtFieldRot - robotAngleRot, -0.25, 0.75);
     shooter.setForDistance(distanceToHub);
     turret.setAngle(angleToVirtualTarget);
   }
