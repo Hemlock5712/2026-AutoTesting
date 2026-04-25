@@ -20,6 +20,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 public class IntakeArm extends SubsystemBase {
 
@@ -69,7 +70,9 @@ public class IntakeArm extends SubsystemBase {
 
   @Override
   public void periodic() {
+    long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(armPositionSignal);
+    Logger.recordOutput("Timing/IntakeArmMs", (System.nanoTime() - _t) / 1e6);
   }
 
   private void setPosition(Angle position) {

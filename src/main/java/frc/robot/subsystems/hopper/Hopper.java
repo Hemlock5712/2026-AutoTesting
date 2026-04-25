@@ -21,6 +21,7 @@ import frc.robot.generated.TunerConstants;
 
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 public class Hopper extends SubsystemBase {
 
@@ -92,8 +93,10 @@ public class Hopper extends SubsystemBase {
 
   @Override
   public void periodic() {
+    long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(mainStatorSignal, mainVelSignal, sideVelSignal);
     BaseStatusSignal.refreshAll(sidewaysDistSignal, kickerDistSignal);
+    Logger.recordOutput("Timing/HopperMs", (System.nanoTime() - _t) / 1e6);
   }
 
   public void setVelocity(AngularVelocity mainVelocity, AngularVelocity sideVelocity) {

@@ -18,6 +18,7 @@ import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
 
 import java.util.List;
+import org.littletonrobotics.junction.Logger;
 
 public class Limelight extends SubsystemBase {
 
@@ -80,6 +81,7 @@ public class Limelight extends SubsystemBase {
 
   @Override
   public void periodic() {
+    long _t = System.nanoTime();
     // Read drivetrain state once for all cameras
     ChassisSpeeds speeds = m_drivetrain.getRobotSpeeds();
     cachedOmegaDegPerSec = Math.toDegrees(speeds.omegaRadiansPerSecond);
@@ -156,6 +158,7 @@ public class Limelight extends SubsystemBase {
           latestTimestamp,
           fusedStdDevs);
     }
+    Logger.recordOutput("Timing/LimelightMs", (System.nanoTime() - _t) / 1e6);
   }
 
   private PoseEstimate getValidPoseEstimate(CameraState camera) {

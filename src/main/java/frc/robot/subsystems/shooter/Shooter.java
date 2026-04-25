@@ -39,6 +39,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 public class Shooter extends SubsystemBase {
   // Shooting speeds (typed AngularVelocity for type-safe unit handling)
@@ -158,10 +159,12 @@ public class Shooter extends SubsystemBase {
 
   @Override
   public void periodic() {
+    long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(flywheelVelocitySignal, hoodPositionSignal, hoodVelocitySignal);
     cachedHoodPositionDeg =
         BaseStatusSignal.getLatencyCompensatedValueAsDouble(hoodPositionSignal, hoodVelocitySignal)
             * 360.0;
+    Logger.recordOutput("Timing/ShooterMs", (System.nanoTime() - _t) / 1e6);
   }
 
   /**

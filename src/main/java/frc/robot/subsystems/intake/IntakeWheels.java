@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 public class IntakeWheels extends SubsystemBase {
 
@@ -46,7 +47,9 @@ public class IntakeWheels extends SubsystemBase {
 
   @Override
   public void periodic() {
+    long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(wheelVelSignal);
+    Logger.recordOutput("Timing/IntakeWheelsMs", (System.nanoTime() - _t) / 1e6);
   }
 
   public Command runIntakeAuto() {

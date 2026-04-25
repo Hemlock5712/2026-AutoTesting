@@ -22,6 +22,7 @@ import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 public class Turret extends SubsystemBase {
   // Motor
@@ -123,9 +124,11 @@ public class Turret extends SubsystemBase {
 
   @Override
   public void periodic() {
+    long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(positionSignal, velocitySignal);
     cachedPositionRot =
         BaseStatusSignal.getLatencyCompensatedValueAsDouble(positionSignal, velocitySignal);
+    Logger.recordOutput("Timing/TurretMs", (System.nanoTime() - _t) / 1e6);
   }
 
   public void setAngle(double angle) {
