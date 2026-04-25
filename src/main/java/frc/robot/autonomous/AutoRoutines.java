@@ -46,7 +46,8 @@ public class AutoRoutines {
     this.superstructure = superstructure;
     this.intakeCoordinator = intakeCoordinator;
 
-    // Precompute SplinePath + VelocityProfile for all path variants (both alliances)
+    // Precompute SplinePath + VelocityProfile for all path variants (both
+    // alliances)
     leftToMiddle.blue().precompute();
     leftToMiddle.red().precompute();
     leftToMiddleCleanup.blue().precompute();
@@ -61,7 +62,8 @@ public class AutoRoutines {
     leftToMiddleCleanup.red().precompute();
 
     // Warm up JVM class loading by building a throwaway command chain.
-    // Forces all command framework classes to load during robot init, not first auto.
+    // Forces all command framework classes to load during robot init, not first
+    // auto.
     autoCommands.followPath(leftToMiddle.blue());
   }
 
@@ -125,13 +127,15 @@ public class AutoRoutines {
         autoCommands
             .followPath(mainPath)
             .withCompletionTolerance(0.15)
-            .deadlineFor(intakeCoordinator.deployAndRunAUTO(), superstructure.prerollShooter(30)),
-        new WaitCommand(3).deadlineFor(superstructure.shoot()),
+            .deadlineFor(
+                intakeCoordinator.deployAndRunAUTO(),
+                superstructure.fixedShoot(() -> mainPath.getTargetPose())),
+        new WaitCommand(3).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
         superstructure.stopShoot(),
         superstructure.prerollShooter(30),
         autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
         autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15),
-        superstructure.shoot());
+        Commands.parallel(superstructure.shoot(), superstructure.turretTrackHub()));
   }
 
   private Command buildFeedSide2Passes(

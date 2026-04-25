@@ -100,7 +100,8 @@ public class Superstructure {
   private double distanceToVirtualTarget = 0;
   private double angleToVirtualTarget = 0;
 
-  // SWM feasibility — pre-allocated Twist2d to avoid per-cycle allocation in virtualTarget()
+  // SWM feasibility — pre-allocated Twist2d to avoid per-cycle allocation in
+  // virtualTarget()
   private final Twist2d advanceTwist = new Twist2d();
   private boolean swmSolutionFeasible = true;
   private boolean swmConverged = true;
@@ -204,7 +205,26 @@ public class Superstructure {
     return distanceToVirtualTarget;
   }
 
+  public void setFromPose(Pose2d pose) {
+    pose = pose.transformBy(TURRET_TRANSFORM);
+    Translation2d targetPosition = FieldInfo.flip(FieldInfo.HUB_POSITION);
+    Translation2d transOff = targetPosition.minus(pose.getTranslation());
+    double distanceToHub = transOff.getNorm();
+    double angleToVtFieldRot = transOff.getAngle().getRotations();
+    double angleToVirtualTarget = MathUtil.inputModulus(angleToVtFieldRot, -0.25, 0.75);
+    shooter.setForDistance(distanceToHub);
+    turret.setAngle(angleToVirtualTarget);
+  }
+
+  public Command fixedShoot(Supplier<Pose2d> pose) {
+    return Commands.run(() -> setFromPose(pose.get()), shooter, turret);
+  }
+
   // ==================== Coordinated Commands ====================
+
+  public Command turretTrackHub() {
+    return turret.trackHubCommand(this::getTurretAngle);
+  }
 
   /** Tuning mode: override flywheel/hood with dashboard tunables. */
   public Command tuningShoot() {
@@ -394,7 +414,8 @@ public class Superstructure {
     double fieldVx = state.Speeds.vxMetersPerSecond * cos - state.Speeds.vyMetersPerSecond * sin;
     double fieldVy = state.Speeds.vxMetersPerSecond * sin + state.Speeds.vyMetersPerSecond * cos;
 
-    // Use targetPosition field directly (avoids getTargetPosition() Pose2d allocation)
+    // Use targetPosition field directly (avoids getTargetPosition() Pose2d
+    // allocation)
     double rtX = targetPosition.getX();
     double rtY = targetPosition.getY();
 
