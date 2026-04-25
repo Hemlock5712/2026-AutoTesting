@@ -61,6 +61,8 @@ public class IntakeArm extends SubsystemBase {
     boolean success = TalonFXUtil.applyConfigWithRetries(arm, config);
     motorConfigAlert.set(!success);
 
+    armPositionSignal.setUpdateFrequency(50);
+
     arm.optimizeBusUtilization();
     armEncoder.optimizeBusUtilization();
   }

@@ -18,7 +18,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
-import frc.robot.utils.LoopProfiler;
+
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
 
@@ -77,18 +77,23 @@ public class Hopper extends SubsystemBase {
     success = TalonFXUtil.applyConfigWithRetries(side, sideConfig);
     sideMotorConfigAlert.set(!success);
 
+    // Set explicit update frequencies before optimizing bus utilization
+    mainStatorSignal.setUpdateFrequency(100);
+    mainVelSignal.setUpdateFrequency(100);
+    sideVelSignal.setUpdateFrequency(100);
+    sidewaysDistSignal.setUpdateFrequency(50);
+    kickerDistSignal.setUpdateFrequency(50);
+
     main.optimizeBusUtilization();
     side.optimizeBusUtilization();
+    sidewaysRange.optimizeBusUtilization();
+    kickerRange.optimizeBusUtilization();
   }
 
   @Override
   public void periodic() {
-    LoopProfiler.measure(
-        "Subsystems/HopperRefresh",
-        () -> {
-          BaseStatusSignal.refreshAll(mainStatorSignal, mainVelSignal, sideVelSignal);
-          BaseStatusSignal.refreshAll(sidewaysDistSignal, kickerDistSignal);
-        });
+    BaseStatusSignal.refreshAll(mainStatorSignal, mainVelSignal, sideVelSignal);
+    BaseStatusSignal.refreshAll(sidewaysDistSignal, kickerDistSignal);
   }
 
   public void setVelocity(AngularVelocity mainVelocity, AngularVelocity sideVelocity) {

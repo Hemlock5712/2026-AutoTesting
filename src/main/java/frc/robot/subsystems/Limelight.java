@@ -7,6 +7,7 @@ package frc.robot.subsystems;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
@@ -15,7 +16,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
-import frc.robot.utils.LoopProfiler;
+
 import java.util.List;
 
 public class Limelight extends SubsystemBase {
@@ -45,17 +46,9 @@ public class Limelight extends SubsystemBase {
 
   private static final class CameraState {
     final String name;
-    final String profilerKeyPoseEstimate;
-    final String profilerKeyAddVision;
-    final String profilerKeyOrientation;
-    final Matrix<N3, N1> stdDevs;
 
     CameraState(String name) {
       this.name = name;
-      this.profilerKeyPoseEstimate = name + "/PoseEstimate";
-      this.profilerKeyAddVision = name + "/AddVisionMeasurement";
-      this.profilerKeyOrientation = name + "/SetOrientationNoFlush";
-      this.stdDevs = VecBuilder.fill(0, 0, 0);
     }
   }
 
@@ -63,8 +56,11 @@ public class Limelight extends SubsystemBase {
   private final CameraState[] cameras;
   private final int cameraCount;
 
-  // Cached once per cycle in updateRobotOrientationNoFlush(), reused in periodic()
+  // Cached once per cycle, reused in periodic()
   private double cachedOmegaDegPerSec = 0.0;
+
+  // Pre-allocated fusion accumulators — reused every cycle, zero allocations
+  private final Matrix<N3, N1> fusedStdDevs = VecBuilder.fill(0, 0, 0);
 
   /**
    * Creates a Limelight subsystem managing multiple cameras.
@@ -84,37 +80,82 @@ public class Limelight extends SubsystemBase {
 
   @Override
   public void periodic() {
-    LoopProfiler.measure(
-        "Subsystems/Limelight",
-        () -> {
-          // Read drivetrain state once for all cameras
-          ChassisSpeeds speeds = m_drivetrain.getRobotSpeeds();
-          cachedOmegaDegPerSec = Math.toDegrees(speeds.omegaRadiansPerSecond);
-          double yawDegrees = m_drivetrain.getPose().getRotation().getDegrees();
+    // Read drivetrain state once for all cameras
+    ChassisSpeeds speeds = m_drivetrain.getRobotSpeeds();
+    cachedOmegaDegPerSec = Math.toDegrees(speeds.omegaRadiansPerSecond);
+    double yawDegrees = m_drivetrain.getPose().getRotation().getDegrees();
 
-          // Set orientation for all cameras, then flush once
-          for (int i = 0; i < cameraCount; i++) {
-            CameraState camera = cameras[i];
-            LoopProfiler.measure(
-                camera.profilerKeyOrientation,
-                () ->
-                    LimelightHelpers.SetRobotOrientation_NoFlush(
-                        camera.name, yawDegrees, cachedOmegaDegPerSec, 0, 0, 0, 0));
-          }
-          LoopProfiler.measure("Limelight/FlushOrientationUpdates", LimelightHelpers::Flush);
+    // Set orientation for all cameras, then flush once
+    for (int i = 0; i < cameraCount; i++) {
+      LimelightHelpers.SetRobotOrientation_NoFlush(
+          cameras[i].name, yawDegrees, cachedOmegaDegPerSec, 0, 0, 0, 0);
+    }
+    LimelightHelpers.Flush();
 
-          // Read pose estimates and add vision measurements
-          for (int i = 0; i < cameraCount; i++) {
-            CameraState camera = cameras[i];
-            PoseEstimate poseEstimate =
-                LoopProfiler.measure(
-                    camera.profilerKeyPoseEstimate, () -> getValidPoseEstimate(camera));
-            if (poseEstimate != null) {
-              LoopProfiler.measure(
-                  camera.profilerKeyAddVision, () -> addVisionMeasurement(camera, poseEstimate));
-            }
-          }
-        });
+    // Collect valid poses and fuse into a single measurement via inverse-variance weighting.
+    // This calls addVisionMeasurement at most ONCE, avoiding repeated write-lock contention
+    // with the 250Hz odometry thread.
+    double sumX = 0, sumY = 0, sumTheta = 0;
+    double sumInvVarXY = 0, sumInvVarTheta = 0;
+    double latestTimestamp = 0;
+    int validCount = 0;
+
+    for (int i = 0; i < cameraCount; i++) {
+      CameraState camera = cameras[i];
+      PoseEstimate pe = getValidPoseEstimate(camera);
+      if (pe == null) continue;
+
+      double distanceFactor = Math.pow(pe.avgTagDist, 1.2);
+      double effectiveTags = Math.min(MAX_EFFECTIVE_TAG_COUNT, pe.tagCount);
+      double tagFactor = effectiveTags * effectiveTags;
+
+      double xyStdDev = XY_STD_DEV_COEFFICIENT * distanceFactor / tagFactor;
+      double rotStdDev =
+          pe.isMegaTag2
+              ? MEGATAG2_ROTATION_STD_DEV
+              : ROTATION_STD_DEV_COEFFICIENT * distanceFactor / tagFactor;
+
+      double invVarXY = 1.0 / (xyStdDev * xyStdDev);
+      sumX += pe.pose.getX() * invVarXY;
+      sumY += pe.pose.getY() * invVarXY;
+      sumInvVarXY += invVarXY;
+
+      if (Double.isFinite(rotStdDev)) {
+        double invVarTheta = 1.0 / (rotStdDev * rotStdDev);
+        sumTheta += pe.pose.getRotation().getRadians() * invVarTheta;
+        sumInvVarTheta += invVarTheta;
+      }
+
+      if (pe.timestampSeconds > latestTimestamp) {
+        latestTimestamp = pe.timestampSeconds;
+      }
+      validCount++;
+    }
+
+    if (validCount > 0) {
+      double fusedX = sumX / sumInvVarXY;
+      double fusedY = sumY / sumInvVarXY;
+      double fusedXYStdDev = 1.0 / Math.sqrt(sumInvVarXY);
+
+      double fusedThetaStdDev;
+      double fusedThetaRad;
+      if (sumInvVarTheta > 0) {
+        fusedThetaRad = sumTheta / sumInvVarTheta;
+        fusedThetaStdDev = 1.0 / Math.sqrt(sumInvVarTheta);
+      } else {
+        fusedThetaRad = m_drivetrain.getPose().getRotation().getRadians();
+        fusedThetaStdDev = MEGATAG2_ROTATION_STD_DEV;
+      }
+
+      fusedStdDevs.set(0, 0, fusedXYStdDev);
+      fusedStdDevs.set(1, 0, fusedXYStdDev);
+      fusedStdDevs.set(2, 0, fusedThetaStdDev);
+
+      m_drivetrain.addVisionMeasurement(
+          new Pose2d(fusedX, fusedY, new Rotation2d(fusedThetaRad)),
+          latestTimestamp,
+          fusedStdDevs);
+    }
   }
 
   private PoseEstimate getValidPoseEstimate(CameraState camera) {
@@ -173,23 +214,5 @@ public class Limelight extends SubsystemBase {
 
   private boolean isRotatingTooFastForMT2() {
     return Math.abs(cachedOmegaDegPerSec) > MAX_ANGULAR_VELOCITY_MT2_DEG_PER_SEC;
-  }
-
-  private void addVisionMeasurement(CameraState camera, PoseEstimate poseEstimate) {
-    double distanceFactor = Math.pow(poseEstimate.avgTagDist, 1.2);
-    double effectiveTags = Math.min(MAX_EFFECTIVE_TAG_COUNT, poseEstimate.tagCount);
-    double tagFactor = Math.pow(effectiveTags, 2.0);
-
-    double xyStdDev = XY_STD_DEV_COEFFICIENT * distanceFactor / tagFactor;
-    double rotationStdDev =
-        poseEstimate.isMegaTag2
-            ? MEGATAG2_ROTATION_STD_DEV
-            : ROTATION_STD_DEV_COEFFICIENT * distanceFactor / tagFactor;
-
-    camera.stdDevs.set(0, 0, xyStdDev);
-    camera.stdDevs.set(1, 0, xyStdDev);
-    camera.stdDevs.set(2, 0, rotationStdDev);
-    m_drivetrain.addVisionMeasurement(
-        poseEstimate.pose, poseEstimate.timestampSeconds, camera.stdDevs);
   }
 }

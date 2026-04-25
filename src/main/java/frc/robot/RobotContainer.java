@@ -5,11 +5,8 @@ import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.VecBuilder;
-import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -123,9 +120,9 @@ public class RobotContainer {
             drivetrain,
             () -> {
               // Not the cleanest but calculate scaled joystick values
-              Vector<N2> scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
-              translationVel[0] = -scaled.get(0) * maxSpeed;
-              translationVel[1] = -scaled.get(1) * maxSpeed;
+              double[] scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+              translationVel[0] = -scaled[0] * maxSpeed;
+              translationVel[1] = -scaled[1] * maxSpeed;
               return translationVel[0];
             },
             () -> translationVel[1],
@@ -216,10 +213,10 @@ public class RobotContainer {
                     drivetrain,
                     () -> {
                       double speed = superstructure.isHubShot() ? maxShootSpeed : maxFeedSpeed;
-                      Vector<N2> scaled =
+                      double[] scaled =
                           rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
-                      translationVel[0] = -scaled.get(0) * speed;
-                      translationVel[1] = -scaled.get(1) * speed;
+                      translationVel[0] = -scaled[0] * speed;
+                      translationVel[1] = -scaled[1] * speed;
                       return translationVel[0];
                     },
                     () -> translationVel[1],
@@ -266,10 +263,22 @@ public class RobotContainer {
     return MathUtil.applyDeadband(input, JOYSTICK_DEADBAND);
   }
 
-  public Vector<N2> rescaleTranslation(double x, double y) {
-    Vector<N2> scaledJoyStick = VecBuilder.fill(x, y);
-    scaledJoyStick = MathUtil.applyDeadband(scaledJoyStick, JOYSTICK_DEADBAND);
-    return MathUtil.copyDirectionPow(scaledJoyStick, 2);
+  private final double[] scaledTranslation = new double[2];
+
+  /** Deadband + squared-magnitude rescale using raw doubles. Zero allocations. */
+  public double[] rescaleTranslation(double x, double y) {
+    double mag = Math.hypot(x, y);
+    if (mag < JOYSTICK_DEADBAND) {
+      scaledTranslation[0] = 0;
+      scaledTranslation[1] = 0;
+      return scaledTranslation;
+    }
+    // Deadband: remap [deadband, 1] → [0, 1], then square magnitude for fine control
+    double deadbanded = (mag - JOYSTICK_DEADBAND) / (1.0 - JOYSTICK_DEADBAND);
+    double factor = deadbanded * deadbanded / mag;
+    scaledTranslation[0] = x * factor;
+    scaledTranslation[1] = y * factor;
+    return scaledTranslation;
   }
 
   public Superstructure getSuperstructure() {

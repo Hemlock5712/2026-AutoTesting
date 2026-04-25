@@ -18,7 +18,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
-import frc.robot.utils.LoopProfiler;
+
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -123,18 +123,13 @@ public class Turret extends SubsystemBase {
 
   @Override
   public void periodic() {
-    LoopProfiler.measure(
-        "Subsystems/TurretRefresh",
-        () -> {
-          BaseStatusSignal.refreshAll(positionSignal, velocitySignal);
-          cachedPositionRot =
-              BaseStatusSignal.getLatencyCompensatedValueAsDouble(positionSignal, velocitySignal);
-        });
+    BaseStatusSignal.refreshAll(positionSignal, velocitySignal);
+    cachedPositionRot =
+        BaseStatusSignal.getLatencyCompensatedValueAsDouble(positionSignal, velocitySignal);
   }
 
   public void setAngle(double angle) {
-    LoopProfiler.measure(
-        "Commands/TurretSetControl", () -> leader.setControl(angleOut.withPosition(angle)));
+    leader.setControl(angleOut.withPosition(angle));
   }
 
   @AutoLogOutput
@@ -184,15 +179,7 @@ public class Turret extends SubsystemBase {
 
   /** Command that continuously tracks the hub using a supplied angle. */
   public Command trackHubCommand(Supplier<Double> angleSupplier) {
-    return run(
-        () ->
-            LoopProfiler.measure(
-                "Commands/TurretTrackHub",
-                () -> {
-                  double angle =
-                      LoopProfiler.measure("Commands/TurretAngleSupplier", angleSupplier::get);
-                  setAngle(angle);
-                }));
+    return run(() -> setAngle(angleSupplier.get()));
   }
 
   public Command stopCommand() {

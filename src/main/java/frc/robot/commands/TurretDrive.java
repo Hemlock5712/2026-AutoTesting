@@ -9,7 +9,7 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Superstructure;
-import frc.robot.utils.LoopProfiler;
+
 import java.util.function.DoubleSupplier;
 
 /**
@@ -72,33 +72,27 @@ public class TurretDrive extends Command {
 
   @Override
   public void execute() {
-    LoopProfiler.measure(
-        "Commands/TurretDrive",
-        () -> {
-          double currentTime = Utils.getCurrentTimeSeconds();
-          double dt = currentTime - lastTime;
-          lastTime = currentTime;
+    double currentTime = Utils.getCurrentTimeSeconds();
+    double dt = currentTime - lastTime;
+    lastTime = currentTime;
 
-          // Get driver inputs
-          double velX = velocityXSupplier.getAsDouble();
-          double velY = velocityYSupplier.getAsDouble();
-          double omega = rotationalRateSupplier.getAsDouble();
+    // Get driver inputs
+    double velX = velocityXSupplier.getAsDouble();
+    double velY = velocityYSupplier.getAsDouble();
+    double omega = rotationalRateSupplier.getAsDouble();
 
-          // Apply shoot-mode acceleration and jerk limits (normalizes desired speeds internally)
-          AccelerationLimiter.integrateVelocityInPlace(
-              lastCommandedVelocity,
-              velX,
-              velY,
-              omega,
-              dt,
-              MAX_SHOOT_ACCEL,
-              MAX_SHOOT_JERK,
-              MAX_SHOOT_JERK);
+    // Apply shoot-mode acceleration and jerk limits (normalizes desired speeds internally)
+    AccelerationLimiter.integrateVelocityInPlace(
+        lastCommandedVelocity,
+        velX,
+        velY,
+        omega,
+        dt,
+        MAX_SHOOT_ACCEL,
+        MAX_SHOOT_JERK,
+        MAX_SHOOT_JERK);
 
-          LoopProfiler.measure(
-              "Commands/TurretDriveSetControl",
-              () -> swerve.setControl(request.withSpeeds(lastCommandedVelocity)));
-        });
+    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
   }
 
   @Override

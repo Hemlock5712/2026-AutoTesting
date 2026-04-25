@@ -101,20 +101,14 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void teleopPeriodic() {
-    long start = System.nanoTime();
-    LoopProfiler.measure("Teleop/HubShiftUpdate", HubShiftUtil::update);
+    HubShiftUtil.update();
 
-    // Rumble controller when a shift change is 5 seconds away
+    // Rumble controller when a shift change is approaching
     double secondsUntilShift = HubShiftUtil.getSecondsUntilNextShift();
-    LoopProfiler.measure(
-        "Teleop/Rumble",
-        () ->
-            m_robotContainer.setRumble(
-                (secondsUntilShift <= RUMBLE_START_THRESHOLD
-                        && secondsUntilShift > RUMBLE_END_THRESHOLD)
-                    ? 1.0
-                    : 0.0));
-    Logger.recordOutput("LoopProfiler/Teleop/TotalMs", (System.nanoTime() - start) / 1e6);
+    m_robotContainer.setRumble(
+        (secondsUntilShift <= RUMBLE_START_THRESHOLD && secondsUntilShift > RUMBLE_END_THRESHOLD)
+            ? 1.0
+            : 0.0);
   }
 
   @Override

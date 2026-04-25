@@ -39,6 +39,8 @@ public class IntakeWheels extends SubsystemBase {
     boolean success = TalonFXUtil.applyConfigWithRetries(wheel, wheelConfig);
     motorConfigAlert.set(!success);
 
+    wheelVelSignal.setUpdateFrequency(50);
+
     wheel.optimizeBusUtilization();
   }
 
