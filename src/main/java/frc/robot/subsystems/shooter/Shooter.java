@@ -4,10 +4,8 @@
 
 package frc.robot.subsystems.shooter;
 
-import static edu.wpi.first.units.Units.Degree;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -41,9 +39,12 @@ import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Shooter extends SubsystemBase {
-  // Shooting speeds (typed AngularVelocity for type-safe unit handling)
-  private static final AngularVelocity TOLERANCE = RotationsPerSecond.of(1);
-  private static final Angle HOOD_TOLERANCE = Degree.of(1);
+  private static final double MAX_RADIAL_MISS_M = 0.25; // tune empirically
+  private static final double FEED_RADIAL_MISS_M = 2.0;
+  private static final double MIN_FLYWHEEL_TOLERANCE_RPS = 2.0;
+  private static final double MAX_VERTICAL_MISS_M = 0.2; // tune empirically
+  private static final double FEED_VERTICAL_MISS_M = 0.4;
+  private static final double MIN_HOOD_TOLERANCE_DEG = 1.5;
   private static final double MAX_HOOD_OUTSIDE_ZONE_DEG = 0.0;
 
   private boolean inAllianceZone = false;
@@ -246,7 +247,7 @@ public class Shooter extends SubsystemBase {
    * @return true if close enough to target position, false otherwise
    */
   public boolean hoodIsAtTarget() {
-    return Math.abs(cachedHoodPositionDeg - rotationOut.Position * 360.0) <= 1.0;
+    return Math.abs(cachedHoodPositionDeg - rotationOut.Position * 360.0) <= MIN_HOOD_TOLERANCE_DEG;
   }
 
   public boolean isAtTarget() {
@@ -255,38 +256,31 @@ public class Shooter extends SubsystemBase {
 
   /** Distance-dependent check: would this flywheel/hood produce a scoring shot at this range? */
   public boolean isAtTarget(double distance) {
-    double margin = 0.4; // ~50% of goal radius
-    double minDist = Math.max(1.5, distance - margin);
-    double maxDist = Math.min(5.5, distance + margin);
-
-    double flywheelRPS = flywheelVelocitySignal.getValueAsDouble();
+    double targetRPS = velocityOut.Velocity;
+    double flywheelTolerance =
+        Math.max(MIN_FLYWHEEL_TOLERANCE_RPS, targetRPS * MAX_RADIAL_MISS_M / distance);
     boolean flywheelOk =
-        flywheelRPS >= ShooterLookup.getFlywheelMap().get(minDist)
-            && flywheelRPS <= ShooterLookup.getFlywheelMap().get(maxDist);
-    flywheelOk = flywheelOk || flywheelIsAtTarget();
+        Math.abs(flywheelVelocitySignal.getValueAsDouble() - targetRPS) <= flywheelTolerance;
+    double hoodToleranceDeg =
+        Math.max(MIN_HOOD_TOLERANCE_DEG, Math.toDegrees(Math.atan(MAX_VERTICAL_MISS_M / distance)));
     boolean hoodOk =
-        cachedHoodPositionDeg >= ShooterLookup.getHoodMap().get(minDist)
-            && cachedHoodPositionDeg <= ShooterLookup.getHoodMap().get(maxDist);
-    boolean debouncedTrue = atHubSpeed.calculate(flywheelOk);
-    return debouncedTrue;
+        Math.abs(cachedHoodPositionDeg - rotationOut.Position * 360.0) <= hoodToleranceDeg;
+    return atHubSpeed.calculate(flywheelOk && hoodOk);
   }
 
-  /** Looser check for feed shots - wider margin than hub shots. */
+  /** Looser check for feed shots - wider tolerance than hub shots. */
   public boolean isAtFeedTarget(double distance) {
-    double margin = 2.0; // Wider than hub's 0.4m
-    double minDist = Math.max(1.5, distance - margin);
-    double maxDist = Math.min(9.5, distance + margin); // Feed range is longer
-
-    double flywheelRPS = flywheelVelocitySignal.getValueAsDouble();
+    double targetRPS = velocityOut.Velocity;
+    double flywheelTolerance =
+        Math.max(MIN_FLYWHEEL_TOLERANCE_RPS, targetRPS * FEED_RADIAL_MISS_M / distance);
     boolean flywheelOk =
-        flywheelRPS >= ShooterLookup.getFeedFlywheelMap().get(minDist)
-            && flywheelRPS <= ShooterLookup.getFeedFlywheelMap().get(maxDist);
-
-    flywheelOk = flywheelOk || flywheelIsAtTarget();
-    boolean debouncedTrue = atFeedSpeed.calculate(flywheelOk);
-
-    // && hoodOk
-    return debouncedTrue;
+        Math.abs(flywheelVelocitySignal.getValueAsDouble() - targetRPS) <= flywheelTolerance;
+    double hoodToleranceDeg =
+        Math.max(
+            MIN_HOOD_TOLERANCE_DEG, Math.toDegrees(Math.atan(FEED_VERTICAL_MISS_M / distance)));
+    boolean hoodOk =
+        Math.abs(cachedHoodPositionDeg - rotationOut.Position * 360.0) <= hoodToleranceDeg;
+    return atFeedSpeed.calculate(flywheelOk && hoodOk);
   }
 
   /**
@@ -345,24 +339,6 @@ public class Shooter extends SubsystemBase {
   @AutoLogOutput
   public double getTargetPositionDeg() {
     return rotationOut.Position * 360.0;
-  }
-
-  /**
-   * Get the speed tolerance for "at target" checks.
-   *
-   * @return Speed tolerance
-   */
-  public AngularVelocity getTolerance() {
-    return TOLERANCE;
-  }
-
-  /**
-   * Get the position tolerance for "at target" checks.
-   *
-   * @return Position tolerance
-   */
-  public Angle getHoodTolerance() {
-    return HOOD_TOLERANCE;
   }
 
   public void stopMotors() {
