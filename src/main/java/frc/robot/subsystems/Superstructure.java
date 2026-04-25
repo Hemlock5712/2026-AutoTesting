@@ -75,7 +75,7 @@ public class Superstructure {
   private static final double K_DRAG =
       0.5 * AIR_DENSITY * BallPhysicsSimulation.DRAG_COEFFICIENT * CROSS_SECTION;
 
-  private static final double MAX_FEED_RANGE = 9.5;
+  private static final double MAX_FEED_RANGE = 12.0;
 
   // ==================== Subsystems ====================
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
@@ -579,11 +579,16 @@ public class Superstructure {
   }
 
   @AutoLogOutput
+  public boolean isInOpponentZone() {
+    return FieldInfo.isInOpponentZone(turretPose);
+  }
+
+  @AutoLogOutput
   public boolean shouldShoot() {
     if (isInAllianceZone() && !isUnderTower()) {
       return true;
     }
-    if (isInNeutralZone()) {
+    if (isInNeutralZone() || isInOpponentZone()) {
       return feedSelection == null || !feedSelection.blocked();
     }
     return false;

@@ -308,6 +308,10 @@ public final class FieldInfo {
   private static final Rectangle2d ALLIANCE_ZONE =
       new Rectangle2d(
           new Translation2d(0, 0), new Translation2d(Meters.of(4.5), FieldInfo.width()));
+  private static final Rectangle2d OPPONENT_ZONE =
+      new Rectangle2d(
+          new Translation2d(FieldInfo.length().minus(Meters.of(4.5)), Meters.of(0)),
+          new Translation2d(FieldInfo.length(), FieldInfo.width()));
 
   private static final Distance NEUTRAL_ZONE_DEADZONE_DEPTH = Meters.of(3);
   private static final Distance NEUTRAL_ZONE_DEADZONE_WIDTH = Meters.of(1.25);
@@ -343,6 +347,14 @@ public final class FieldInfo {
 
   public static boolean isInAllianceZone(Pose2d pose) {
     return isInAllianceZone(pose.getTranslation());
+  }
+
+  public static boolean isInOpponentZone(Translation2d translation) {
+    return OPPONENT_ZONE.contains(flip(translation));
+  }
+
+  public static boolean isInOpponentZone(Pose2d pose) {
+    return isInOpponentZone(pose.getTranslation());
   }
 
   public static boolean isUnderaTrench(Translation2d translation, double speedX) {
