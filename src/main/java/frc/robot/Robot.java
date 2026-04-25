@@ -9,6 +9,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.subsystems.Superstructure.FeedMode;
+import frc.robot.utils.FieldInfo;
 import frc.robot.utils.HubShiftUtil;
 import frc.robot.utils.Tunables;
 import org.littletonrobotics.junction.LoggedRobot;
@@ -78,6 +79,7 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void autonomousInit() {
+    FieldInfo.resetAllianceCache();
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
     if (m_autonomousCommand != null) {
@@ -97,6 +99,7 @@ public class Robot extends LoggedRobot {
       m_autonomousCommand.cancel();
     }
 
+    FieldInfo.resetAllianceCache();
     HubShiftUtil.initialize();
 
     int station = DriverStation.getLocation().orElse(1);

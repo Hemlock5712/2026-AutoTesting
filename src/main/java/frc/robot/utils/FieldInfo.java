@@ -186,6 +186,11 @@ public final class FieldInfo {
 
   // ==================== Flip Utilities ====================
 
+  /** Clears the cached alliance flip so the next {@link #shouldFlip()} re-reads from DS. */
+  public static void resetAllianceCache() {
+    cachedShouldFlip = null;
+  }
+
   /**
    * Returns true if coordinates should be flipped (red alliance). Cached after first determination.
    */
