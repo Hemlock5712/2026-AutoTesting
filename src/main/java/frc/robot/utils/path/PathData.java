@@ -135,6 +135,24 @@ public record PathData(
   }
 
   /**
+   * Returns the target (ending) pose of this path.
+   *
+   * <p>The position is the last control point. The heading is the heading waypoint at the last
+   * index, or zero if none exists.
+   */
+  public Pose2d getTargetPose() {
+    int lastIndex = controlPoints.size() - 1;
+    Translation2d end = controlPoints.get(lastIndex);
+    Rotation2d heading =
+        headingWaypoints.stream()
+            .filter(hw -> hw.waypointIndex() == lastIndex)
+            .findFirst()
+            .map(HeadingWaypoint::heading)
+            .orElse(Rotation2d.kZero);
+    return new Pose2d(end, heading);
+  }
+
+  /**
    * Returns a copy of this path with the first control point replaced.
    *
    * @param newStart The new starting position
