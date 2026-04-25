@@ -1,6 +1,5 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -30,17 +29,6 @@ public final class Paths {
     }
   }
 
-  // Named field positions
-  public static final Pose2d START_LEFT =
-      new Pose2d(
-          new Translation2d(4.455046439628482, 7.697925696594428), Rotation2d.fromDegrees(-90));
-  public static final Pose2d START_LEFT_MIRROR =
-      new Pose2d(
-          new Translation2d(4.455046439628482, 0.5120743034055728), Rotation2d.fromDegrees(90));
-  public static final Translation2d JOSH_CENTER =
-      new Translation2d(8.13344685242518, 0.7766460268317852);
-  public static final Translation2d JOSH_CENTER_MIRROR =
-      new Translation2d(8.13344685242518, 7.433353973168216);
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
@@ -186,42 +174,6 @@ public final class Paths {
                   "8f556a15-54ee-4d2c-9bd4-43ab6735bde0", 4, "SlowRaiseIntake"),
               new PathData.WaypointFlag("f24f6185-c700-4454-9f6c-a30e3af2e090", 6, "RunIntake"),
               new PathData.WaypointFlag("3af66403-f880-4d82-aaf0-aac30109a0f1", 12, "HubShoot")));
-
-  public static final PathData SHARK =
-      new PathData(
-          List.of(
-              new Translation2d(4.419906753471135, 7.586285106050246),
-              new Translation2d(8.135246452913565, 6.874017890480497),
-              new Translation2d(8.481754818664674, 4.621713452057237),
-              new Translation2d(7.884990410982211, 4.39070786862921),
-              new Translation2d(6.96096810231259, 5.064474153627621),
-              new Translation2d(7.730986692870608, 6.181001140196417),
-              new Translation2d(8.597257607248377, 5.584236716340682),
-              new Translation2d(7.82723901669036, 5.218477875912972),
-              new Translation2d(6.4989569479777805, 7.393780453193557),
-              new Translation2d(4.342904894415334, 7.624786036621583),
-              new Translation2d(0.8778212369042575, 7.624786036621583)),
-          List.of(
-              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
-              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(-90)),
-              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-130)),
-              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(-200)),
-              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(-5)),
-              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(-90)),
-              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(-180)),
-              new PathData.HeadingWaypoint(8, Rotation2d.fromDegrees(-180)),
-              new PathData.HeadingWaypoint(9, Rotation2d.fromDegrees(-180))),
-          VelocityConstraints.defaults()
-              .withMaxVelocity(4.9)
-              .withMaxAcceleration(10.791000000000002),
-          List.of(
-              new PathData.ConstraintZone(1, 7, 2, 10.791),
-              new PathData.ConstraintZone(9, 10, 1.5, 10.791)),
-          List.of(),
-          List.of(
-              new PathData.WaypointFlag("7982971e-c96d-4907-ae7a-6239c3c2446e", 1, "FeedShoot"),
-              new PathData.WaypointFlag("94e22bd0-704b-4db3-970a-2491db98897f", 7, "StopShoot"),
-              new PathData.WaypointFlag("b5ab820f-bd0a-465d-86d4-c33f8607c481", 9, "HubShoot")));
 
   public static final PathData MADTOWN =
       new PathData(
@@ -473,6 +425,54 @@ public final class Paths {
           List.of(
               new PathData.ConstraintZone(1, 2, 2, 10.791000000000002),
               new PathData.ConstraintZone(3, 4, 1.67, 10.791000000000002)),
+          List.of(),
+          List.of());
+
+  public static final PathData LEFT_TO_MIDDLE_FEED =
+      new PathData(
+          List.of(
+              new Translation2d(4.208151641067681, 7.701787897764259),
+              new Translation2d(8, 7.085773008622855),
+              new Translation2d(8.250749241497267, 4.236704146343859),
+              new Translation2d(7.191973679479996, 4.7564667090569195),
+              new Translation2d(6.575958807033582, 7.3360290573365505),
+              new Translation2d(4.17, 7.586285106050246)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(135))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(1, 4, 1.5, 10.791000000000002)),
+          List.of(),
+          List.of());
+
+  public static final PathData FEED_CLEANUP_BACK_TO_MIDDLE =
+      new PathData(
+          List.of(
+              new Translation2d(2.0, 7.50928324490757),
+              new Translation2d(5.671186963127911, 7.528533710193239),
+              new Translation2d(6.383454159394078, 5.776741369197371),
+              new Translation2d(6.614459736561483, 3.9671976323444955),
+              new Translation2d(7.904240875746161, 4.467709729771886),
+              new Translation2d(7.8079885519264085, 6.238752536053424),
+              new Translation2d(6.883966243256788, 7.451531849050564),
+              new Translation2d(4.188901176303729, 7.567034640764577)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(-85)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(60))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(1, 5, 2, 10.791000000000002)),
           List.of(),
           List.of());
 
