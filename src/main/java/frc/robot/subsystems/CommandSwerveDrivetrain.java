@@ -39,8 +39,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   /* Keep track if we've ever applied the operator perspective before or not */
   private boolean m_hasAppliedOperatorPerspective = false;
 
-  // Cached once per periodic() — eliminates repeated read-lock acquisitions on the odometry thread
-  private SwerveDriveState cachedState = super.getStateCopy();
+  // Updated at 250Hz via telemetry callback — volatile for cross-thread visibility
+  private volatile SwerveDriveState cachedState = super.getStateCopy();
 
   /**
    * Constructs a CTRE SwerveDrivetrain using the specified constants.
@@ -54,6 +54,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   public CommandSwerveDrivetrain(
       SwerveDrivetrainConstants drivetrainConstants, SwerveModuleConstants<?, ?, ?>... modules) {
     super(drivetrainConstants, modules);
+    registerTelemetry(state -> cachedState = getStateCopy());
     if (Utils.isSimulation()) {
       startSimThread();
     }
@@ -75,6 +76,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
       double odometryUpdateFrequency,
       SwerveModuleConstants<?, ?, ?>... modules) {
     super(drivetrainConstants, odometryUpdateFrequency, modules);
+    registerTelemetry(state -> cachedState = getStateCopy());
     if (Utils.isSimulation()) {
       startSimThread();
     }
@@ -107,6 +109,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         odometryStandardDeviation,
         visionStandardDeviation,
         modules);
+    registerTelemetry(state -> cachedState = getStateCopy());
     if (Utils.isSimulation()) {
       startSimThread();
     }
@@ -125,7 +128,6 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   @Override
   public void periodic() {
     long _t = System.nanoTime();
-    cachedState = getStateCopy();
     if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
       DriverStation.getAlliance()
           .ifPresent(
@@ -189,6 +191,17 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
       Matrix<N3, N1> visionMeasurementStdDevs) {
     super.addVisionMeasurement(
         visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds), visionMeasurementStdDevs);
+  }
+
+  /**
+   * Adds a vision measurement with a timestamp already in the currentTime domain. Use this when you
+   * have already converted the timestamp via {@link Utils#fpgaToCurrentTime}.
+   */
+  public void addVisionMeasurementCurrentTime(
+      Pose2d visionRobotPoseMeters,
+      double currentTimeSeconds,
+      Matrix<N3, N1> visionMeasurementStdDevs) {
+    super.addVisionMeasurement(visionRobotPoseMeters, currentTimeSeconds, visionMeasurementStdDevs);
   }
 
   public SwerveDriveState getCachedState() {
