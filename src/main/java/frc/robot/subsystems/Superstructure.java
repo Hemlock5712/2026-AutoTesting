@@ -212,7 +212,8 @@ public class Superstructure {
     double distanceToHub = transOff.getNorm();
     double angleToVtFieldRot = transOff.getAngle().getRotations();
     double robotAngleRot = pose.getRotation().getRotations();
-    double angleToVirtualTarget = MathUtil.inputModulus(angleToVtFieldRot - robotAngleRot, -0.25, 0.75);
+    double angleToVirtualTarget =
+        MathUtil.inputModulus(angleToVtFieldRot - robotAngleRot, -0.25, 0.75);
     shooter.setForDistance(distanceToHub);
     turret.setAngle(angleToVirtualTarget);
   }
