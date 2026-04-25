@@ -75,6 +75,8 @@ public class Superstructure {
   private static final double K_DRAG =
       0.5 * AIR_DENSITY * BallPhysicsSimulation.DRAG_COEFFICIENT * CROSS_SECTION;
 
+  private static final double MAX_FEED_RANGE = 9.5;
+
   // ==================== Subsystems ====================
   private final Shooter shooter = RobotBase.isSimulation() ? new ShooterSIM() : new Shooter();
 
@@ -444,7 +446,7 @@ public class Superstructure {
     // We iterate because time-of-flight depends on distance to virtualTarget,
     // but virtualTarget depends on time-of-flight. The loop finds the answer
     // where both agree (usually converges in 2-3 iterations).
-    double maxRange = isHubShot ? 5.5 : 9.5;
+    double maxRange = isHubShot ? 5.5 : MAX_FEED_RANGE;
     double vtX = rtX;
     double vtY = rtY;
     double prevX = vtX;
@@ -600,6 +602,15 @@ public class Superstructure {
         DriverStation.isAutonomous()
             ? FieldInfo.RIGHT_FEED_POSITION_AUTO.get()
             : FieldInfo.RIGHT_FEED_POSITION.get();
+
+    // If both normal feed targets are beyond max feed range, use far feed points
+    double distToLeft = robotPose.getTranslation().getDistance(leftFeedTarget);
+    double distToRight = robotPose.getTranslation().getDistance(rightFeedTarget);
+    if (Math.min(distToLeft, distToRight) > MAX_FEED_RANGE) {
+      leftFeedTarget = FieldInfo.LEFT_FAR_FEED_POSITION.get();
+      rightFeedTarget = FieldInfo.RIGHT_FAR_FEED_POSITION.get();
+    }
+
     return DriverStation.isAutonomous()
         ? FeedTargetSelector.selectAutoTarget(
             robotPose.getTranslation(), leftFeedTarget, rightFeedTarget)

@@ -8,6 +8,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.utils.HubShiftUtil;
 import frc.robot.utils.Tunables;
 import org.littletonrobotics.junction.LoggedRobot;
@@ -97,6 +98,13 @@ public class Robot extends LoggedRobot {
     }
 
     HubShiftUtil.initialize();
+
+    int station = DriverStation.getLocation().orElse(1);
+    if (station <= 2) {
+      m_robotContainer.getSuperstructure().setTeleopFeedMode(FeedMode.FORCE_LEFT);
+    } else {
+      m_robotContainer.getSuperstructure().setTeleopFeedMode(FeedMode.FORCE_RIGHT);
+    }
 
     if (DriverStation.isFMSAttached()) {
       CommandScheduler.getInstance().schedule(m_robotContainer.fmsInitCommand());
