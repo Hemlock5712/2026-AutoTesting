@@ -19,7 +19,6 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
-
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -41,7 +40,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   private boolean m_hasAppliedOperatorPerspective = false;
 
   // Cached once per periodic() — eliminates repeated read-lock acquisitions on the odometry thread
-  private SwerveDriveState cachedState;
+  private SwerveDriveState cachedState = super.getStateCopy();
 
   /**
    * Constructs a CTRE SwerveDrivetrain using the specified constants.
@@ -126,7 +125,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   @Override
   public void periodic() {
     long _t = System.nanoTime();
-    cachedState = getState();
+    cachedState = getStateCopy();
     if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
       DriverStation.getAlliance()
           .ifPresent(
@@ -230,7 +229,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   }
 
   public ChassisSpeeds getFieldSpeeds() {
-    return ChassisSpeeds.fromRobotRelativeSpeeds(cachedState.Speeds, cachedState.Pose.getRotation());
+    return ChassisSpeeds.fromRobotRelativeSpeeds(
+        cachedState.Speeds, cachedState.Pose.getRotation());
   }
 
   public ChassisSpeeds getTargetFieldSpeeds() {

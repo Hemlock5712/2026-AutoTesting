@@ -33,7 +33,6 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
@@ -82,7 +81,8 @@ public class Shooter extends SubsystemBase {
 
   Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
 
-  private final Debouncer atTargetDebouncer = new Debouncer(0.25, DebounceType.kFalling);
+  private final Debouncer atHubSpeed = new Debouncer(0.25, DebounceType.kFalling);
+  private final Debouncer atFeedSpeed = new Debouncer(0.5, DebounceType.kFalling);
 
   public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled
@@ -237,7 +237,7 @@ public class Shooter extends SubsystemBase {
    * @return true if close enough to target speed, false otherwise
    */
   public boolean flywheelIsAtTarget() {
-    return flywheelVelocitySignal.isNear(velocityOut.Velocity, 1.0);
+    return flywheelVelocitySignal.isNear(velocityOut.Velocity, 2.0);
   }
 
   /**
@@ -263,11 +263,11 @@ public class Shooter extends SubsystemBase {
     boolean flywheelOk =
         flywheelRPS >= ShooterLookup.getFlywheelMap().get(minDist)
             && flywheelRPS <= ShooterLookup.getFlywheelMap().get(maxDist);
-
+    flywheelOk = flywheelOk || flywheelIsAtTarget();
     boolean hoodOk =
         cachedHoodPositionDeg >= ShooterLookup.getHoodMap().get(minDist)
             && cachedHoodPositionDeg <= ShooterLookup.getHoodMap().get(maxDist);
-    boolean debouncedTrue = atTargetDebouncer.calculate(flywheelOk);
+    boolean debouncedTrue = atHubSpeed.calculate(flywheelOk);
     return debouncedTrue;
   }
 
@@ -282,8 +282,11 @@ public class Shooter extends SubsystemBase {
         flywheelRPS >= ShooterLookup.getFeedFlywheelMap().get(minDist)
             && flywheelRPS <= ShooterLookup.getFeedFlywheelMap().get(maxDist);
 
+    flywheelOk = flywheelOk || flywheelIsAtTarget();
+    boolean debouncedTrue = atFeedSpeed.calculate(flywheelOk);
+
     // && hoodOk
-    return flywheelOk;
+    return debouncedTrue;
   }
 
   /**

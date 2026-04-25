@@ -173,7 +173,7 @@ public class Superstructure {
     angleToVirtualTarget =
         MathUtil.inputModulus((angleToVtFieldRad - robotAngleRad) / (2.0 * Math.PI), -0.25, 0.75);
 
-    // logTelemetry(state);
+    logTelemetry(state);
   }
 
   // ==================== Targeting Getters ====================

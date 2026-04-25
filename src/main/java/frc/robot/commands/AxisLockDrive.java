@@ -13,7 +13,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
 import frc.robot.utils.FieldInfo;
-
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
@@ -172,10 +171,8 @@ public class AxisLockDrive extends Command {
     // Get driver inputs and flip for BlueAlliance perspective
     // This ensures "forward on joystick" = positive field X on both alliances
     double[] flippedInputs =
-        FieldInfo.flipJoystick(
-            velocityXSupplier.getAsDouble(), velocityYSupplier.getAsDouble());
-    double flippedOmega =
-        FieldInfo.flipJoystickRotation(rotationalRateSupplier.getAsDouble());
+        FieldInfo.flipJoystick(velocityXSupplier.getAsDouble(), velocityYSupplier.getAsDouble());
+    double flippedOmega = FieldInfo.flipJoystickRotation(rotationalRateSupplier.getAsDouble());
 
     // Calculate X velocity (locked or driver-controlled)
     double velX;

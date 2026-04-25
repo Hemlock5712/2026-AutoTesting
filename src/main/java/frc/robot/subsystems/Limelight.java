@@ -16,7 +16,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
-
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
 
@@ -154,9 +153,7 @@ public class Limelight extends SubsystemBase {
       fusedStdDevs.set(2, 0, fusedThetaStdDev);
 
       m_drivetrain.addVisionMeasurement(
-          new Pose2d(fusedX, fusedY, new Rotation2d(fusedThetaRad)),
-          latestTimestamp,
-          fusedStdDevs);
+          new Pose2d(fusedX, fusedY, new Rotation2d(fusedThetaRad)), latestTimestamp, fusedStdDevs);
     }
     Logger.recordOutput("Timing/LimelightMs", (System.nanoTime() - _t) / 1e6);
   }
