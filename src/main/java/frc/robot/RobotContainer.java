@@ -70,7 +70,7 @@ public class RobotContainer {
   public final AutoCommands autoCommands = new AutoCommands(drivetrain);
 
   /* Create subsystems (uses simulated versions when running in simulation) */
-  private final Superstructure superstructure = new Superstructure(drivetrain::getState);
+  private final Superstructure superstructure = new Superstructure(drivetrain::getCachedState);
 
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 

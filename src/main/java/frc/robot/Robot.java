@@ -31,10 +31,10 @@ public class Robot extends LoggedRobot {
   public Robot() {
     Logger.recordMetadata("2026Robot", "2026-AutoTesting");
     if (isReal()) {
-      Logger.addDataReceiver(new WPILOGWriter("/home/lvuser/logs"));
+      // Logger.addDataReceiver(new WPILOGWriter("/home/lvuser/logs"));
       Logger.addDataReceiver(new NT4Publisher());
     } else {
-      Logger.addDataReceiver(new WPILOGWriter());
+      // Logger.addDataReceiver(new WPILOGWriter());
       Logger.addDataReceiver(new NT4Publisher());
     }
     Logger.start();

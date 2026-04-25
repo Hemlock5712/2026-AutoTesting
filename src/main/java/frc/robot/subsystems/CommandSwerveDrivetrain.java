@@ -1,6 +1,7 @@
 package frc.robot.subsystems;
 
 import com.ctre.phoenix6.Utils;
+import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
@@ -38,6 +39,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   private static final Rotation2d kRedAlliancePerspectiveRotation = Rotation2d.k180deg;
   /* Keep track if we've ever applied the operator perspective before or not */
   private boolean m_hasAppliedOperatorPerspective = false;
+
+  // Cached once per periodic() — eliminates repeated read-lock acquisitions on the odometry thread
+  private SwerveDriveState cachedState;
 
   /**
    * Constructs a CTRE SwerveDrivetrain using the specified constants.
@@ -122,6 +126,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   @Override
   public void periodic() {
     long _t = System.nanoTime();
+    cachedState = getState();
     if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
       DriverStation.getAlliance()
           .ifPresent(
@@ -187,47 +192,49 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds), visionMeasurementStdDevs);
   }
 
+  public SwerveDriveState getCachedState() {
+    return cachedState;
+  }
+
   @AutoLogOutput
   public Pose2d getPose() {
-    return getState().Pose;
+    return cachedState.Pose;
   }
 
   @AutoLogOutput
   public Rotation2d getRotation() {
-    return getPose().getRotation();
+    return cachedState.Pose.getRotation();
   }
 
   public SwerveModuleState[] getModuleStates() {
-    return getState().ModuleStates;
+    return cachedState.ModuleStates;
   }
 
   public SwerveModuleState[] getModuleTargets() {
-    return getState().ModuleTargets;
+    return cachedState.ModuleTargets;
   }
 
   @AutoLogOutput
   public ChassisSpeeds getRobotSpeeds() {
-    return getState().Speeds;
+    return cachedState.Speeds;
   }
 
   @AutoLogOutput
   public double translationSpeed() {
-    ChassisSpeeds robotSpeeds = getRobotSpeeds();
-    return Math.hypot(robotSpeeds.vxMetersPerSecond, robotSpeeds.vyMetersPerSecond);
+    return Math.hypot(cachedState.Speeds.vxMetersPerSecond, cachedState.Speeds.vyMetersPerSecond);
   }
 
   @AutoLogOutput
   public double rotationSpeed() {
-
-    return getRobotSpeeds().omegaRadiansPerSecond;
+    return cachedState.Speeds.omegaRadiansPerSecond;
   }
 
   public ChassisSpeeds getFieldSpeeds() {
-    return ChassisSpeeds.fromRobotRelativeSpeeds(getRobotSpeeds(), getRotation());
+    return ChassisSpeeds.fromRobotRelativeSpeeds(cachedState.Speeds, cachedState.Pose.getRotation());
   }
 
   public ChassisSpeeds getTargetFieldSpeeds() {
     return ChassisSpeeds.fromRobotRelativeSpeeds(
-        getKinematics().toChassisSpeeds(getModuleTargets()), getRotation());
+        getKinematics().toChassisSpeeds(cachedState.ModuleTargets), cachedState.Pose.getRotation());
   }
 }
