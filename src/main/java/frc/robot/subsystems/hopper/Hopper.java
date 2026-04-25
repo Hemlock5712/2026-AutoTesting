@@ -85,13 +85,10 @@ public class Hopper extends SubsystemBase {
   public void periodic() {
     LoopProfiler.measure(
         "Subsystems/HopperRefresh",
-        () ->
-            BaseStatusSignal.refreshAll(
-                sidewaysDistSignal,
-                kickerDistSignal,
-                mainStatorSignal,
-                mainVelSignal,
-                sideVelSignal));
+        () -> {
+          BaseStatusSignal.refreshAll(mainStatorSignal, mainVelSignal, sideVelSignal);
+          BaseStatusSignal.refreshAll(sidewaysDistSignal, kickerDistSignal);
+        });
   }
 
   public void setVelocity(AngularVelocity mainVelocity, AngularVelocity sideVelocity) {
