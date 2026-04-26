@@ -61,6 +61,7 @@ public class FollowPath extends Command {
 
   // Completion criteria
   private double completionTolerance = 0.05; // meters from path end
+  private double speedTolerance = 0.15; // m/s — must be > VelocityProfile.MIN_VELOCITY (0.1)
   private final double endVelocity;
 
   /**
@@ -247,6 +248,17 @@ public class FollowPath extends Command {
    */
   public FollowPath withCompletionTolerance(double meters) {
     this.completionTolerance = meters;
+    return this;
+  }
+
+  /**
+   * Sets the speed threshold for path completion (stop-at-end paths only).
+   *
+   * @param metersPerSecond Speed below which the robot is considered stopped (default 0.15)
+   * @return This command for chaining
+   */
+  public FollowPath withSpeedTolerance(double metersPerSecond) {
+    this.speedTolerance = metersPerSecond;
     return this;
   }
 
@@ -670,6 +682,6 @@ public class FollowPath extends Command {
         Math.hypot(
             lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
     boolean headingOk = lastHeadingError <= rotationTolerance;
-    return nearEnd && speed < 0.1 && headingOk;
+    return nearEnd && speed < speedTolerance && headingOk;
   }
 }

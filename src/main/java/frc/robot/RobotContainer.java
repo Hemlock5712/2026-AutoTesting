@@ -7,6 +7,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -88,6 +89,7 @@ public class RobotContainer {
   private final AutoRoutines autoRoutines;
   private Command cachedAutoCommand = Commands.none();
   private Supplier<Command> lastBuiltSupplier;
+  private DriverStation.Alliance lastBuiltAlliance;
 
   public RobotContainer() {
     autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
@@ -311,9 +313,11 @@ public class RobotContainer {
    */
   public void updateAutoSelection() {
     Supplier<Command> selected = autoChooser.getSelected();
+    DriverStation.Alliance currentAlliance = DriverStation.getAlliance().orElse(null);
 
-    if (selected != lastBuiltSupplier) {
+    if (selected != lastBuiltSupplier || currentAlliance != lastBuiltAlliance) {
       lastBuiltSupplier = selected;
+      lastBuiltAlliance = currentAlliance;
       cachedAutoCommand = (selected != null) ? selected.get() : Commands.none();
     }
   }

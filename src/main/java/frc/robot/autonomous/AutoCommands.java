@@ -386,6 +386,33 @@ public class AutoCommands {
     return projectedS[0];
   }
 
+  // ==================== Flag-Driven Actions ====================
+
+  /**
+   * Follow a path with actions auto-wired from its WaypointFlag labels. Flag labels are mapped to
+   * commands via the provided map. Unknown labels are silently ignored.
+   *
+   * @param pathData The path to follow
+   * @param flagCommandMap Maps flag label strings to command suppliers
+   * @param completionTolerance Completion tolerance in meters, or &lt;= 0 for default
+   * @param alongside Commands that run for the entire path (e.g., intake)
+   * @return A command that follows the path with flag-triggered actions
+   */
+  public Command followPathWithFlagActions(
+      PathData pathData,
+      java.util.Map<String, Supplier<Command>> flagCommandMap,
+      double completionTolerance,
+      Command... alongside) {
+    List<PathAction> actions = new ArrayList<>();
+    for (PathData.WaypointFlag flag : pathData.waypointFlags()) {
+      Supplier<Command> cmd = flagCommandMap.get(flag.label());
+      if (cmd != null) {
+        actions.add(new PathAction(flag.label(), 0.5, cmd));
+      }
+    }
+    return followPathWithActions(pathData, actions, completionTolerance, alongside);
+  }
+
   // ==================== Time-Triggered Actions ====================
 
   /**

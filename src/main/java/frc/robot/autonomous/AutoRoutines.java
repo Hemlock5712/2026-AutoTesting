@@ -7,7 +7,6 @@ import static edu.wpi.first.units.Units.Meters;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
@@ -16,7 +15,6 @@ import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldFlip;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
-import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 import frc.robot.utils.path.Paths.AlliancePath;
 import java.util.List;
@@ -24,6 +22,9 @@ import java.util.List;
 public class AutoRoutines {
 
   private static final double LEFT_TRENCH_CENTER = FieldInfo.width().in(Meters) - 0.639445;
+
+  /** Offset ahead of a path's start for cleanup drive targets. */
+  private static final double CLEANUP_OVERSHOOT_M = 0.25;
 
   private final AutoCommands autoCommands;
   private final Superstructure superstructure;
@@ -46,8 +47,7 @@ public class AutoRoutines {
     this.superstructure = superstructure;
     this.intakeCoordinator = intakeCoordinator;
 
-    // Precompute SplinePath + VelocityProfile for all path variants (both
-    // alliances)
+    // Precompute SplinePath + VelocityProfile for all path variants (both alliances)
     leftToMiddle.blue().precompute();
     leftToMiddle.red().precompute();
     leftToMiddleCleanup.blue().precompute();
@@ -58,12 +58,10 @@ public class AutoRoutines {
     rightToMiddleCleanup.red().precompute();
     leftToMiddleFeed.blue().precompute();
     leftToMiddleFeed.red().precompute();
-    leftToMiddleCleanup.blue().precompute();
-    leftToMiddleCleanup.red().precompute();
+    feedToMiddleCleanup.blue().precompute();
+    feedToMiddleCleanup.red().precompute();
 
     // Warm up JVM class loading by building a throwaway command chain.
-    // Forces all command framework classes to load during robot init, not first
-    // auto.
     autoCommands.followPath(leftToMiddle.blue());
   }
 
@@ -79,105 +77,65 @@ public class AutoRoutines {
     return Rotation2d.fromDegrees(snapped);
   }
 
+  // ==================== Auto Routines ====================
+
   public Command leftSide2Passes() {
-    return side2Passes(leftToMiddle, leftToMiddleCleanup);
+    return Commands.sequence(
+        resetPose(leftToMiddle),
+        followAndIntake(leftToMiddle, 0.15),
+        shootFor(2.5),
+        superstructure.prerollShooter(30),
+        driveToStart(leftToMiddleCleanup, 4.75),
+        follow(leftToMiddleCleanup, 0.15),
+        shootFor(3.5),
+        driveToStart(leftToMiddleCleanup, 4.75),
+        follow(leftToMiddleCleanup, 0.15));
   }
 
   public Command rightSide2Passes() {
-    return side2Passes(rightToMiddle, rightToMiddleCleanup);
+    return Commands.sequence(
+        resetPose(rightToMiddle),
+        followAndIntake(rightToMiddle, 0.15),
+        shootFor(2.5),
+        superstructure.prerollShooter(30),
+        driveToStart(rightToMiddleCleanup, 4.75),
+        follow(rightToMiddleCleanup, 0.15),
+        shootFor(3.5),
+        driveToStart(rightToMiddleCleanup, 4.75),
+        follow(rightToMiddleCleanup, 0.15));
   }
 
   public Command leftSideFeed2Passes() {
-    return sideFeed2Passes(
-        leftToMiddleFeed, new Pose2d(0.88, 0.75, Rotation2d.k180deg), feedToMiddleCleanup);
-  }
-
-  private boolean isRedAlliance() {
-    return DriverStation.getAlliance().map(a -> a == DriverStation.Alliance.Red).orElse(false);
-  }
-
-  private Command side2Passes(AlliancePath mainAlliancePath, AlliancePath cleanupAlliancePath) {
-    Command blueCmd = buildSide2Passes(mainAlliancePath.blue(), cleanupAlliancePath.blue());
-    Command redCmd = buildSide2Passes(mainAlliancePath.red(), cleanupAlliancePath.red());
-    return Commands.either(redCmd, blueCmd, this::isRedAlliance);
-  }
-
-  private Command sideFeed2Passes(
-      AlliancePath mainAlliancePath, Pose2d redTargetPose, AlliancePath cleanupAlliancePath) {
-    Command blueCmd =
-        buildFeedSide2Passes(
-            mainAlliancePath.blue(),
-            new ExtPose(FieldFlip.overWidth(redTargetPose)),
-            cleanupAlliancePath.blue());
-    Command redCmd =
-        buildFeedSide2Passes(
-            mainAlliancePath.red(), new ExtPose(redTargetPose), cleanupAlliancePath.red());
-    return Commands.either(redCmd, blueCmd, this::isRedAlliance);
-  }
-
-  private Command buildSide2Passes(PathData mainPath, PathData cleanupPath) {
-    Pose2d cleanupStart = cleanupPath.getStartingPose();
-    Pose2d cleanupDriveTarget =
-        new Pose2d(
-            cleanupStart.getTranslation().plus(new Translation2d(0.25, cleanupStart.getRotation())),
-            cleanupStart.getRotation());
+    ExtPose feedTarget =
+        new ExtPose(FieldFlip.overWidth(new Pose2d(0.88, 0.75, Rotation2d.k180deg)));
 
     return Commands.sequence(
-        autoCommands.resetPose(() -> mainPath.getStartingPose()),
-        autoCommands
-            .followPath(mainPath)
-            .withCompletionTolerance(0.15)
-            .deadlineFor(
-                intakeCoordinator.deployAndRunAUTO(),
-                superstructure.fixedShoot(() -> mainPath.getTargetPose())),
-        new WaitCommand(2.5).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
-        superstructure.stopShoot(),
-        superstructure.prerollShooter(30),
-        autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
-        autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15),
-        new WaitCommand(3.5).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
-        superstructure.stopShoot(),
-        autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
-        autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15));
-  }
-
-  private Command buildFeedSide2Passes(
-      PathData mainPath, ExtPose feedTargetPose, PathData cleanupPath) {
-    Pose2d cleanupStart = cleanupPath.getStartingPose();
-    Pose2d cleanupDriveTarget =
-        new Pose2d(
-            cleanupStart.getTranslation().plus(new Translation2d(0.25, cleanupStart.getRotation())),
-            cleanupStart.getRotation());
-
-    return Commands.sequence(
-        autoCommands.resetPose(() -> mainPath.getStartingPose()),
+        resetPose(leftToMiddleFeed),
         autoCommands
             .followPathWithActions(
-                mainPath,
+                leftToMiddleFeed.get(),
                 List.of(
                     new AutoCommands.PathAction(1, 0.5, superstructure::feedShoot),
                     new AutoCommands.PathAction(4, 1.0, superstructure::stopShoot)))
             .deadlineFor(intakeCoordinator.deployAndRunAUTO(), superstructure.prerollShooter(30)),
-        autoCommands.driveTo(feedTargetPose).withMaxSpeed(2).deadlineFor(superstructure.shoot()),
+        autoCommands.driveTo(feedTarget).withMaxSpeed(2).deadlineFor(superstructure.shoot()),
         Commands.waitSeconds(3).deadlineFor(superstructure.shoot()),
         superstructure.stopShoot(),
         superstructure.prerollShooter(30),
-        autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
-        autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15),
+        driveToStart(feedToMiddleCleanup, 4.75),
+        follow(feedToMiddleCleanup, 0.15),
         superstructure.shoot());
   }
 
   public Command leftAutoFeed(double midlineX) {
     return Commands.sequence(
         autoCommands.leftAutoSetup(),
-        // Drive to midline, left of balls
         autoCommands
             .driveTo(
                 () -> new ExtPose(midlineX, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-90)).get())
             .withWaypoint(1)
             .withMaxSpeed(5)
             .deadlineFor(autoCommands.runWhenPastX(6.0, intakeCoordinator.deployAndRunAUTO())),
-        // Drive right through balls at midline, at a slight backwards angle
         autoCommands
             .driveTo(
                 () ->
@@ -213,7 +171,6 @@ public class AutoRoutines {
             .withMaxSpeed(4)
             .withWaypoint(1)
             .deadlineFor(superstructure.spinUpShooter()),
-        // Clean up and shoot
         Commands.deadline(
             Commands.sequence(
                 autoCommands
@@ -229,5 +186,47 @@ public class AutoRoutines {
                     .withMaxSpeed(1)
                     .withWaypoint(1)),
             superstructure.shoot()));
+  }
+
+  // ==================== Reusable Steps ====================
+
+  /** Reset pose to the starting position of a path. */
+  private Command resetPose(AlliancePath path) {
+    return autoCommands.resetPose(() -> path.get().getStartingPose());
+  }
+
+  /** Follow a path while running intake and fixed-shooting at the endpoint. */
+  private Command followAndIntake(AlliancePath path, double tolerance) {
+    var data = path.get();
+    return autoCommands
+        .followPath(data)
+        .withCompletionTolerance(tolerance)
+        .deadlineFor(
+            intakeCoordinator.deployAndRunAUTO(),
+            superstructure.fixedShoot(() -> data.getTargetPose()));
+  }
+
+  /** Follow a path with a completion tolerance. */
+  private Command follow(AlliancePath path, double tolerance) {
+    return autoCommands.followPath(path.get()).withCompletionTolerance(tolerance);
+  }
+
+  /** Shoot for the given duration with turret tracking, then stop. */
+  private Command shootFor(double seconds) {
+    return new WaitCommand(seconds)
+        .deadlineFor(superstructure.shoot(), superstructure.turretTrackHub())
+        .andThen(superstructure.stopShoot());
+  }
+
+  /** Drive to a point slightly ahead of a path's start pose (cleanup approach point). */
+  private Command driveToStart(AlliancePath path, double waypointSpeed) {
+    Pose2d start = path.get().getStartingPose();
+    Pose2d target =
+        new Pose2d(
+            start
+                .getTranslation()
+                .plus(new Translation2d(CLEANUP_OVERSHOOT_M, start.getRotation())),
+            start.getRotation());
+    return autoCommands.driveTo(() -> target).withWaypoint(waypointSpeed);
   }
 }
