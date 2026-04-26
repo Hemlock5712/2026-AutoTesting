@@ -29,6 +29,26 @@ public final class Paths {
     }
   }
 
+  /**
+   * Holds pre-generated blue and red variants of a path. Call {@link #get()} at runtime to select
+   * the correct variant based on the current alliance.
+   */
+  public record AlliancePath(PathData blue, PathData red) {
+    /** Creates an AlliancePath by pre-mirroring the given blue-alliance path. */
+    public static AlliancePath of(PathData bluePath) {
+      return new AlliancePath(bluePath, bluePath.mirrorForRedAlliance());
+    }
+
+    /** Returns the correct variant for the current alliance. */
+    public PathData get() {
+      var alliance = DriverStation.getAlliance();
+      if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
+        return red;
+      }
+      return blue;
+    }
+  }
+
   public static final PathData START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT =
       new PathData(
           List.of(
@@ -446,14 +466,14 @@ public final class Paths {
           VelocityConstraints.defaults()
               .withMaxVelocity(5.1033118205322285)
               .withMaxAcceleration(10.791000000000002),
-          List.of(new PathData.ConstraintZone(1, 4, 1.5, 10.791000000000002)),
+          List.of(new PathData.ConstraintZone(1, 4, 2, 10.791000000000002)),
           List.of(),
           List.of());
 
   public static final PathData FEED_CLEANUP_BACK_TO_MIDDLE =
       new PathData(
           List.of(
-              new Translation2d(2.0, 7.50928324490757),
+              new Translation2d(0.9163221664321582, 7.50928324490757),
               new Translation2d(5.671186963127911, 7.528533710193239),
               new Translation2d(6.383454159394078, 5.776741369197371),
               new Translation2d(6.614459736561483, 3.9671976323444955),
@@ -476,25 +496,27 @@ public final class Paths {
           List.of(),
           List.of());
 
-  /**
-   * Holds pre-generated blue and red variants of a path. Call {@link #get()} at runtime to select
-   * the correct variant based on the current alliance.
-   */
-  public record AlliancePath(PathData blue, PathData red) {
-    /** Creates an AlliancePath by pre-mirroring the given blue-alliance path. */
-    public static AlliancePath of(PathData bluePath) {
-      return new AlliancePath(bluePath, bluePath.mirrorForRedAlliance());
-    }
-
-    /** Returns the correct variant for the current alliance. */
-    public PathData get() {
-      var alliance = DriverStation.getAlliance();
-      if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
-        return red;
-      }
-      return blue;
-    }
-  }
+  public static final PathData LEFT_TO_MIDDLE_TO_DEPOT =
+      new PathData(
+          List.of(
+              new Translation2d(4.208151641067681, 7.701787897764259),
+              new Translation2d(8, 7.085773008622855),
+              new Translation2d(8.250749241497267, 4.236704146343859),
+              new Translation2d(7.191973679479996, 4.7564667090569195),
+              new Translation2d(6.575958807033582, 7.3360290573365505),
+              new Translation2d(1.9750977284494315, 7.547784175478908)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(180)),
+              new PathData.HeadingWaypoint(3, Rotation2d.fromDegrees(115))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(1, 4, 2, 10.791000000000002)),
+          List.of(),
+          List.of());
 
   /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later
