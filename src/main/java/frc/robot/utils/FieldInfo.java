@@ -143,7 +143,7 @@ public final class FieldInfo {
   public static final ExtTranslation LEFT_FEED_POSITION_AUTO =
       FieldFlip.overWidth(RIGHT_FEED_POSITION_AUTO);
 
-  public static final ExtTranslation RIGHT_FAR_FEED_POSITION = new ExtTranslation(6, 1);
+  public static final ExtTranslation RIGHT_FAR_FEED_POSITION = new ExtTranslation(6, 0.5);
   public static final ExtTranslation LEFT_FAR_FEED_POSITION =
       FieldFlip.overWidth(RIGHT_FAR_FEED_POSITION);
 
