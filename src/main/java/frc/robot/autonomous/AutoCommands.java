@@ -110,8 +110,7 @@ public class AutoCommands {
    */
   public FollowPath followPath(PathData data, VelocityConstraints constraints) {
     SplinePath path = data.getSplinePath();
-    FollowPath cmd =
-        new FollowPath(drivetrain, path, constraints, data.constraintZones());
+    FollowPath cmd = new FollowPath(drivetrain, path, constraints, data.constraintZones());
 
     if (!data.headingWaypoints().isEmpty()) {
       cmd.withRotationSupplier(
