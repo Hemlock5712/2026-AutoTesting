@@ -191,7 +191,7 @@ public class AutoRoutines {
     return Commands.sequence(
         autoCommands.resetPose(() -> leftToMiddleDepot.get().getStartingPose()),
         // Drive to midline, left of balls
-        Commands.either(redSide, blueSide, this::isRedAlliance).withTimeout(6.7),
+        Commands.either(redSide, blueSide, this::isRedAlliance).withTimeout(7.2),
         Commands.waitSeconds(3)
             .deadlineFor(superstructure.turretTrackHub().alongWith(superstructure.shoot())),
         superstructure.stopShoot(),
