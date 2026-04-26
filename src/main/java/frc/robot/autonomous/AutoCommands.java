@@ -101,6 +101,27 @@ public class AutoCommands {
   }
 
   /**
+   * Follow a path from a PathData object with custom velocity constraints. Rebuilds the velocity
+   * profile with the provided constraints instead of using the cached one.
+   *
+   * @param data The path data
+   * @param constraints Custom velocity constraints
+   * @return A FollowPath command
+   */
+  public FollowPath followPath(PathData data, VelocityConstraints constraints) {
+    SplinePath path = data.getSplinePath();
+    FollowPath cmd =
+        new FollowPath(drivetrain, path, constraints, data.constraintZones());
+
+    if (!data.headingWaypoints().isEmpty()) {
+      cmd.withRotationSupplier(
+          RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
+    }
+
+    return cmd;
+  }
+
+  /**
    * Follow a spline path with a rotation supplier.
    *
    * @param path The spline path to follow
