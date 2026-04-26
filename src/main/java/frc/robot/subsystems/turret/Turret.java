@@ -11,6 +11,8 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
+import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.wpilibj.Alert;
@@ -40,6 +42,8 @@ public class Turret extends SubsystemBase {
   private final DualEncoderCRT crt;
 
   private final MotionMagicTorqueCurrentFOC angleOut = new MotionMagicTorqueCurrentFOC(0);
+
+  private final Debouncer atTurret = new Debouncer(0.25, DebounceType.kFalling);
 
   // Shooting gate: distance-dependent position tolerance (~half the effective scoring radius)
 
@@ -163,7 +167,11 @@ public class Turret extends SubsystemBase {
 
   /** Distance-dependent shoot gate: tighter position tolerance at longer range. */
   public boolean isAtTarget(double distanceToTarget) {
-    return getPositionError() <= Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI);
+    boolean turretAtPosition =
+        atTurret.calculate(
+            getPositionError()
+                <= Math.atan(MAX_LATERAL_MISS_M / distanceToTarget) / (2.0 * Math.PI));
+    return turretAtPosition && isNotFlipping();
   }
 
   /** Looser check for feed shots - wider tolerance than hub shots. */

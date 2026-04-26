@@ -92,9 +92,9 @@ public class Shooter extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // Control values
-    config.Slot0.kS = 10.0; // Static friction
-    config.Slot0.kV = 0.03; // Velocity feedforward
-    config.Slot0.kP = 6; // Proportional gain
+    config.Slot0.kS = 7.9; // Static friction
+    config.Slot0.kV = 0.11; // Velocity feedforward
+    config.Slot0.kP = 12; // Proportional gain
     config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseVelocitySign;
 
     config.Feedback.SensorToMechanismRatio = 1.33333333333;
@@ -113,11 +113,11 @@ public class Shooter extends SubsystemBase {
     hoodConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // Control values
-    hoodConfig.Slot0.kG = 5; // Gravity compensation
-    hoodConfig.Slot0.kS = 3; // Static friction
+    hoodConfig.Slot0.kG = 2.75; // Gravity compensation
+    hoodConfig.Slot0.kS = 2; // Static friction
     hoodConfig.Slot0.kV = 0.0; // Velocity feedforward
-    hoodConfig.Slot0.kP = 6400; // Proportional gain
-    hoodConfig.Slot0.kD = 175; // Proportional gain
+    hoodConfig.Slot0.kP = 6000; // Proportional gain
+    hoodConfig.Slot0.kD = 200; // Proportional gain
     hoodConfig.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseClosedLoopSign;
     hoodConfig.Slot0.GravityType = GravityTypeValue.Elevator_Static;
 
