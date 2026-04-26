@@ -16,7 +16,6 @@ import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
-import frc.robot.utils.path.VelocityConstraints;
 import frc.robot.utils.path.Paths.AlliancePath;
 import java.util.List;
 
@@ -172,20 +171,19 @@ public class AutoRoutines {
 
   public Command leftAutoFeed(double midlineX) {
 
-    VelocityConstraints depotConstraints =
-        VelocityConstraints.defaults().withMaxDeceleration(9);
-
     Command redSide =
         autoCommands
-            .followPath(leftToMiddleDepot.red(), depotConstraints)
+            .followPath(leftToMiddleDepot.red())
             .withCompletionTolerance(0.25)
+            .withTimeout(6.7)
             .deadlineFor(
                 intakeCoordinator.deployAndRunAUTO(),
                 superstructure.fixedShoot(() -> leftToMiddleDepot.red().getTargetPose()));
     Command blueSide =
         autoCommands
-            .followPath(leftToMiddleDepot.blue(), depotConstraints)
+            .followPath(leftToMiddleDepot.blue())
             .withCompletionTolerance(0.25)
+            .withTimeout(6.7)
             .deadlineFor(
                 intakeCoordinator.deployAndRunAUTO(),
                 superstructure.fixedShoot(() -> leftToMiddleDepot.blue().getTargetPose()));
