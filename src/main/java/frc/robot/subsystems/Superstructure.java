@@ -616,11 +616,14 @@ public class Superstructure {
       rightFeedTarget = FieldInfo.RIGHT_FAR_FEED_POSITION.get();
     }
 
+    FeedMode effectiveMode =
+        FieldInfo.isInOpponentZone(robotPose) ? FeedMode.AUTO : teleopFeedMode;
+
     return DriverStation.isAutonomous()
         ? FeedTargetSelector.selectAutoTarget(
             robotPose.getTranslation(), leftFeedTarget, rightFeedTarget)
         : FeedTargetSelector.selectTeleopTarget(
-            teleopFeedMode,
+            effectiveMode,
             robotPose.getTranslation(),
             turretPose.getTranslation(),
             leftFeedTarget,
