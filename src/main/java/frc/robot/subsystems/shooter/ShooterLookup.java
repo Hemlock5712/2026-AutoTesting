@@ -74,11 +74,11 @@ public class ShooterLookup {
     flywheelMap.put(1.5, 28.0);
     flywheelMap.put(2.0, 27.0);
     flywheelMap.put(2.5, 28.0);
-    flywheelMap.put(3.0, 27.0);
+    flywheelMap.put(3.0, 28.5);
     flywheelMap.put(3.5, 30.5);
     flywheelMap.put(4.0, 32.0);
     flywheelMap.put(4.5, 34.5);
-    flywheelMap.put(5.0, 36.5);
+    flywheelMap.put(5.0, 38.25);
     flywheelMap.put(5.5, 42.0);
   }
 
@@ -88,26 +88,26 @@ public class ShooterLookup {
     hoodMap.put(1.5, 0.0);
     hoodMap.put(2.0, 7.0);
     hoodMap.put(2.5, 10.0);
-    hoodMap.put(3.0, 15.0);
+    hoodMap.put(3.0, 13.5);
     hoodMap.put(3.5, 17.0);
     hoodMap.put(4.0, 20.0);
     hoodMap.put(4.5, 25.0);
-    hoodMap.put(5.0, 25.0);
+    hoodMap.put(5.0, 27.0);
     hoodMap.put(5.5, 32.0);
   }
 
   private static void buildToF() {
-    tofMap.put(0.0, 0.890);
-    tofMap.put(1.0, 0.890);
-    tofMap.put(1.5, 0.890);
-    tofMap.put(2.0, 0.890);
-    tofMap.put(2.5, 0.900);
-    tofMap.put(3.0, 0.984);
-    tofMap.put(3.5, 1.060);
-    tofMap.put(4.0, 0.97);
-    tofMap.put(4.5, 0.96);
-    tofMap.put(5.0, 0.90);
-    tofMap.put(5.5, 0.90);
+    tofMap.put(0.0, 1.24);
+    tofMap.put(1.0, 1.24);
+    tofMap.put(1.5, 1.24);
+    tofMap.put(2.0, 1.059);
+    tofMap.put(2.5, 1.093);
+    tofMap.put(3.0, 1.098);
+    tofMap.put(3.5, 1.097);
+    tofMap.put(4.0, 1.104);
+    tofMap.put(4.5, 1.056);
+    tofMap.put(5.0, 1.079);
+    tofMap.put(5.5, 1.027);
   }
 
   private static void buildFeedFlywheel() {
