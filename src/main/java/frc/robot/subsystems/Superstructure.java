@@ -141,7 +141,14 @@ public class Superstructure {
     // Calculate targeting data once per loop (used by turret tracking and shooter)
     SwerveDriveState state = driveState.get();
     Pose2d robotPose = state.Pose;
-    turretPose = robotPose.transformBy(TURRET_TRANSFORM);
+    // Inline transform to avoid intermediate Translation2d/Rotation2d allocations from transformBy()
+    double rpCos = robotPose.getRotation().getCos();
+    double rpSin = robotPose.getRotation().getSin();
+    turretPose =
+        new Pose2d(
+            robotPose.getX() + TURRET_TRANSFORM.getX() * rpCos - TURRET_TRANSFORM.getY() * rpSin,
+            robotPose.getY() + TURRET_TRANSFORM.getX() * rpSin + TURRET_TRANSFORM.getY() * rpCos,
+            robotPose.getRotation());
 
     if (passTargetOverride != null) {
       targetPosition = FieldInfo.flip(passTargetOverride);
@@ -167,6 +174,7 @@ public class Superstructure {
             targetPosition.getX() - turretPose.getX(), targetPosition.getY() - turretPose.getY());
 
     // Calculate SWM targeting values
+    long tVT = System.nanoTime();
     virtualTargetPosition = virtualTarget(state);
     double vdx = virtualTargetPosition.getX() - turretPose.getX();
     double vdy = virtualTargetPosition.getY() - turretPose.getY();
@@ -176,7 +184,12 @@ public class Superstructure {
     angleToVirtualTarget =
         MathUtil.inputModulus((angleToVtFieldRad - robotAngleRad) / (2.0 * Math.PI), -0.25, 0.75);
 
+    long tLog = System.nanoTime();
     logTelemetry(state);
+    long tEnd = System.nanoTime();
+
+    Logger.recordOutput("Timing/SWM_VirtualTargetMs", (tLog - tVT) / 1e6);
+    Logger.recordOutput("Timing/SWM_LogTelemetryMs", (tEnd - tLog) / 1e6);
   }
 
   // ==================== Targeting Getters ====================
@@ -608,9 +621,12 @@ public class Superstructure {
             ? FieldInfo.RIGHT_FEED_POSITION_AUTO.get()
             : FieldInfo.RIGHT_FEED_POSITION.get();
 
+    // Extract once — robotPose.getTranslation() allocates a new Translation2d each call
+    Translation2d robotTrans = robotPose.getTranslation();
+
     // If both normal feed targets are beyond max feed range, use far feed points
-    double distToLeft = robotPose.getTranslation().getDistance(leftFeedTarget);
-    double distToRight = robotPose.getTranslation().getDistance(rightFeedTarget);
+    double distToLeft = robotTrans.getDistance(leftFeedTarget);
+    double distToRight = robotTrans.getDistance(rightFeedTarget);
     if (Math.min(distToLeft, distToRight) > MAX_FEED_RANGE) {
       leftFeedTarget = FieldInfo.LEFT_FAR_FEED_POSITION.get();
       rightFeedTarget = FieldInfo.RIGHT_FAR_FEED_POSITION.get();
@@ -619,11 +635,10 @@ public class Superstructure {
     FeedMode effectiveMode = FieldInfo.isInOpponentZone(robotPose) ? FeedMode.AUTO : teleopFeedMode;
 
     return DriverStation.isAutonomous()
-        ? FeedTargetSelector.selectAutoTarget(
-            robotPose.getTranslation(), leftFeedTarget, rightFeedTarget)
+        ? FeedTargetSelector.selectAutoTarget(robotTrans, leftFeedTarget, rightFeedTarget)
         : FeedTargetSelector.selectTeleopTarget(
             effectiveMode,
-            robotPose.getTranslation(),
+            robotTrans,
             turretPose.getTranslation(),
             leftFeedTarget,
             rightFeedTarget,
@@ -631,8 +646,9 @@ public class Superstructure {
   }
 
   private void logTelemetry(SwerveDriveState state) {
-    // SWM state
-    Logger.recordOutput("SWM/VirtualTarget", new Pose2d(virtualTargetPosition, Rotation2d.kZero));
+    // SWM state — log Translation2d directly (rotation is always kZero, wrapping in Pose2d
+    // allocated one object per loop for no informational gain)
+    Logger.recordOutput("SWM/VirtualTarget", virtualTargetPosition);
     Logger.recordOutput("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
     Logger.recordOutput("SWM/VirtualTargetDist", distanceToVirtualTarget);
     Logger.recordOutput("SWM/Feasible", swmSolutionFeasible);
@@ -654,10 +670,8 @@ public class Superstructure {
 
     // Feed selection
     if (feedSelection != null) {
-      Logger.recordOutput(
-          "SWM/PreferredFeedTarget", new Pose2d(feedSelection.preferredTarget(), Rotation2d.kZero));
-      Logger.recordOutput(
-          "SWM/ResolvedFeedTarget", new Pose2d(feedSelection.resolvedTarget(), Rotation2d.kZero));
+      Logger.recordOutput("SWM/PreferredFeedTarget", feedSelection.preferredTarget());
+      Logger.recordOutput("SWM/ResolvedFeedTarget", feedSelection.resolvedTarget());
       Logger.recordOutput("SWM/ResolvedFeedOffsetMeters", feedSelection.offset().in(Meters));
       Logger.recordOutput("SWM/FeedPathBlocked", feedSelection.blocked());
       Logger.recordOutput("SWM/FeedHubClearanceMeters", feedSelection.clearance().in(Meters));
@@ -667,13 +681,13 @@ public class Superstructure {
       Logger.recordOutput("SWM/FeedPathBlocked", false);
     }
 
-    // Target geometry
+    // Target geometry — hub and endGoal use Translation2d (rotation is always kZero)
     Translation2d hub2d = FieldInfo.flip(FieldInfo.HUB_POSITION);
-    Logger.recordOutput("SWM/HubPose2d", new Pose2d(hub2d, Rotation2d.kZero));
+    Logger.recordOutput("SWM/HubPose2d", hub2d);
     Logger.recordOutput(
         "SWM/HubPose3d",
         new Pose3d(hub2d.getX(), hub2d.getY(), FieldInfo.HUB_HEIGHT.in(Meters), Rotation3d.kZero));
-    Logger.recordOutput("SWM/EndGoalPose2d", new Pose2d(targetPosition, Rotation2d.kZero));
+    Logger.recordOutput("SWM/EndGoalPose2d", targetPosition);
     Logger.recordOutput(
         "SWM/EndGoalPose3d",
         new Pose3d(targetPosition.getX(), targetPosition.getY(), 0.0, Rotation3d.kZero));
