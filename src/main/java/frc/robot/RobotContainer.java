@@ -6,7 +6,10 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer.DebounceType;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -16,6 +19,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
+import frc.robot.commands.DriveToPoint;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.commands.TurretDrive;
 import frc.robot.generated.TunerConstants;
@@ -25,6 +29,7 @@ import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.subsystems.intake.IntakeCoordinator;
+import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.utils.FieldInfo;
 import java.util.List;
 import java.util.function.Supplier;
@@ -64,6 +69,7 @@ public class RobotContainer {
   private double maxShootAngularRate = maxAngularRate * 0.5;
 
   private final CommandXboxController joystick = new CommandXboxController(0);
+  private final CommandXboxController lookupController = new CommandXboxController(1);
 
   public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
@@ -111,6 +117,7 @@ public class RobotContainer {
   }
 
   private static boolean bumpIsInAllianceZone = true;
+  private final LookupTestController lookupTestController = new LookupTestController();
 
   private void configureBindings() {
     // Cached translation velocities - computed once per cycle in velocityX supplier
@@ -254,6 +261,24 @@ public class RobotContainer {
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
+
+    lookupController.povUp().onTrue(Commands.runOnce(lookupTestController::selectNext));
+    lookupController.povDown().onTrue(Commands.runOnce(lookupTestController::selectPrevious));
+    lookupController
+        .leftTrigger(0.5)
+        .whileTrue(
+            Commands.either(
+                new DriveToPoint(drivetrain, lookupTestController::getAlliancePose)
+                    .withPositionTolerance(0.05),
+                Commands.none(),
+                lookupTestController::isPoseValid));
+    lookupController
+        .rightTrigger(0.5)
+        .whileTrue(
+            Commands.either(
+                superstructure.lookupTestShoot(lookupTestController::getAlliancePose),
+                Commands.none(),
+                lookupTestController::isPoseValid));
   }
 
   public Command getAutonomousCommand() {
@@ -315,6 +340,75 @@ public class RobotContainer {
     if (selected != lastBuiltSupplier) {
       lastBuiltSupplier = selected;
       cachedAutoCommand = (selected != null) ? selected.get() : Commands.none();
+    }
+  }
+
+  private class LookupTestController {
+    private final double[] distances = ShooterLookup.getHubTestDistances();
+    private int selectedIndex = 0;
+    private Pose2d selectedBluePose = Pose2d.kZero;
+    private boolean poseValid = false;
+
+    LookupTestController() {
+      updateSelectedPose();
+    }
+
+    void selectNext() {
+      selectedIndex = Math.min(selectedIndex + 1, distances.length - 1);
+      updateSelectedPose();
+    }
+
+    void selectPrevious() {
+      selectedIndex = Math.max(selectedIndex - 1, 0);
+      updateSelectedPose();
+    }
+
+    Pose2d getAlliancePose() {
+      return FieldInfo.flip(selectedBluePose);
+    }
+
+    boolean isPoseValid() {
+      return poseValid;
+    }
+
+    private void updateSelectedPose() {
+      double distance = distances[selectedIndex];
+      selectedBluePose = calculateBluePose(distance);
+      poseValid = isInsideField(selectedBluePose);
+      publish(distance);
+
+      if (!poseValid) {
+        DriverStation.reportWarning(
+            "Lookup test pose is outside field bounds: " + selectedBluePose, false);
+      }
+    }
+
+    private Pose2d calculateBluePose(double distance) {
+      Translation2d hubToOrigin = Translation2d.kZero.minus(FieldInfo.HUB_POSITION);
+      Translation2d direction = hubToOrigin.div(hubToOrigin.getNorm());
+      Translation2d turretPosition = FieldInfo.HUB_POSITION.plus(direction.times(distance));
+      Translation2d robotPosition =
+          turretPosition.minus(Superstructure.TURRET_TRANSFORM.getTranslation());
+      return new Pose2d(robotPosition, Rotation2d.kZero);
+    }
+
+    private boolean isInsideField(Pose2d pose) {
+      return pose.getX() >= 0.0
+          && pose.getX() <= FieldInfo.lengthMeters()
+          && pose.getY() >= 0.0
+          && pose.getY() <= FieldInfo.widthMeters();
+    }
+
+    private void publish(double distance) {
+      SmartDashboard.putNumber("LookupTest/DistanceMeters", distance);
+      SmartDashboard.putNumber("LookupTest/HoodDeg", ShooterLookup.getHoodMap().get(distance));
+      SmartDashboard.putNumber(
+          "LookupTest/FlywheelRPS", ShooterLookup.getFlywheelMap().get(distance));
+      SmartDashboard.putNumber(
+          "LookupTest/TimeOfFlightSec", ShooterLookup.getToFMap().get(distance));
+      SmartDashboard.putString(
+          "LookupTest/DrivePose",
+          poseValid ? getAlliancePose().toString() : "INVALID " + selectedBluePose);
     }
   }
 }
