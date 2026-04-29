@@ -63,6 +63,7 @@ public class FollowPath extends Command {
   // Completion criteria
   private double completionTolerance = 0.05; // meters from path end
   private final double endVelocity;
+  private double completionVelocityTolerance = 0.1; // meters per second
 
   /**
    * Maximum arc-length the projection can move per cycle (meters). Derived from physics: at max FRC
@@ -248,6 +249,17 @@ public class FollowPath extends Command {
    */
   public FollowPath withCompletionTolerance(double meters) {
     this.completionTolerance = meters;
+    return this;
+  }
+
+  /**
+   * Sets the completion velocity tolerance. (max speed deviation from the target end speed)
+   *
+   * @param tolerance Tolerance in meters per second
+   * @return This command for chaining
+   */
+  public FollowPath withCompletionVelocityTolerance(double tolerance) {
+    this.completionVelocityTolerance = tolerance;
     return this;
   }
 
@@ -672,6 +684,6 @@ public class FollowPath extends Command {
         lastCommandedVelocity.vxMetersPerSecond * tangent.getX()
             + lastCommandedVelocity.vyMetersPerSecond * tangent.getY();
     boolean headingOk = lastHeadingError <= rotationTolerance;
-    return nearEnd && alongPath < 0.1 && headingOk;
+    return nearEnd && alongPath < completionVelocityTolerance && headingOk;
   }
 }
