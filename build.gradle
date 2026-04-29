@@ -40,6 +40,23 @@ deploy {
                 // getTargetTypeClass is a shortcut to get the class type using a string
 
                 frcJava(getArtifactTypeClass('FRCJavaArtifact')) {
+                    // GC and heap tuning following the Team 254 / Mechanical
+                    // Advantage (6328) recipe used in their public 2025 robot
+                    // code. Pinned 100 MB heap with pre-touched pages
+                    // eliminates heap-growth stalls and first-touch page
+                    // faults during a match. GCTimeRatio=5 lets Serial GC
+                    // (WPILib's 2024+ default) use a larger young gen,
+                    // reducing minor-GC frequency. 100 MB is the
+                    // community-tested safe ceiling — leaves headroom for
+                    // native code, camera buffers, and the OS on both
+                    // roboRIO 1 (256 MB) and roboRIO 2 (512 MB).
+                    jvmArgs.add("-XX:+UnlockExperimentalVMOptions")
+                    jvmArgs.add("-XX:GCTimeRatio=5")
+                    jvmArgs.add("-XX:+UseSerialGC")
+                    jvmArgs.add("-XX:MaxGCPauseMillis=50")
+                    jvmArgs.add("-Xms100M")
+                    jvmArgs.add("-Xmx100M")
+                    jvmArgs.add("-XX:+AlwaysPreTouch")
                 }
 
                 // Static files artifact

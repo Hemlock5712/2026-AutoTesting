@@ -631,8 +631,8 @@ public class Superstructure {
   }
 
   private void logTelemetry(SwerveDriveState state) {
-    // SWM state
-    Logger.recordOutput("SWM/VirtualTarget", new Pose2d(virtualTargetPosition, Rotation2d.kZero));
+    // SWM state — log Translation2d directly to avoid per-loop Pose2d allocation.
+    Logger.recordOutput("SWM/VirtualTarget", virtualTargetPosition);
     Logger.recordOutput("SWM/DistanceDelta", distanceToVirtualTarget - distanceToHub);
     Logger.recordOutput("SWM/VirtualTargetDist", distanceToVirtualTarget);
     Logger.recordOutput("SWM/Feasible", swmSolutionFeasible);
@@ -654,10 +654,9 @@ public class Superstructure {
 
     // Feed selection
     if (feedSelection != null) {
-      Logger.recordOutput(
-          "SWM/PreferredFeedTarget", new Pose2d(feedSelection.preferredTarget(), Rotation2d.kZero));
-      Logger.recordOutput(
-          "SWM/ResolvedFeedTarget", new Pose2d(feedSelection.resolvedTarget(), Rotation2d.kZero));
+      // Translation2d directly — avoids per-loop Pose2d wrapper allocation.
+      Logger.recordOutput("SWM/PreferredFeedTarget", feedSelection.preferredTarget());
+      Logger.recordOutput("SWM/ResolvedFeedTarget", feedSelection.resolvedTarget());
       Logger.recordOutput("SWM/ResolvedFeedOffsetMeters", feedSelection.offset().in(Meters));
       Logger.recordOutput("SWM/FeedPathBlocked", feedSelection.blocked());
       Logger.recordOutput("SWM/FeedHubClearanceMeters", feedSelection.clearance().in(Meters));
@@ -667,16 +666,10 @@ public class Superstructure {
       Logger.recordOutput("SWM/FeedPathBlocked", false);
     }
 
-    // Target geometry
-    Translation2d hub2d = FieldInfo.flip(FieldInfo.HUB_POSITION);
-    Logger.recordOutput("SWM/HubPose2d", new Pose2d(hub2d, Rotation2d.kZero));
-    Logger.recordOutput(
-        "SWM/HubPose3d",
-        new Pose3d(hub2d.getX(), hub2d.getY(), FieldInfo.HUB_HEIGHT.in(Meters), Rotation3d.kZero));
-    Logger.recordOutput("SWM/EndGoalPose2d", new Pose2d(targetPosition, Rotation2d.kZero));
-    Logger.recordOutput(
-        "SWM/EndGoalPose3d",
-        new Pose3d(targetPosition.getX(), targetPosition.getY(), 0.0, Rotation3d.kZero));
+    // Target geometry — Translation2d under original topic names. Pose3d
+    // versions dropped (redundant with 2D, height/yaw are static constants).
+    Logger.recordOutput("SWM/HubPose2d", FieldInfo.flip(FieldInfo.HUB_POSITION));
+    Logger.recordOutput("SWM/EndGoalPose2d", targetPosition);
   }
 
   public void sethood() {
