@@ -32,6 +32,8 @@ public class AutoRoutines {
   private final AlliancePath leftToMiddleCleanup = AlliancePath.of(Paths.LEFT_TO_MIDDLE_CLEANUP);
   private final AlliancePath rightToMiddle = AlliancePath.of(Paths.RIGHT_TO_MIDDLE);
   private final AlliancePath rightToMiddleCleanup = AlliancePath.of(Paths.RIGHT_TO_MIDDLE_CLEANUP);
+  private final AlliancePath rightToMiddleCleanupShallow =
+      AlliancePath.of(Paths.RIGHT_TO_MIDDLE_CLEANUP_SHALLOW);
   private final AlliancePath leftToMiddleFeed = AlliancePath.of(Paths.LEFT_TO_MIDDLE_FEED);
   private final AlliancePath feedToMiddleCleanup =
       AlliancePath.of(Paths.FEED_CLEANUP_BACK_TO_MIDDLE);
@@ -87,6 +89,10 @@ public class AutoRoutines {
 
   public Command rightSide2Passes() {
     return side2Passes(rightToMiddle, rightToMiddleCleanup);
+  }
+
+  public Command rightSide2PassesShallow() {
+    return side2Passes(rightToMiddle, rightToMiddleCleanupShallow);
   }
 
   public Command leftSideFeed2Passes() {
