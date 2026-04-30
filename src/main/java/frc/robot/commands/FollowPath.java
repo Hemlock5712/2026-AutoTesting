@@ -38,7 +38,8 @@ public class FollowPath extends Command {
   private final SplinePath path;
   private final VelocityProfile velocityProfile;
 
-  // Rotation supplier: returns target heading in radians. Null = hold current heading.
+  // Rotation supplier: returns target heading in radians. Null = hold current
+  // heading.
   private RotationSupplier rotationSupplier;
 
   // Rotation tolerance for isFinished() (radians). Default = don't check heading.
@@ -62,6 +63,7 @@ public class FollowPath extends Command {
   // Completion criteria
   private double completionTolerance = 0.05; // meters from path end
   private final double endVelocity;
+  private double completionVelocityTolerance = 0.1; // meters per second
 
   /**
    * Maximum arc-length the projection can move per cycle (meters). Derived from physics: at max FRC
@@ -247,6 +249,17 @@ public class FollowPath extends Command {
    */
   public FollowPath withCompletionTolerance(double meters) {
     this.completionTolerance = meters;
+    return this;
+  }
+
+  /**
+   * Sets the completion velocity tolerance. (max speed deviation from the target end speed)
+   *
+   * @param tolerance Tolerance in meters per second
+   * @return This command for chaining
+   */
+  public FollowPath withCompletionVelocityTolerance(double tolerance) {
+    this.completionVelocityTolerance = tolerance;
     return this;
   }
 
@@ -501,7 +514,8 @@ public class FollowPath extends Command {
     boolean vyUnlimited = (overrideVy != null && !limitOverrideVy);
     boolean omegaUnlimited = (overrideOmega != null && !limitOverrideOmega);
 
-    // Step 7: Determine omega (override > heading supplier > 0) and rotation budget allocation
+    // Step 7: Determine omega (override > heading supplier > 0) and rotation budget
+    // allocation
     double omega;
     if (overrideOmega != null) {
       omega = overrideOmega.getAsDouble();
@@ -544,7 +558,8 @@ public class FollowPath extends Command {
     double currentOmegaForLimiter =
         omegaUnlimited ? 0 : lastCommandedVelocity.omegaRadiansPerSecond;
 
-    // Integrate with primitive overload (normalizes desired internally, zero allocations)
+    // Integrate with primitive overload (normalizes desired internally, zero
+    // allocations)
     AccelerationLimiter.integrateVelocity(
         lastCommandedVelocity,
         currentVxForLimiter,
@@ -660,16 +675,15 @@ public class FollowPath extends Command {
 
   @Override
   public boolean isFinished() {
-    // Finished when projected near path end and speed is low (if stopping)
     boolean nearEnd = lastProjectedS >= path.getTotalLength() - completionTolerance;
     if (endVelocity > 0) {
-      // Pass-through: finish when near end regardless of speed
       return nearEnd;
     }
-    double speed =
-        Math.hypot(
-            lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
+    Translation2d tangent = path.getTangent(path.getTotalLength());
+    double alongPath =
+        lastCommandedVelocity.vxMetersPerSecond * tangent.getX()
+            + lastCommandedVelocity.vyMetersPerSecond * tangent.getY();
     boolean headingOk = lastHeadingError <= rotationTolerance;
-    return nearEnd && speed < 0.1 && headingOk;
+    return nearEnd && alongPath < completionVelocityTolerance && headingOk;
   }
 }

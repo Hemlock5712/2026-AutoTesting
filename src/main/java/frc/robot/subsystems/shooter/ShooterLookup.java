@@ -3,6 +3,8 @@ package frc.robot.subsystems.shooter;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 
 public class ShooterLookup {
+  private static final double[] hubTestDistances = {1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5};
+
   private static final InterpolatingDoubleTreeMap flywheelMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap hoodMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap tofMap = new InterpolatingDoubleTreeMap();
@@ -150,6 +152,10 @@ public class ShooterLookup {
 
   public static InterpolatingDoubleTreeMap getToFMap() {
     return tofMap;
+  }
+
+  public static double[] getHubTestDistances() {
+    return hubTestDistances.clone();
   }
 
   public static InterpolatingDoubleTreeMap getFeedFlywheelMap() {

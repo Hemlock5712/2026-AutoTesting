@@ -224,6 +224,20 @@ public class Superstructure {
     return Commands.run(() -> setFromPose(pose.get()), shooter, turret);
   }
 
+  public Command lookupTestShoot(Supplier<Pose2d> pose) {
+    return Commands.parallel(
+            Commands.run(() -> setFromPose(pose.get()), shooter, turret),
+            Commands.runOnce(() -> isShooting = true),
+            Commands.either(hopper.start(), hopper.stop(), () -> isLookupTestReady(pose.get()))
+                .repeatedly())
+        .finallyDo(
+            () -> {
+              isShooting = false;
+              hopper.setVelocity(RotationsPerSecond.of(0), RotationsPerSecond.of(0));
+              shooter.stopMotors();
+            });
+  }
+
   // ==================== Coordinated Commands ====================
 
   public Command turretTrackHub() {
@@ -284,6 +298,13 @@ public class Superstructure {
     return shooter.isAtTarget(distanceToVirtualTarget)
         && turret.isAtTarget(distanceToVirtualTarget)
         && swmSolutionFeasible;
+  }
+
+  private boolean isLookupTestReady(Pose2d robotPose) {
+    Pose2d lookupTurretPose = robotPose.transformBy(TURRET_TRANSFORM);
+    double distance =
+        FieldInfo.flip(FieldInfo.HUB_POSITION).getDistance(lookupTurretPose.getTranslation());
+    return shooter.isAtTarget(distance) && turret.isAtTarget(distance);
   }
 
   private boolean isFeedReady() {

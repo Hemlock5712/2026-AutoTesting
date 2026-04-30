@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
+import frc.robot.commands.DriveToPoint;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.commands.TurretDrive;
 import frc.robot.generated.TunerConstants;
@@ -26,6 +27,7 @@ import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.LookupTestController;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -64,6 +66,7 @@ public class RobotContainer {
   private double maxShootAngularRate = maxAngularRate * 0.5;
 
   private final CommandXboxController joystick = new CommandXboxController(0);
+  private final CommandXboxController lookupController = new CommandXboxController(1);
 
   public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
@@ -115,6 +118,7 @@ public class RobotContainer {
   }
 
   private static boolean bumpIsInAllianceZone = true;
+  private final LookupTestController lookupTestController = new LookupTestController();
 
   private void configureBindings() {
     // Cached translation velocities - computed once per cycle in velocityX supplier
@@ -260,6 +264,24 @@ public class RobotContainer {
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
+
+    lookupController.povUp().onTrue(Commands.runOnce(lookupTestController::selectNext));
+    lookupController.povDown().onTrue(Commands.runOnce(lookupTestController::selectPrevious));
+    lookupController
+        .leftTrigger(0.5)
+        .whileTrue(
+            Commands.either(
+                new DriveToPoint(drivetrain, lookupTestController::getAlliancePose)
+                    .withPositionTolerance(0.05),
+                Commands.none(),
+                lookupTestController::isPoseValid));
+    lookupController
+        .rightTrigger(0.5)
+        .whileTrue(
+            Commands.either(
+                superstructure.lookupTestShoot(lookupTestController::getAlliancePose),
+                Commands.none(),
+                lookupTestController::isPoseValid));
   }
 
   public Command getAutonomousCommand() {
