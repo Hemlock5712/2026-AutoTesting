@@ -80,6 +80,9 @@ public class ShooterLookup {
     flywheelMap.put(4.5, 37.0);
     flywheelMap.put(5.0, 41.0);
     flywheelMap.put(5.5, 47.0);
+    flywheelMap.put(6.0, 48.0);
+    flywheelMap.put(6.5, 50.5);
+    flywheelMap.put(7.0, 65.0);
   }
 
   private static void buildHood() {
@@ -94,6 +97,9 @@ public class ShooterLookup {
     hoodMap.put(4.5, 25.0);
     hoodMap.put(5.0, 27.0);
     hoodMap.put(5.5, 27.0);
+    hoodMap.put(6.0, 32.0);
+    hoodMap.put(6.5, 32.0);
+    hoodMap.put(7.0, 32.0);
   }
 
   private static void buildToF() {
@@ -108,27 +114,30 @@ public class ShooterLookup {
     tofMap.put(4.5, 1.056);
     tofMap.put(5.0, 1.079);
     tofMap.put(5.5, 1.027);
+    tofMap.put(6.0, 1.079);
+    tofMap.put(6.5, 1.079);
+    tofMap.put(7.0, 1.079);
   }
 
   private static void buildFeedFlywheel() {
     feedShootMap.put(0.0, 20.0);
     feedShootMap.put(10.0, 45.0);
     feedShootMap.put(15.0, 52.0);
-    feedShootMap.put(20.0, 57.0);
+    feedShootMap.put(25.0, 57.0);
   }
 
   private static void buildFeedHood() {
     feedHoodMap.put(0.0, 32.0);
     feedHoodMap.put(10.0, 32.0);
     feedHoodMap.put(15.0, 32.0);
-    feedHoodMap.put(20.0, 32.0);
+    feedHoodMap.put(25.0, 32.0);
   }
 
   private static void buildFeedTime() {
     feedTime.put(0.0, 0.00);
     feedTime.put(10.0, 1.0);
     feedTime.put(15.0, 1.0);
-    feedTime.put(20.0, 1.0);
+    feedTime.put(25.0, 1.0);
   }
 
   public static InterpolatingDoubleTreeMap getFlywheelMap() {
