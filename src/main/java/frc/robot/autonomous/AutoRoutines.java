@@ -219,4 +219,29 @@ public class AutoRoutines {
             .driveTo(new ExtPose(6, LEFT_TRENCH_CENTER, Rotation2d.kZero))
             .withMaxSpeed(3.5));
   }
+
+  public Command leftDepotCenter() {
+    return Commands.sequence(
+        autoCommands.resetPose(() -> new ExtPose(3.573, 7.76, Rotation2d.fromDegrees(-180)).get()),
+        intakeCoordinator.deployAndRunAUTO(),
+        Commands.deadline(
+                Commands.sequence(
+                    autoCommands
+                        .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
+                        .withMaxSpeed(2.5)
+                        .withWaypoint(0.5),
+                    autoCommands
+                        .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
+                        .withMaxSpeed(1)))
+            .deadlineFor(
+                superstructure.fixedShoot(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))),
+        Commands.waitSeconds(12)
+            .deadlineFor(superstructure.turretTrackHub().alongWith(superstructure.shoot())),
+        superstructure.stopShoot(),
+        autoCommands
+            .driveTo(new ExtPose(3.573, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
+            .withMaxSpeed(3.5)
+            .withEndTargetSpeed(1),
+        autoCommands.driveTo(new ExtPose(8.25, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180))));
+  }
 }

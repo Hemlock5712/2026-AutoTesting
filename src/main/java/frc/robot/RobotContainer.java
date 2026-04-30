@@ -105,6 +105,7 @@ public class RobotContainer {
     autoChooser.addOption("Right Side 2 Pass", autoRoutines::rightSide2Passes);
     autoChooser.addOption("Left Side Auto", () -> autoRoutines.leftAutoFeed(8));
     autoChooser.addOption("Left Side Feed 2 Passes", () -> autoRoutines.leftSideFeed2Passes());
+    autoChooser.addOption("Left Depot Center", autoRoutines::leftDepotCenter);
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
