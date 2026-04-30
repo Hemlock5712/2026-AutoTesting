@@ -16,9 +16,9 @@ public class JamProtectedShoot extends Command {
   }
 
   // Timing constants
-  private static final double SIDEWAYS_CONFIRM_TIME = 0.2; // 0.5s to confirm ball in sideways
-  private static final double KICKER_TIMEOUT = 0.2; // 0.33s for ball to reach kicker
-  private static final double RECOVERY_TIME = 0.05; // 0.5s recovery sequence
+  private static final double SIDEWAYS_CONFIRM_TIME = 0.15; // 0.5s to confirm ball in sideways
+  private static final double KICKER_TIMEOUT = 0.15; // 0.33s for ball to reach kicker
+  private static final double RECOVERY_TIME = 0.3; // 0.5s recovery sequence
 
   // Hopper speeds in rotations per second (CTRE native unit)
   private static final double HOPPER_MAIN_RPS = 34;
@@ -157,6 +157,8 @@ public class JamProtectedShoot extends Command {
   }
 
   private void executeJamRecovery() {
+    // double[] killRobot = {};
+    // killRobot[5] = 0;
     // Run jam recovery: reverse kicker (main), forward sideways (side)
     hopper.setJamRecovery();
 

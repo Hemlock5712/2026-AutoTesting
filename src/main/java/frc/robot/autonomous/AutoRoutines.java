@@ -138,12 +138,14 @@ public class AutoRoutines {
             .deadlineFor(
                 intakeCoordinator.deployAndRunAUTO(),
                 superstructure.fixedShoot(() -> mainPath.getTargetPose())),
-        new WaitCommand(2.5).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
+        // new WaitCommand(0.5).deadlineFor(superstructure.recoverHopper()),
+        new WaitCommand(4).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
         superstructure.stopShoot(),
         superstructure.prerollShooter(30),
         autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
         autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15),
-        new WaitCommand(3.5).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
+        // new WaitCommand(0.5).deadlineFor(superstructure.recoverHopper()),
+        new WaitCommand(4).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
         superstructure.stopShoot(),
         autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
         autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15));

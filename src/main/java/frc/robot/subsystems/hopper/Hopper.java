@@ -164,4 +164,9 @@ public class Hopper extends SubsystemBase {
     // Reverse kicker (main), forward sideways (side)
     setVelocityRPS(-30, -30);
   }
+
+  public void setJamback() {
+    // Reverse kicker (main), forward sideways (side)
+    setVelocityRPS(-10, -10.);
+  }
 }

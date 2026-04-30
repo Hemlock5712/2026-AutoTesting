@@ -82,7 +82,7 @@ public class ShooterLookup {
     flywheelMap.put(5.5, 47.0);
     flywheelMap.put(6.0, 48.0);
     flywheelMap.put(6.5, 50.5);
-    flywheelMap.put(7.0, 65.0);
+    // flywheelMap.put(7.0, 65.0);
   }
 
   private static void buildHood() {
@@ -99,7 +99,7 @@ public class ShooterLookup {
     hoodMap.put(5.5, 27.0);
     hoodMap.put(6.0, 32.0);
     hoodMap.put(6.5, 32.0);
-    hoodMap.put(7.0, 32.0);
+    // hoodMap.put(7.0, 32.0);
   }
 
   private static void buildToF() {
@@ -114,9 +114,9 @@ public class ShooterLookup {
     tofMap.put(4.5, 1.056);
     tofMap.put(5.0, 1.079);
     tofMap.put(5.5, 1.027);
-    tofMap.put(6.0, 1.079);
-    tofMap.put(6.5, 1.079);
-    tofMap.put(7.0, 1.079);
+    tofMap.put(6.0, 1.4);
+    tofMap.put(6.5, 1.5);
+    // tofMap.put(7.0, 1.6);
   }
 
   private static void buildFeedFlywheel() {
