@@ -93,7 +93,8 @@ public class RobotContainer {
   public RobotContainer() {
     autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
 
-    // Register available paths (lightweight — no SplinePath/VelocityProfile computation)
+    // Register available paths (lightweight — no SplinePath/VelocityProfile
+    // computation)
     // addPathAutoOption(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT);
     // addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP);
     // addPathAutoOption(Paths.START_LEFT_TO_RIGHT_BUMP_LONG);
@@ -103,6 +104,7 @@ public class RobotContainer {
     // addPathAutoOption(Paths.MADTOWN);
     autoChooser.addOption("Left Side 2 Passes", autoRoutines::leftSide2Passes);
     autoChooser.addOption("Right Side 2 Pass", autoRoutines::rightSide2Passes);
+    autoChooser.addOption("Right Side 2 Pass Shallow", autoRoutines::rightSide2PassesShallow);
     autoChooser.addOption("Left Side Auto", () -> autoRoutines.leftAutoFeed(8));
     autoChooser.addOption("Left Side Feed 2 Passes", () -> autoRoutines.leftSideFeed2Passes());
     autoChooser.addOption("Left Depot Center", autoRoutines::leftDepotCenter);
@@ -176,7 +178,8 @@ public class RobotContainer {
                 () ->
                     bumpIsInAllianceZone =
                         FieldInfo.flipX(drivetrain.getPose().getX())
-                            < FieldInfo.ALLIANCE_ZONE_X)); // Lock to
+                            < FieldInfo.ALLIANCE_ZONE_X)); // Lock
+    // to
     // closest
     // 180
 
@@ -200,7 +203,8 @@ public class RobotContainer {
                 () ->
                     bumpIsInAllianceZone =
                         FieldInfo.flipX(drivetrain.getPose().getX())
-                            < FieldInfo.ALLIANCE_ZONE_X)); // Lock to
+                            < FieldInfo.ALLIANCE_ZONE_X)); // Lock
+    // to
     // closest
     // 180
 
@@ -303,7 +307,7 @@ public class RobotContainer {
   }
 
   // private void addPathAutoOption(PathData path) {
-  //   autoChooser.addOption(Paths.nameOf(path), path);
+  // autoChooser.addOption(Paths.nameOf(path), path);
   // }
 
   /**
