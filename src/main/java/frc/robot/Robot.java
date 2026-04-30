@@ -5,13 +5,16 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.IterativeRobotBase;
 import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.Watchdog;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.HubShiftUtil;
 import frc.robot.utils.Tunables;
+import java.lang.reflect.Field;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
@@ -30,6 +33,8 @@ public class Robot extends LoggedRobot {
   private static final double RUMBLE_START_THRESHOLD = 1.0;
   private static final double RUMBLE_END_THRESHOLD = 0.5;
 
+  private static final double loopOverrunWarning = 0.2;
+
   public Robot() {
     Logger.recordMetadata("2026Robot", "2026-AutoTesting");
     if (isReal()) {
@@ -45,6 +50,16 @@ public class Robot extends LoggedRobot {
     RobotController.setBrownoutVoltage(MIN_OCV);
 
     HubShiftUtil.setupNTValues();
+
+    try {
+      Field watchdogField = IterativeRobotBase.class.getDeclaredField("m_watchdog");
+      watchdogField.setAccessible(true);
+      Watchdog watchdog = (Watchdog) watchdogField.get(this);
+      watchdog.setTimeout(loopOverrunWarning);
+    } catch (Exception e) {
+      DriverStation.reportWarning("Failed to disable loop overrun warnings", false);
+    }
+    CommandScheduler.getInstance().setPeriod(loopOverrunWarning);
   }
 
   @Override

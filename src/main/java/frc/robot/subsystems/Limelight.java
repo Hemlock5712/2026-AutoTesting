@@ -112,6 +112,7 @@ public class Limelight extends SubsystemBase {
     for (int i = 0; i < cameraCount; i++) {
       PoseEstimate pe = getValidPoseEstimate(cameras[i]);
       if (pe == null) continue;
+      Logger.recordOutput("LL" + cameras[i].name, pe.pose);
 
       double distanceFactor = Math.pow(pe.avgTagDist, 1.2);
       double effectiveTags = Math.min(MAX_EFFECTIVE_TAG_COUNT, pe.tagCount);

@@ -77,7 +77,8 @@ public class RobotContainer {
   // Vision cameras for tracking robot position
   public final Limelight limelight =
       new Limelight(
-          List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr"), drivetrain);
+          List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr", "limelight-mm"),
+          drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =

@@ -74,12 +74,12 @@ public class ShooterLookup {
     flywheelMap.put(1.5, 28.0);
     flywheelMap.put(2.0, 27.0);
     flywheelMap.put(2.5, 28.0);
-    flywheelMap.put(3.0, 28.5);
-    flywheelMap.put(3.5, 30.5);
-    flywheelMap.put(4.0, 32.0);
-    flywheelMap.put(4.5, 34.5);
-    flywheelMap.put(5.0, 38.25);
-    flywheelMap.put(5.5, 42.0);
+    flywheelMap.put(3.0, 29.5);
+    flywheelMap.put(3.5, 31.5);
+    flywheelMap.put(4.0, 35.0);
+    flywheelMap.put(4.5, 39.0);
+    flywheelMap.put(5.0, 44.0);
+    flywheelMap.put(5.5, 49.5);
   }
 
   private static void buildHood() {
