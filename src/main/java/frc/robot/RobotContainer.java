@@ -112,6 +112,8 @@ public class RobotContainer {
     autoChooser.addOption("Anti Poof Left", autoRoutines::antiPoofLeft);
     autoChooser.addOption("Anti Poof Right", autoRoutines::antiPoofRight);
 
+    autoChooser.addOption("Depot Center Pass Deep", autoRoutines::leftDepotCenterMiddlePass);
+
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();

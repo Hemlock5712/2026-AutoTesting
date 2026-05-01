@@ -9,6 +9,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
+import frc.robot.commands.DriveToPoint;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldFlip;
@@ -40,8 +41,10 @@ public class AutoRoutines {
 
   private final AlliancePath leftToMiddleDepot = AlliancePath.of(Paths.LEFT_TO_MIDDLE_TO_DEPOT);
 
-  private final AlliancePath antiPoofLeft = AlliancePath.of(Paths.ANTI_POOF_LEFT);
-  private final AlliancePath antiPoofRight = AlliancePath.of(Paths.ANTI_POOF_RIGHT);
+  private final AlliancePath shortPathLeft = AlliancePath.of(Paths.SHORT_PATH_LEFT);
+  private final AlliancePath shortPathRight = AlliancePath.of(Paths.SHORT_PATH_RIGHT);
+  private final AlliancePath postDepotCleanup =
+      AlliancePath.of(Paths.LEFT_SIDE_AFTER_DEPOT_CLEANUP);
 
   public AutoRoutines(
       AutoCommands autoCommands,
@@ -68,11 +71,11 @@ public class AutoRoutines {
     leftToMiddleDepot.blue().precompute();
     leftToMiddleDepot.red().precompute();
 
-    antiPoofLeft.blue().precompute();
-    antiPoofLeft.red().precompute();
+    shortPathLeft.blue().precompute();
+    shortPathLeft.red().precompute();
 
-    antiPoofRight.blue().precompute();
-    antiPoofRight.red().precompute();
+    shortPathRight.blue().precompute();
+    shortPathRight.red().precompute();
 
     // Warm up JVM class loading by building a throwaway command chain.
     // Forces all command framework classes to load during robot init, not first
@@ -105,11 +108,11 @@ public class AutoRoutines {
   }
 
   public Command antiPoofLeft() {
-    return side2Passes(antiPoofLeft, leftToMiddleCleanup);
+    return side2Passes(shortPathLeft, leftToMiddleCleanup);
   }
 
   public Command antiPoofRight() {
-    return side2Passes(antiPoofRight, rightToMiddleCleanup);
+    return side2Passes(shortPathRight, rightToMiddleCleanup);
   }
 
   public Command leftSideFeed2Passes() {
@@ -269,5 +272,38 @@ public class AutoRoutines {
             .withMaxSpeed(3.5)
             .withEndTargetSpeed(1),
         autoCommands.driveTo(new ExtPose(8.25, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180))));
+  }
+
+  public Command leftDepotCenterMiddlePass() {
+
+    PathData cleanupPathRed = postDepotCleanup.red();
+    PathData cleanupPathBlue = postDepotCleanup.blue();
+
+    DriveToPoint driveToStartOfCleanup =
+        autoCommands.driveTo(() -> postDepotCleanup.get().getStartingPose());
+
+    return Commands.sequence(
+        autoCommands.resetPose(() -> new ExtPose(3.573, 7.76, Rotation2d.fromDegrees(-180)).get()),
+        intakeCoordinator.deployAndRunAUTO(),
+        Commands.deadline(
+                Commands.sequence(
+                    autoCommands
+                        .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
+                        .withMaxSpeed(2.5)
+                        .withWaypoint(0.5),
+                    autoCommands
+                        .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
+                        .withMaxSpeed(1)))
+            .deadlineFor(
+                superstructure.fixedShoot(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))),
+        Commands.waitSeconds(7)
+            .deadlineFor(superstructure.turretTrackHub().alongWith(superstructure.shoot())),
+        superstructure.stopShoot(),
+        driveToStartOfCleanup.withMaxSpeed(3.5).withEndTargetSpeed(1),
+        Commands.either(
+            autoCommands.followPath(cleanupPathRed),
+            autoCommands.followPath(cleanupPathBlue),
+            this::isRedAlliance),
+        superstructure.shoot());
   }
 }
