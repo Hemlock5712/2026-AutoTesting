@@ -366,7 +366,7 @@ public final class FieldInfo {
 
     double trenchTolerance = 0.25;
     double trenchToleranceFarSide = 0.5;
-    double speedMulti = 0.3;
+    double speedMulti = 1.0;
     double trenchX = 4.625594;
     double trenchY = 1.27889;
     double fieldLength = layout.getFieldLength();
