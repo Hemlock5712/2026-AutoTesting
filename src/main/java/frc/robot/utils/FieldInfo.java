@@ -358,11 +358,13 @@ public final class FieldInfo {
   }
 
   public static boolean isUnderaTrench(Translation2d translation, double speedX) {
-    double flipX = shouldFlip() ? layout.getFieldLength() - translation.getX() : translation.getX();
+    boolean shouldFlip = shouldFlip();
+    double flipX = shouldFlip ? layout.getFieldLength() - translation.getX() : translation.getX();
     double flipY =
-        shouldFlip() && symmetryType == SymmetryType.ROTATE
+        shouldFlip && symmetryType == SymmetryType.ROTATE
             ? layout.getFieldWidth() - translation.getY()
             : translation.getY();
+    double flipSpeedX = shouldFlip ? -speedX : speedX;
 
     double trenchTolerance = 0.25;
     double trenchToleranceFarSide = 0.5;
@@ -371,19 +373,16 @@ public final class FieldInfo {
     double trenchY = 1.27889;
     double fieldLength = layout.getFieldLength();
     double fieldWidth = layout.getFieldWidth();
+    double otherTrenchX = fieldLength - trenchX;
 
-    double allianceSide =
-        Math.signum(Math.signum(trenchX - translation.getX()) + Math.signum(speedX));
+    double allianceSide = Math.signum(Math.signum(trenchX - flipX) + Math.signum(flipSpeedX));
 
-    double otherSide =
-        Math.signum(Math.signum(fieldLength - trenchX - translation.getX()) + Math.signum(speedX));
+    double otherSide = Math.signum(Math.signum(otherTrenchX - flipX) + Math.signum(flipSpeedX));
 
-    double allianceMinX = trenchX - trenchTolerance - speedX * speedMulti * allianceSide;
-    double allianceMaxX = trenchX + trenchTolerance + speedX * speedMulti * allianceSide;
-    double otherMinX =
-        fieldLength - trenchX - trenchToleranceFarSide - speedX * speedMulti * otherSide;
-    double otherMaxX =
-        fieldLength - trenchX + trenchToleranceFarSide + speedX * speedMulti * otherSide;
+    double allianceMinX = trenchX - trenchTolerance - flipSpeedX * speedMulti * allianceSide;
+    double allianceMaxX = trenchX + trenchTolerance + flipSpeedX * speedMulti * allianceSide;
+    double otherMinX = otherTrenchX - trenchToleranceFarSide - flipSpeedX * speedMulti * otherSide;
+    double otherMaxX = otherTrenchX + trenchToleranceFarSide + flipSpeedX * speedMulti * otherSide;
 
     return containsBounds(flipX, flipY, allianceMinX, -999, allianceMaxX, trenchY)
         || containsBounds(
