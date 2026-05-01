@@ -283,7 +283,7 @@ public class AutoRoutines {
         autoCommands.driveTo(() -> postDepotCleanup.get().getStartingPose());
 
     return Commands.sequence(
-        autoCommands.resetPose(() -> new ExtPose(3.573, 7.76, Rotation2d.fromDegrees(-180)).get()),
+        autoCommands.resetPose(() -> new ExtPose(3.573, 4.135, Rotation2d.fromDegrees(-180)).get()),
         intakeCoordinator.deployAndRunAUTO(),
         Commands.deadline(
                 Commands.sequence(
