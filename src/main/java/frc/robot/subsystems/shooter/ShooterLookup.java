@@ -72,16 +72,16 @@ public class ShooterLookup {
     flywheelMap.put(0.0, 25.0);
     flywheelMap.put(1.0, 25.0);
     flywheelMap.put(1.5, 28.0);
-    flywheelMap.put(2.0, 27.0);
+    flywheelMap.put(2.0, 25.0);
     flywheelMap.put(2.5, 28.0);
-    flywheelMap.put(3.0, 29.5);
+    flywheelMap.put(3.0, 30.0);
     flywheelMap.put(3.5, 34.0);
     flywheelMap.put(4.0, 35.0);
     flywheelMap.put(4.5, 37.0);
     flywheelMap.put(5.0, 41.0);
-    flywheelMap.put(5.5, 47.0);
-    flywheelMap.put(6.0, 48.0);
-    flywheelMap.put(6.5, 50.5);
+    flywheelMap.put(5.5, 41.0);
+    flywheelMap.put(6.0, 44.5);
+    flywheelMap.put(6.5, 48.0);
     // flywheelMap.put(7.0, 65.0);
   }
 
@@ -91,12 +91,12 @@ public class ShooterLookup {
     hoodMap.put(1.5, 0.0);
     hoodMap.put(2.0, 7.0);
     hoodMap.put(2.5, 10.0);
-    hoodMap.put(3.0, 13.5);
+    hoodMap.put(3.0, 14.0);
     hoodMap.put(3.5, 17.0);
     hoodMap.put(4.0, 20.0);
     hoodMap.put(4.5, 25.0);
     hoodMap.put(5.0, 27.0);
-    hoodMap.put(5.5, 27.0);
+    hoodMap.put(5.5, 32.0);
     hoodMap.put(6.0, 32.0);
     hoodMap.put(6.5, 32.0);
     // hoodMap.put(7.0, 32.0);

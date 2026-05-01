@@ -87,7 +87,7 @@ public class Superstructure {
   private final Supplier<SwerveDriveState> driveState;
 
   private final TunableDouble targetFlywheelVelocity = Tunables.value("Tuning/Flywheel", 26.0);
-  private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 3.0);
+  private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 0.0);
   private final TunableDouble swmPoseDelay = Tunables.value("SWM/PoseDelay", 0.02);
 
   // ==================== Targeting Data (calculated once per loop)

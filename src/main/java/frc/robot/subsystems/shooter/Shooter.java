@@ -92,8 +92,8 @@ public class Shooter extends SubsystemBase {
     config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // Control values
-    config.Slot0.kS = 7.9; // Static friction
-    config.Slot0.kV = 0.11; // Velocity feedforward
+    config.Slot0.kS = 6.2; // Static friction
+    config.Slot0.kV = 0.085; // Velocity feedforward
     config.Slot0.kP = 12; // Proportional gain
     config.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseVelocitySign;
 

@@ -246,6 +246,20 @@ public class RobotContainer {
 
     joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
+    // joystick
+    //     .y()
+    //     .whileTrue(
+    //         new DriveToPoint(
+    //                 drivetrain,
+    //                 () ->
+    //                     new ExtPose(
+    //                             new Pose2d(
+    //                                 FieldInfo.length().in(Meters) - 13.982,
+    //                                 3.615,
+    //                                 Rotation2d.k180deg))
+    //                         .get())
+    //             .andThen(superstructure.autoShootMode()));
+
     joystick.start().onTrue(superstructure.recoverHopper()).onFalse(superstructure.stopHopper());
 
     joystick
