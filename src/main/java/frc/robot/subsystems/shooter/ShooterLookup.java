@@ -108,14 +108,14 @@ public class ShooterLookup {
     tofMap.put(1.5, 1.24);
     tofMap.put(2.0, 1.059);
     tofMap.put(2.5, 1.093);
-    tofMap.put(3.0, 1.098);
+    tofMap.put(3.0, 1.082);
     tofMap.put(3.5, 1.097);
     tofMap.put(4.0, 1.104);
     tofMap.put(4.5, 1.056);
     tofMap.put(5.0, 1.079);
     tofMap.put(5.5, 1.027);
-    tofMap.put(6.0, 1.4);
-    tofMap.put(6.5, 1.5);
+    tofMap.put(6.0, 1.086);
+    tofMap.put(6.5, 1.142);
     // tofMap.put(7.0, 1.6);
   }
 
