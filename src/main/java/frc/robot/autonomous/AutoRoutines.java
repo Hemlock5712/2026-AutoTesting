@@ -40,6 +40,9 @@ public class AutoRoutines {
 
   private final AlliancePath leftToMiddleDepot = AlliancePath.of(Paths.LEFT_TO_MIDDLE_TO_DEPOT);
 
+  private final AlliancePath antiPoofLeft = AlliancePath.of(Paths.ANTI_POOF_LEFT);
+  private final AlliancePath antiPoofRight = AlliancePath.of(Paths.ANTI_POOF_RIGHT);
+
   public AutoRoutines(
       AutoCommands autoCommands,
       Superstructure superstructure,
@@ -64,6 +67,12 @@ public class AutoRoutines {
     leftToMiddleCleanup.red().precompute();
     leftToMiddleDepot.blue().precompute();
     leftToMiddleDepot.red().precompute();
+
+    antiPoofLeft.blue().precompute();
+    antiPoofLeft.red().precompute();
+
+    antiPoofRight.blue().precompute();
+    antiPoofRight.red().precompute();
 
     // Warm up JVM class loading by building a throwaway command chain.
     // Forces all command framework classes to load during robot init, not first
@@ -93,6 +102,14 @@ public class AutoRoutines {
 
   public Command rightSide2PassesShallow() {
     return side2Passes(rightToMiddle, rightToMiddleCleanupShallow);
+  }
+
+  public Command antiPoofLeft() {
+    return side2Passes(antiPoofLeft, leftToMiddleCleanup);
+  }
+
+  public Command antiPoofRight() {
+    return side2Passes(antiPoofRight, rightToMiddleCleanup);
   }
 
   public Command leftSideFeed2Passes() {

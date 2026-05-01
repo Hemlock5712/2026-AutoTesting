@@ -541,6 +541,48 @@ public final class Paths {
           List.of(),
           List.of());
 
+  public static final PathData ANTI_POOF_LEFT =
+      new PathData(
+          List.of(
+              new Translation2d(4.21, 7.7),
+              new Translation2d(7.486881632653061, 7.0758285714285725),
+              new Translation2d(7.945951020408163, 4.483436734693878),
+              new Translation2d(6.973804081632653, 4.969510204081633),
+              new Translation2d(6.568742857142857, 7.2918612244897965),
+              new Translation2d(4.219387755102042, 7.723926530612245)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(1, 2, 2, 10.791000000000002)),
+          List.of(),
+          List.of());
+
+  public static final PathData ANTI_POOF_RIGHT =
+      new PathData(
+          List.of(
+              new Translation2d(4.21, 0.5100000000000007),
+              new Translation2d(7.486881632653061, 1.1341714285714284),
+              new Translation2d(7.945951020408163, 3.7265632653061225),
+              new Translation2d(6.973804081632653, 3.240489795918368),
+              new Translation2d(6.568742857142857, 0.9181387755102044),
+              new Translation2d(4.219387755102042, 0.48607346938775553)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(90))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(1, 2, 2, 10.791000000000002)),
+          List.of(),
+          List.of());
+
   /**
    * Returns the path mirrored for the red alliance if needed. Call during autonomousInit() or later
    * when the alliance is known.
