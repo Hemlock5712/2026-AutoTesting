@@ -109,6 +109,9 @@ public class RobotContainer {
     autoChooser.addOption("Left Side Feed 2 Passes", () -> autoRoutines.leftSideFeed2Passes());
     autoChooser.addOption("Left Depot Center", autoRoutines::leftDepotCenter);
 
+    autoChooser.addOption("Anti Poof Left", autoRoutines::antiPoofLeft);
+    autoChooser.addOption("Anti Poof Right", autoRoutines::antiPoofRight);
+
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();
