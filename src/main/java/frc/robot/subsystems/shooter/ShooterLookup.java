@@ -9,7 +9,7 @@ public class ShooterLookup {
   private static final InterpolatingDoubleTreeMap feedShootMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap feedHoodMap = new InterpolatingDoubleTreeMap();
   private static final InterpolatingDoubleTreeMap feedTime = new InterpolatingDoubleTreeMap();
-  private static final double tofMult = 0.25;
+  private static final double tofMult = 0.70;
 
   static {
     buildFlywheel();
@@ -103,19 +103,19 @@ public class ShooterLookup {
   }
 
   private static void buildToF() {
-    tofMap.put(0.0, 1.24);
-    tofMap.put(1.0, 1.24);
-    tofMap.put(1.5, 1.24);
-    tofMap.put(2.0, 1.059);
-    tofMap.put(2.5, 1.093);
-    tofMap.put(3.0, 1.098);
-    tofMap.put(3.5, 1.097);
-    tofMap.put(4.0, 1.104);
-    tofMap.put(4.5, 1.056);
-    tofMap.put(5.0, 1.079);
-    tofMap.put(5.5, 1.027);
-    tofMap.put(6.0, 1.4);
-    tofMap.put(6.5, 1.5);
+    tofMap.put(0.0, 1.24 * tofMult);
+    tofMap.put(1.0, 1.24 * tofMult);
+    tofMap.put(1.5, 1.24 * tofMult);
+    tofMap.put(2.0, 1.059 * tofMult);
+    tofMap.put(2.5, 1.093 * tofMult);
+    tofMap.put(3.0, 1.082 * tofMult);
+    tofMap.put(3.5, 1.097 * tofMult);
+    tofMap.put(4.0, 1.104 * tofMult);
+    tofMap.put(4.5, 1.056 * tofMult);
+    tofMap.put(5.0, 1.079 * tofMult);
+    tofMap.put(5.5, 1.027 * tofMult);
+    tofMap.put(6.0, 1.086 * tofMult);
+    tofMap.put(6.5, 1.142 * tofMult);
     // tofMap.put(7.0, 1.6);
   }
 
