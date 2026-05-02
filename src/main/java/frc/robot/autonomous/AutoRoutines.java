@@ -25,6 +25,7 @@ public class AutoRoutines {
   private static final double LEFT_TRENCH_CENTER = FieldInfo.width().in(Meters) - 0.639445;
 
   private final AutoCommands autoCommands;
+  private final AutoRoutineFactory autoFactory;
   private final Superstructure superstructure;
   private final IntakeCoordinator intakeCoordinator;
 
@@ -51,6 +52,7 @@ public class AutoRoutines {
       Superstructure superstructure,
       IntakeCoordinator intakeCoordinator) {
     this.autoCommands = autoCommands;
+    this.autoFactory = new AutoRoutineFactory(autoCommands);
     this.superstructure = superstructure;
     this.intakeCoordinator = intakeCoordinator;
 
@@ -275,10 +277,6 @@ public class AutoRoutines {
   }
 
   public Command leftDepotCenterMiddlePass() {
-
-    PathData cleanupPathRed = postDepotCleanup.red();
-    PathData cleanupPathBlue = postDepotCleanup.blue();
-
     DriveToPoint driveToStartOfCleanup =
         autoCommands.driveTo(() -> postDepotCleanup.get().getStartingPose());
 
@@ -300,10 +298,7 @@ public class AutoRoutines {
             .deadlineFor(superstructure.turretTrackHub().alongWith(superstructure.shoot())),
         superstructure.stopShoot(),
         driveToStartOfCleanup.withMaxSpeed(3.5).withEndTargetSpeed(1),
-        Commands.either(
-            autoCommands.followPath(cleanupPathRed),
-            autoCommands.followPath(cleanupPathBlue),
-            this::isRedAlliance),
+        autoFactory.path(Paths.LEFT_SIDE_AFTER_DEPOT_CLEANUP),
         superstructure.shoot());
   }
 }
