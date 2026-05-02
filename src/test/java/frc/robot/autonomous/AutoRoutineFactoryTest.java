@@ -27,6 +27,7 @@ class AutoRoutineFactoryTest {
     AutoRoutineFactory factory =
         new AutoRoutineFactory(
             (path, configure) -> new InstantCommand(),
+            (path, actions) -> new InstantCommand(),
             poseSupplier -> resetCommand(resetPose, poseSupplier),
             () -> false);
 
@@ -41,6 +42,7 @@ class AutoRoutineFactoryTest {
     AutoRoutineFactory factory =
         new AutoRoutineFactory(
             (path, configure) -> new InstantCommand(),
+            (path, actions) -> new InstantCommand(),
             poseSupplier -> resetCommand(resetPose, poseSupplier),
             () -> true);
 
@@ -58,6 +60,7 @@ class AutoRoutineFactoryTest {
     AutoRoutineFactory factory =
         new AutoRoutineFactory(
             (path, configure) -> new InstantCommand(),
+            (path, actions) -> new InstantCommand(),
             poseSupplier -> resetCommand(resetPose, poseSupplier),
             isRedAlliance::get);
 
@@ -83,6 +86,7 @@ class AutoRoutineFactoryTest {
               configuredPaths.add(path);
               return new InstantCommand();
             },
+            (path, actions) -> new InstantCommand(),
             poseSupplier -> new InstantCommand(),
             () -> false);
 
@@ -102,10 +106,29 @@ class AutoRoutineFactoryTest {
     AutoRoutineFactory factory =
         new AutoRoutineFactory(
             (path, configure) -> new InstantCommand(() -> selectedPath.set(path)),
+            (path, actions) -> new InstantCommand(),
             poseSupplier -> new InstantCommand(),
             isRedAlliance::get);
 
     Command command = factory.path(Paths.LEFT_SIDE_AFTER_DEPOT_CLEANUP);
+    isRedAlliance.set(true);
+    command.initialize();
+
+    assertEquals(Paths.LEFT_SIDE_AFTER_DEPOT_CLEANUP.mirrorForRedAlliance(), selectedPath.get());
+  }
+
+  @Test
+  void pathWithActionsSelectsAllianceWhenCommandRuns() {
+    AtomicReference<PathData> selectedPath = new AtomicReference<>();
+    AtomicBoolean isRedAlliance = new AtomicBoolean(false);
+    AutoRoutineFactory factory =
+        new AutoRoutineFactory(
+            (path, configure) -> new InstantCommand(),
+            (path, actions) -> new InstantCommand(() -> selectedPath.set(path)),
+            poseSupplier -> new InstantCommand(),
+            isRedAlliance::get);
+
+    Command command = factory.pathWithActions(Paths.LEFT_SIDE_AFTER_DEPOT_CLEANUP, List.of());
     isRedAlliance.set(true);
     command.initialize();
 
@@ -118,6 +141,7 @@ class AutoRoutineFactoryTest {
     AutoRoutineFactory factory =
         new AutoRoutineFactory(
             (pathData, configure) -> new InstantCommand(),
+            (pathData, actions) -> new InstantCommand(),
             poseSupplier -> new InstantCommand(),
             () -> false);
 

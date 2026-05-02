@@ -8,6 +8,7 @@ import frc.robot.commands.FollowPath;
 import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths.AlliancePath;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -28,7 +29,14 @@ public class AutoRoutineFactory {
     Command build(PathData path, Consumer<FollowPath> configure);
   }
 
+  /** Builds a command for one concrete alliance-specific path variant with path actions. */
+  @FunctionalInterface
+  interface PathWithActionsCommandFactory {
+    Command build(PathData path, List<AutoCommands.PathAction> actions);
+  }
+
   private final PathCommandFactory pathCommandFactory;
+  private final PathWithActionsCommandFactory pathWithActionsCommandFactory;
   private final Function<Supplier<Pose2d>, Command> resetPoseCommandFactory;
   private final BooleanSupplier isRedAlliance;
   private final Map<PathData, AlliancePath> paths = new IdentityHashMap<>();
@@ -48,6 +56,7 @@ public class AutoRoutineFactory {
           configure.accept(command);
           return command;
         },
+        autoCommands::followPathWithActions,
         autoCommands::resetPose,
         AutoRoutineFactory::isDriverStationRedAlliance);
   }
@@ -56,14 +65,18 @@ public class AutoRoutineFactory {
    * Creates a factory with injectable command builders.
    *
    * @param pathCommandFactory builds a command for an already-selected path variant
+   * @param pathWithActionsCommandFactory builds a command with actions for an already-selected path
+   *     variant
    * @param resetPoseCommandFactory builds a command that resets odometry to a supplied pose
    * @param isRedAlliance returns whether red-alliance path variants should be selected
    */
   AutoRoutineFactory(
       PathCommandFactory pathCommandFactory,
+      PathWithActionsCommandFactory pathWithActionsCommandFactory,
       Function<Supplier<Pose2d>, Command> resetPoseCommandFactory,
       BooleanSupplier isRedAlliance) {
     this.pathCommandFactory = pathCommandFactory;
+    this.pathWithActionsCommandFactory = pathWithActionsCommandFactory;
     this.resetPoseCommandFactory = resetPoseCommandFactory;
     this.isRedAlliance = isRedAlliance;
   }
@@ -97,6 +110,28 @@ public class AutoRoutineFactory {
   }
 
   /**
+   * Builds an alliance-aware command that follows a path with existing path actions.
+   *
+   * @param path the blue-alliance path constant to follow
+   * @param actions actions to trigger along the selected path
+   * @return a command that follows the red or blue variant when scheduled
+   */
+  public Command pathWithActions(PathData path, List<AutoCommands.PathAction> actions) {
+    AlliancePath alliancePath = alliancePath(path);
+
+    // This intentionally preserves the existing AutoCommands.PathAction model. The factory only
+    // removes the repeated path-variant selection; it does not reinterpret flags, indexes, or
+    // command lifetime rules.
+    //
+    // Commands that should run alongside the path should be composed around this returned command
+    // with normal WPILib helpers like deadlineFor(...). Accepting Command varargs here would tempt
+    // callers to pass the same command instances into both red and blue branches.
+    Command redCommand = pathWithActionsCommandFactory.build(alliancePath.red(), actions);
+    Command blueCommand = pathWithActionsCommandFactory.build(alliancePath.blue(), actions);
+    return Commands.either(redCommand, blueCommand, isRedAlliance);
+  }
+
+  /**
    * Builds an alliance-aware command that resets odometry to a path's starting pose.
    *
    * @param path the blue-alliance path constant whose start pose should be used
@@ -105,13 +140,10 @@ public class AutoRoutineFactory {
   public Command resetPoseToStart(PathData path) {
     AlliancePath alliancePath = alliancePath(path);
 
-    // The pose suppliers intentionally close over the cached AlliancePath instead of resolving a
+    // The pose supplier intentionally closes over the cached AlliancePath instead of resolving a
     // pose immediately. That keeps the reset command correct if the auto command is built before
     // the Driver Station has reported the final alliance.
-    return Commands.either(
-        resetPoseCommandFactory.apply(() -> alliancePath.red().getStartingPose()),
-        resetPoseCommandFactory.apply(() -> alliancePath.blue().getStartingPose()),
-        isRedAlliance);
+    return resetPoseCommandFactory.apply(() -> selectedPath(alliancePath).getStartingPose());
   }
 
   /**
@@ -136,6 +168,10 @@ public class AutoRoutineFactory {
           alliancePath.red().precompute();
           return alliancePath;
         });
+  }
+
+  private PathData selectedPath(AlliancePath path) {
+    return isRedAlliance.getAsBoolean() ? path.red() : path.blue();
   }
 
   /** Returns whether the Driver Station currently reports the red alliance. */
