@@ -1,52 +1,31 @@
 package frc.robot.autonomous;
 
-import static edu.wpi.first.units.Units.Meters;
-
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.commands.FollowPath;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.geometry.ExtPose;
-import frc.robot.utils.path.PathData;
+import frc.robot.utils.path.ArcLengthTrajectory;
+import frc.robot.utils.path.AutoPath;
+import frc.robot.utils.path.FollowablePath;
 import frc.robot.utils.path.ProjectionResult;
-import frc.robot.utils.path.RotationSupplier;
-import frc.robot.utils.path.SplinePath;
-import frc.robot.utils.path.VelocityConstraints;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 /**
- * Utility class containing reusable command patterns for autonomous routines.
+ * Reusable command builders for autonomous routines.
  *
- * <p>This class provides:
- *
- * <ul>
- *   <li>Common command builders (drive, intake, score)
- *   <li>Game piece spawning for simulation
- *   <li>Vision-based game piece detection and intake
- * </ul>
+ * <p>Paths come from {@link AutoPath} (Choreo trajectories re-parameterized by arc-length). All
+ * path following is distance-based — the robot tracks its position on the path, not a clock.
  */
 public class AutoCommands {
 
-  // Subsystems
   private final CommandSwerveDrivetrain drivetrain;
 
-  /**
-   * Creates AutoCommands with PhotonVision backend.
-   *
-   * @param drivetrain The swerve drivetrain
-   * @param intake The intake subsystem
-   * @param elevator The elevator subsystem (unused but kept for compatibility)
-   * @param photonGamePiece PhotonVision detector
-   * @param superstructure The superstructure
-   */
   public AutoCommands(CommandSwerveDrivetrain drivetrain) {
     this.drivetrain = drivetrain;
   }
@@ -58,90 +37,23 @@ public class AutoCommands {
   // ==================== Drive Commands ====================
 
   /**
-   * Follow a spline path with specified constraints.
+   * Follow a path from the {@link AutoPath} enum (alliance-aware).
    *
-   * @param path The spline path to follow
-   * @param constraints Velocity and acceleration limits
+   * @param path The auto path to follow
    * @return A FollowPath command
    */
-  public FollowPath followPath(SplinePath path, VelocityConstraints constraints) {
-    return new FollowPath(drivetrain, path, constraints);
+  public FollowPath followPath(AutoPath path) {
+    return new FollowPath(drivetrain, path.get());
   }
 
   /**
-   * Follow a spline path with default constraints.
+   * Follow any {@link FollowablePath} directly.
    *
-   * @param path The spline path to follow
+   * @param path The path to follow
    * @return A FollowPath command
    */
-  public FollowPath followPath(SplinePath path) {
+  public FollowPath followPath(FollowablePath path) {
     return new FollowPath(drivetrain, path);
-  }
-
-  /**
-   * Follow a path from a PathData object (e.g., from Paths.java constants).
-   *
-   * <p>Automatically wires heading waypoints and constraint zones.
-   *
-   * @param data The path data
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(PathData data) {
-    SplinePath path = data.getSplinePath();
-    FollowPath cmd =
-        new FollowPath(
-            drivetrain, path, data.getVelocityProfile(), data.globalConstraints().getEndVelocity());
-
-    if (!data.headingWaypoints().isEmpty()) {
-      cmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
-    }
-
-    return cmd;
-  }
-
-  /**
-   * Follow a path from a PathData object with custom velocity constraints. Rebuilds the velocity
-   * profile with the provided constraints instead of using the cached one.
-   *
-   * @param data The path data
-   * @param constraints Custom velocity constraints
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(PathData data, VelocityConstraints constraints) {
-    SplinePath path = data.getSplinePath();
-    FollowPath cmd = new FollowPath(drivetrain, path, constraints, data.constraintZones());
-
-    if (!data.headingWaypoints().isEmpty()) {
-      cmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
-    }
-
-    return cmd;
-  }
-
-  /**
-   * Follow a spline path with a rotation supplier.
-   *
-   * @param path The spline path to follow
-   * @param rotation Rotation strategy to use during path following
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(SplinePath path, RotationSupplier rotation) {
-    return new FollowPath(drivetrain, path).withRotationSupplier(rotation);
-  }
-
-  /**
-   * Follow a spline path with constraints and a rotation supplier.
-   *
-   * @param path The spline path to follow
-   * @param constraints Velocity and acceleration limits
-   * @param rotation Rotation strategy to use during path following
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(
-      SplinePath path, VelocityConstraints constraints, RotationSupplier rotation) {
-    return new FollowPath(drivetrain, path, constraints).withRotationSupplier(rotation);
   }
 
   public Command resetPose(Supplier<Pose2d> pose) {
@@ -150,20 +62,35 @@ public class AutoCommands {
 
   // ==================== Path Actions ====================
 
-  /** An action to trigger at a specific control point or waypoint flag along a path. */
-  public record PathAction(
-      Integer pointIndex, String flagLabel, double triggerDistance, Supplier<Command> command) {
-    public PathAction(int pointIndex, double triggerDistance, Supplier<Command> command) {
-      this(pointIndex, null, triggerDistance, command);
-    }
+  /**
+   * An action to trigger at a specific arc-length position along a path.
+   *
+   * @param triggerS Arc-length position in meters where the action triggers
+   * @param triggerDistance How far before triggerS to fire (meters, subtracted from triggerS)
+   * @param command The command to run when triggered
+   */
+  public record PathAction(double triggerS, double triggerDistance, Supplier<Command> command) {
 
-    public PathAction(String flagLabel, double triggerDistance, Supplier<Command> command) {
-      this(null, flagLabel, triggerDistance, command);
+    /**
+     * Creates a PathAction from a Choreo event marker timestamp.
+     *
+     * @param trajectory The arc-length trajectory (for timestamp→s conversion)
+     * @param markerTimestamp The Choreo event marker timestamp in seconds
+     * @param triggerDistance How far before the marker to fire (meters)
+     * @param command The command to run
+     * @return A PathAction with the correct arc-length trigger
+     */
+    public static PathAction fromMarker(
+        ArcLengthTrajectory trajectory,
+        double markerTimestamp,
+        double triggerDistance,
+        Supplier<Command> command) {
+      return new PathAction(
+          trajectory.getArcLengthAtTimestamp(markerTimestamp), triggerDistance, command);
     }
   }
 
-  private record ResolvedPathAction(
-      int pointIndex, double triggerDistance, Supplier<Command> command, int insertionOrder) {}
+  record ScheduledPathAction(double triggerS, Supplier<Command> commandSupplier) {}
 
   static final class ActivePathActionRunner extends Command {
     private final List<ScheduledPathAction> actions;
@@ -194,15 +121,12 @@ public class AutoCommands {
       if (activeCommand != null) {
         activeCommand.end(true);
       }
-
       activeCommand = nextCommand;
       activeCommandInitialized = false;
     }
 
     private void runActiveCommand() {
-      if (activeCommand == null) {
-        return;
-      }
+      if (activeCommand == null) return;
 
       if (!activeCommandInitialized) {
         activeCommand.initialize();
@@ -232,93 +156,61 @@ public class AutoCommands {
     }
   }
 
-  record ScheduledPathAction(double triggerS, Supplier<Command> commandSupplier) {}
-
   private static final double ACTION_TRIGGER_PROJECTION_WINDOW = 0.75;
-
-  private void validatePointIndex(PathData pathData, int pointIndex) {
-    if (pointIndex < 0 || pointIndex >= pathData.controlPoints().size()) {
-      throw new IllegalArgumentException("Invalid waypoint index: " + pointIndex);
-    }
-  }
 
   /**
    * Follow a path with distance-triggered actions and optional alongside commands.
    *
-   * <p>Each action fires when the robot is within {@code triggerDistance} of the control point at
-   * {@code pointIndex}. Once an action is triggered, it stays scheduled until a later action
-   * replaces it, the path completes, or the routine is interrupted. Alongside commands run for the
-   * entire path duration.
-   *
-   * @param pathData The path to follow
+   * @param path The path to follow (from AutoPath or any FollowablePath)
    * @param actions Ordered list of actions to trigger along the path
-   * @param alongside Commands that run for the entire path (e.g., intake)
+   * @param alongside Commands that run for the entire path duration
    * @return A command that follows the path with all actions wired
    */
   public Command followPathWithActions(
-      PathData pathData,
-      List<PathAction> actions,
-      double completionTolerance,
-      Command... alongside) {
-    return followPathWithActionsInternal(pathData, actions, completionTolerance, alongside);
+      FollowablePath path, List<PathAction> actions, Command... alongside) {
+    return followPathWithActionsInternal(path, actions, -1, alongside);
   }
 
   public Command followPathWithActions(
-      PathData pathData, List<PathAction> actions, Command... alongside) {
-    return followPathWithActionsInternal(pathData, actions, -1, alongside);
-  }
-
-  private Command followPathWithActionsInternal(
-      PathData pathData,
+      FollowablePath path,
       List<PathAction> actions,
       double completionTolerance,
       Command... alongside) {
-    SplinePath path = pathData.getSplinePath();
-    FollowPath pathCmd =
-        new FollowPath(
-            drivetrain,
-            path,
-            pathData.getVelocityProfile(),
-            pathData.globalConstraints().getEndVelocity());
+    return followPathWithActionsInternal(path, actions, completionTolerance, alongside);
+  }
+
+  private Command followPathWithActionsInternal(
+      FollowablePath path,
+      List<PathAction> actions,
+      double completionTolerance,
+      Command... alongside) {
+    FollowPath pathCmd = new FollowPath(drivetrain, path);
     if (completionTolerance > 0) {
       pathCmd.withCompletionTolerance(completionTolerance);
     }
 
-    if (!pathData.headingWaypoints().isEmpty()) {
-      pathCmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, pathData.headingWaypoints()));
-    }
-
-    List<ResolvedPathAction> resolvedActions = resolvePathActions(pathData, actions);
-
-    if (resolvedActions.isEmpty()) {
+    if (actions.isEmpty()) {
       return alongside.length == 0 ? pathCmd : pathCmd.deadlineFor(alongside);
     }
 
+    // Build scheduled actions sorted by trigger arc-length
+    List<ScheduledPathAction> scheduled = new ArrayList<>(actions.size());
+    for (PathAction action : actions) {
+      double triggerS = Math.max(0.0, action.triggerS() - action.triggerDistance());
+      scheduled.add(new ScheduledPathAction(triggerS, action.command()));
+    }
+    scheduled.sort((a, b) -> Double.compare(a.triggerS(), b.triggerS()));
+    scheduled = groupScheduledActions(scheduled);
+
     double[] projectedS = {0.0};
     ActivePathActionRunner actionRunner =
-        new ActivePathActionRunner(
-            buildScheduledPathActions(path, resolvedActions),
-            () -> updateProjectedS(path, projectedS));
+        new ActivePathActionRunner(scheduled, () -> updateProjectedS(path, projectedS));
 
     Command[] deadlineCommands = new Command[alongside.length + 1];
     deadlineCommands[0] = actionRunner;
     System.arraycopy(alongside, 0, deadlineCommands, 1, alongside.length);
 
     return pathCmd.deadlineFor(deadlineCommands);
-  }
-
-  List<ScheduledPathAction> buildScheduledPathActions(
-      SplinePath path, List<ResolvedPathAction> resolvedActions) {
-    List<ScheduledPathAction> rawScheduledActions = new ArrayList<>(resolvedActions.size());
-    for (ResolvedPathAction action : resolvedActions) {
-      double triggerS =
-          Math.max(
-              0.0,
-              path.getArcLengthAtWaypointIndex(action.pointIndex()) - action.triggerDistance());
-      rawScheduledActions.add(new ScheduledPathAction(triggerS, action.command()));
-    }
-    return groupScheduledActions(rawScheduledActions);
   }
 
   List<ScheduledPathAction> groupScheduledActions(List<ScheduledPathAction> rawScheduledActions) {
@@ -332,9 +224,7 @@ public class AutoCommands {
 
       while (index < rawScheduledActions.size()) {
         ScheduledPathAction nextAction = rawScheduledActions.get(index);
-        if (Double.compare(action.triggerS(), nextAction.triggerS()) != 0) {
-          break;
-        }
+        if (Double.compare(action.triggerS(), nextAction.triggerS()) != 0) break;
         groupedSuppliers.add(nextAction.commandSupplier());
         index++;
       }
@@ -348,54 +238,12 @@ public class AutoCommands {
   private Supplier<Command> parallelSupplier(List<Supplier<Command>> commandSuppliers) {
     List<Supplier<Command>> suppliers = List.copyOf(commandSuppliers);
     return () -> {
-      if (suppliers.size() == 1) {
-        return suppliers.get(0).get();
-      }
+      if (suppliers.size() == 1) return suppliers.get(0).get();
       return Commands.parallel(suppliers.stream().map(Supplier::get).toArray(Command[]::new));
     };
   }
 
-  private List<ResolvedPathAction> resolvePathActions(PathData pathData, List<PathAction> actions) {
-    List<ResolvedPathAction> resolved = new ArrayList<>();
-    int insertionOrder = 0;
-
-    for (PathAction action : actions) {
-      if (action.pointIndex() != null) {
-        validatePointIndex(pathData, action.pointIndex());
-        resolved.add(
-            new ResolvedPathAction(
-                action.pointIndex(), action.triggerDistance(), action.command(), insertionOrder++));
-        continue;
-      }
-
-      List<PathData.WaypointFlag> matches =
-          pathData.waypointFlags().stream()
-              .filter(flag -> action.flagLabel().equals(flag.label()))
-              .sorted(Comparator.comparingInt(PathData.WaypointFlag::waypointIndex))
-              .toList();
-
-      if (matches.isEmpty()) {
-        continue;
-      }
-
-      for (PathData.WaypointFlag match : matches) {
-        validatePointIndex(pathData, match.waypointIndex());
-        resolved.add(
-            new ResolvedPathAction(
-                match.waypointIndex(),
-                action.triggerDistance(),
-                action.command(),
-                insertionOrder++));
-      }
-    }
-
-    resolved.sort(
-        Comparator.comparingInt(ResolvedPathAction::pointIndex)
-            .thenComparingInt(ResolvedPathAction::insertionOrder));
-    return resolved;
-  }
-
-  private double updateProjectedS(SplinePath path, double[] projectedS) {
+  private double updateProjectedS(FollowablePath path, double[] projectedS) {
     double lastProjectedS = projectedS[0];
     ProjectionResult projection =
         path.getClosestPointInRange(
@@ -406,27 +254,15 @@ public class AutoCommands {
     return projectedS[0];
   }
 
-  // ==================== Time-Triggered Actions ====================
+  // ==================== Position-Triggered Actions ====================
 
   /**
    * Returns a command that waits until the robot passes a given X position, then runs a command.
-   * The threshold is specified in blue-alliance coordinates and is automatically flipped for red
-   * alliance using FieldInfo.flipX().
-   *
-   * @param blueAllianceX X position threshold in blue-alliance coordinates
-   * @param commandToRun Command to run once the robot passes the threshold
-   * @return Command that triggers based on robot X position
+   * The threshold is in blue-alliance coordinates and auto-flips for red alliance.
    */
   public Command runWhenPastX(double blueAllianceX, Command commandToRun) {
     return Commands.sequence(
         Commands.waitUntil(() -> FieldInfo.flipX(drivetrain.getPose().getX()) > blueAllianceX),
         commandToRun);
-  }
-
-  public Command leftAutoSetup() {
-    return resetPose(
-        () ->
-            new ExtPose(4.378, FieldInfo.width().in(Meters) - 0.639445, Rotation2d.fromDegrees(-90))
-                .get());
   }
 }

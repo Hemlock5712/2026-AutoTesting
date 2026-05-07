@@ -10,9 +10,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Watchdog;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
-import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.HubShiftUtil;
 import frc.robot.utils.Tunables;
 import java.lang.reflect.Field;
 import org.littletonrobotics.junction.LoggedRobot;
@@ -29,27 +27,20 @@ public class Robot extends LoggedRobot {
   // OCV estimation bounds
   private static final double MIN_OCV = 6.0; // Brownout threshold
 
-  // Rumble timing thresholds (seconds before hub shift)
-  private static final double RUMBLE_START_THRESHOLD = 1.0;
-  private static final double RUMBLE_END_THRESHOLD = 0.5;
-
   private static final double loopOverrunWarning = 0.2;
 
   public Robot() {
-    Logger.recordMetadata("2026Robot", "2026-AutoTesting");
+    Logger.recordMetadata("ProjectName", "FRC-Robot-Template");
     if (isReal()) {
       Logger.addDataReceiver(new WPILOGWriter("/home/lvuser/logs"));
       Logger.addDataReceiver(new NT4Publisher());
     } else {
-      // Logger.addDataReceiver(new WPILOGWriter());
       Logger.addDataReceiver(new NT4Publisher());
     }
     Logger.start();
 
     m_robotContainer = new RobotContainer();
     RobotController.setBrownoutVoltage(MIN_OCV);
-
-    HubShiftUtil.setupNTValues();
 
     try {
       Field watchdogField = IterativeRobotBase.class.getDeclaredField("m_watchdog");
@@ -66,23 +57,17 @@ public class Robot extends LoggedRobot {
   public void robotPeriodic() {
     long start = System.nanoTime();
 
-    m_robotContainer.getSuperstructure().update();
-    long afterSuper = System.nanoTime();
-
     CommandScheduler.getInstance().run();
     long afterScheduler = System.nanoTime();
 
     Tunables.update();
 
-    Logger.recordOutput("Timing/SuperstructureMs", (afterSuper - start) / 1e6);
-    Logger.recordOutput("Timing/CommandSchedulerMs", (afterScheduler - afterSuper) / 1e6);
+    Logger.recordOutput("Timing/CommandSchedulerMs", (afterScheduler - start) / 1e6);
     Logger.recordOutput("Timing/TotalMs", (System.nanoTime() - start) / 1e6);
   }
 
   @Override
-  public void disabledInit() {
-    m_robotContainer.setRumble(0.0);
-  }
+  public void disabledInit() {}
 
   @Override
   public void disabledPeriodic() {
@@ -115,38 +100,13 @@ public class Robot extends LoggedRobot {
     }
 
     FieldInfo.resetAllianceCache();
-    HubShiftUtil.initialize();
-
-    int station = DriverStation.getLocation().orElse(1);
-    if (station <= 2) {
-      m_robotContainer.getSuperstructure().setTeleopFeedMode(FeedMode.FORCE_LEFT);
-    } else {
-      m_robotContainer.getSuperstructure().setTeleopFeedMode(FeedMode.FORCE_RIGHT);
-    }
-
-    if (DriverStation.isFMSAttached()) {
-      CommandScheduler.getInstance().schedule(m_robotContainer.fmsInitCommand());
-    } else {
-      CommandScheduler.getInstance().schedule(m_robotContainer.stopCommand());
-    }
   }
 
   @Override
-  public void teleopPeriodic() {
-    HubShiftUtil.update();
-
-    // Rumble controller when a shift change is approaching
-    double secondsUntilShift = HubShiftUtil.getSecondsUntilNextShift();
-    m_robotContainer.setRumble(
-        (secondsUntilShift <= RUMBLE_START_THRESHOLD && secondsUntilShift > RUMBLE_END_THRESHOLD)
-            ? 1.0
-            : 0.0);
-  }
+  public void teleopPeriodic() {}
 
   @Override
-  public void teleopExit() {
-    m_robotContainer.setRumble(0.0);
-  }
+  public void teleopExit() {}
 
   @Override
   public void testInit() {
@@ -158,8 +118,4 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void testExit() {}
-
-  public static boolean isHubActive() {
-    return HubShiftUtil.isHubActive();
-  }
 }

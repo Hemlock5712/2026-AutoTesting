@@ -10,25 +10,18 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.commands.FollowPath.CenterOfRotationZone;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
-import frc.robot.utils.path.PathData;
+import frc.robot.utils.path.FollowablePath;
 import frc.robot.utils.path.ProjectionResult;
 import frc.robot.utils.path.RotationSupplier;
-import frc.robot.utils.path.SplinePath;
-import frc.robot.utils.path.VelocityConstraints;
-import frc.robot.utils.path.VelocityProfile;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
 /**
  * Distance-based path following command for swerve drive.
  *
- * <p>Follows a spline path using arc-length parameterization with adaptive lookahead and
- * cross-track PD correction. The path parameter tracks the robot's actual position, not a clock —
- * if the robot gets hit or stalls, the path "waits" for the robot.
+ * <p>Follows any {@link FollowablePath} using arc-length parameterization with adaptive lookahead
+ * and cross-track PD correction. The path parameter tracks the robot's actual position, not a clock
+ * — if the robot gets hit or stalls, the path "waits" for the robot.
  *
  * <p>All output is fed through {@link AccelerationLimiter#integrateVelocity} to enforce friction
  * circle, motor torque, and jerk limits.
@@ -36,11 +29,10 @@ import org.littletonrobotics.junction.Logger;
 public class FollowPath extends Command {
 
   private final CommandSwerveDrivetrain swerve;
-  private final SplinePath path;
-  private final VelocityProfile velocityProfile;
+  private final FollowablePath path;
+  private final double endVelocity;
 
-  // Rotation supplier: returns target heading in radians. Null = hold current
-  // heading.
+  // Rotation supplier: null = use path heading, then fall back to hold current heading.
   private RotationSupplier rotationSupplier;
 
   // Rotation tolerance for isFinished() (radians). Default = don't check heading.
@@ -63,7 +55,6 @@ public class FollowPath extends Command {
 
   // Completion criteria
   private double completionTolerance = 0.05; // meters from path end
-  private final double endVelocity;
   private double completionVelocityTolerance = 0.1; // meters per second
 
   /**
@@ -77,24 +68,7 @@ public class FollowPath extends Command {
   /** Number of poses to sample for the logged path trajectory. */
   private static final int PATH_LOG_SAMPLES = 50;
 
-  // Per-axis speed overrides (null = use path-computed value)
-  private DoubleSupplier overrideVx = null;
-  private DoubleSupplier overrideVy = null;
-  private DoubleSupplier overrideOmega = null;
-  private boolean limitOverrideVx = true;
-  private boolean limitOverrideVy = true;
-  private boolean limitOverrideOmega = true;
-
-  // Center of rotation zones: rotate around a custom point between waypoints
-  public record CenterOfRotationZone(
-      int startWaypointIndex, int endWaypointIndex, Translation2d center) {}
-
-  private final List<CenterOfRotationZone> centerOfRotationZones = new ArrayList<>();
-  private double[] corZoneStartS;
-  private double[] corZoneEndS;
-
-  // State tracking between execute cycles (same pattern as
-  // DriveToPoint/OrbitDrive)
+  // State tracking between execute cycles
   private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
   private double lastTime;
   private double lastCrossTrackError;
@@ -111,89 +85,34 @@ public class FollowPath extends Command {
           .withSteerRequestType(SteerRequestType.MotionMagicExpo);
 
   /**
-   * Creates a FollowPath command with default constraints.
+   * Creates a FollowPath command from any {@link FollowablePath}.
+   *
+   * <p>Velocity and heading come from the path itself. For Choreo trajectories, these are the
+   * time-optimal values re-parameterized by arc-length.
    *
    * @param swerve The swerve drivetrain
-   * @param path The spline path to follow
+   * @param path The path to follow
    */
-  public FollowPath(CommandSwerveDrivetrain swerve, SplinePath path) {
-    this(swerve, path, VelocityConstraints.defaults(), List.of());
+  public FollowPath(CommandSwerveDrivetrain swerve, FollowablePath path) {
+    this(swerve, path, 0.0);
   }
 
   /**
-   * Creates a FollowPath command with specified constraints.
+   * Creates a FollowPath command with a specified end velocity.
    *
    * @param swerve The swerve drivetrain
-   * @param path The spline path to follow
-   * @param constraints Velocity and acceleration limits
+   * @param path The path to follow
+   * @param endVelocity Target end velocity in m/s (0 = stop at end)
    */
-  public FollowPath(
-      CommandSwerveDrivetrain swerve, SplinePath path, VelocityConstraints constraints) {
-    this(swerve, path, constraints, List.of());
-  }
-
-  /**
-   * Creates a FollowPath command with specified constraints and constraint zones.
-   *
-   * @param swerve The swerve drivetrain
-   * @param path The spline path to follow
-   * @param constraints Velocity and acceleration limits
-   * @param constraintZones Per-zone overrides for velocity and acceleration
-   */
-  public FollowPath(
-      CommandSwerveDrivetrain swerve,
-      SplinePath path,
-      VelocityConstraints constraints,
-      List<PathData.ConstraintZone> constraintZones) {
+  public FollowPath(CommandSwerveDrivetrain swerve, FollowablePath path, double endVelocity) {
     this.swerve = swerve;
     this.path = path;
-    this.velocityProfile = new VelocityProfile(path, constraints, constraintZones);
-    this.endVelocity = constraints.getEndVelocity();
-    addRequirements(swerve);
-  }
-
-  /**
-   * Creates a FollowPath command with a pre-built velocity profile. Use this to avoid recomputing
-   * the profile when it has already been cached (e.g. via {@link PathData#getVelocityProfile()}).
-   *
-   * @param swerve The swerve drivetrain
-   * @param path The spline path to follow
-   * @param velocityProfile Pre-computed velocity profile
-   * @param endVelocity Target end velocity in m/s
-   */
-  public FollowPath(
-      CommandSwerveDrivetrain swerve,
-      SplinePath path,
-      VelocityProfile velocityProfile,
-      double endVelocity) {
-    this.swerve = swerve;
-    this.path = path;
-    this.velocityProfile = velocityProfile;
     this.endVelocity = endVelocity;
     addRequirements(swerve);
   }
 
-  /**
-   * Creates a FollowPath command directly from exported path data.
-   *
-   * @param swerve The swerve drivetrain
-   * @param path The spline path to follow
-   * @param pathData Exported path metadata including constraints and waypoint flags
-   */
-  public FollowPath(CommandSwerveDrivetrain swerve, SplinePath path, PathData pathData) {
-    this(swerve, path, pathData.globalConstraints(), pathData.constraintZones());
-  }
+  // ---- Builder methods ----
 
-  // ---- Builder methods (same pattern as DriveToPoint) ----
-
-  /**
-   * Sets adaptive lookahead parameters.
-   *
-   * @param k Lookahead time gain (seconds): lookahead = k * speed + min
-   * @param min Minimum lookahead distance (meters)
-   * @param max Maximum lookahead distance (meters)
-   * @return This command for chaining
-   */
   public FollowPath withLookahead(double k, double min, double max) {
     this.lookaheadK = k;
     this.lookaheadMin = min;
@@ -201,202 +120,33 @@ public class FollowPath extends Command {
     return this;
   }
 
-  /**
-   * Sets the maximum arc angle the lookahead can subtend on a curve.
-   *
-   * <p>On sharp curves, the speed-based lookahead is capped so that {@code lookahead * curvature <=
-   * maxArcAngle}. This prevents the lookahead chord from cutting across the arc.
-   *
-   * @param radians Maximum arc angle in radians (default π/6 ≈ 30°)
-   * @return This command for chaining
-   */
-  public FollowPath withLookaheadMaxArcAngle(double radians) {
-    this.lookaheadMaxArcAngle = radians;
-    return this;
-  }
-
-  /**
-   * Sets cross-track error PD gains.
-   *
-   * @param kp Proportional gain (m/s per meter of cross-track error)
-   * @param kd Derivative gain (m/s per m/s of cross-track error rate)
-   * @return This command for chaining
-   */
   public FollowPath withCrossTrackGains(double kp, double kd) {
     this.crossTrackKp = kp;
     this.crossTrackKd = kd;
     return this;
   }
 
-  /**
-   * Sets curvature feedforward gain.
-   *
-   * <p>Proactively pushes toward the center of curvature with velocity {@code gain * v² * κ},
-   * preventing cross-track error from building up on curves.
-   *
-   * @param gain Feedforward gain in seconds (default 0.1)
-   * @return This command for chaining
-   */
-  public FollowPath withCurvatureFeedforward(double gain) {
-    this.curvatureFfGain = gain;
-    return this;
-  }
-
-  /**
-   * Sets completion tolerance (distance from path end to finish).
-   *
-   * @param meters Tolerance in meters
-   * @return This command for chaining
-   */
   public FollowPath withCompletionTolerance(double meters) {
     this.completionTolerance = meters;
     return this;
   }
 
   /**
-   * Sets the completion velocity tolerance. (max speed deviation from the target end speed)
-   *
-   * @param tolerance Tolerance in meters per second
-   * @return This command for chaining
-   */
-  public FollowPath withCompletionVelocityTolerance(double tolerance) {
-    this.completionVelocityTolerance = tolerance;
-    return this;
-  }
-
-  /**
-   * Sets a path-aware rotation supplier that provides target heading.
-   *
-   * @param supplier Supplies target heading in radians given robot pose and path context
-   * @return This command for chaining
+   * Overrides the path's heading with a custom rotation supplier. When set, this takes priority
+   * over the heading from {@link FollowablePath#getHeading}.
    */
   public FollowPath withRotationSupplier(RotationSupplier supplier) {
     this.rotationSupplier = supplier;
     return this;
   }
 
-  /**
-   * Sets the rotation tolerance for path completion. The command will not finish until the heading
-   * error is within this tolerance (in addition to position and speed checks).
-   *
-   * <p>Default is {@code Double.POSITIVE_INFINITY} (no heading check). For turret robots, a wide
-   * tolerance like {@code Math.toRadians(30)} is typical.
-   *
-   * @param radians Rotation tolerance in radians
-   * @return This command for chaining
-   */
   public FollowPath withRotationTolerance(double radians) {
     this.rotationTolerance = radians;
     return this;
   }
 
-  /**
-   * Adds a center of rotation zone. Between the given waypoints, the swerve drive will rotate
-   * around the specified robot-relative offset instead of the robot center.
-   *
-   * @param startWaypoint Start waypoint index (inclusive)
-   * @param endWaypoint End waypoint index (inclusive)
-   * @param center Robot-relative offset to rotate around (e.g. turret position)
-   * @return This command for chaining
-   */
-  public FollowPath withCenterOfRotation(int startWaypoint, int endWaypoint, Translation2d center) {
-    centerOfRotationZones.add(new CenterOfRotationZone(startWaypoint, endWaypoint, center));
-    return this;
-  }
-
-  /**
-   * Sets the maximum fraction of friction budget that rotation can consume.
-   *
-   * <p>When rotation demands exceed this fraction, omega is capped and translation gets the
-   * remaining budget. AccelerationLimiter enforces the hard friction circle as a final safety net.
-   *
-   * @param fraction Fraction of MAX_FRICTION_ACCEL reserved for rotation (0.0 to 1.0, default 0.3)
-   * @return This command for chaining
-   */
   public FollowPath withMaxRotationBudget(double fraction) {
     this.maxRotationBudgetFraction = fraction;
-    return this;
-  }
-
-  /**
-   * Overrides the field-relative X velocity with a custom supplier. The output still passes through
-   * AccelerationLimiter (friction, motor, jerk limits apply).
-   *
-   * @param supplier Supplies desired field-relative X velocity in m/s
-   * @return This command for chaining
-   */
-  public FollowPath overrideXSpeedWithLimits(DoubleSupplier supplier) {
-    this.overrideVx = supplier;
-    this.limitOverrideVx = true;
-    return this;
-  }
-
-  /**
-   * Overrides the field-relative Y velocity with a custom supplier. The output still passes through
-   * AccelerationLimiter (friction, motor, jerk limits apply).
-   *
-   * @param supplier Supplies desired field-relative Y velocity in m/s
-   * @return This command for chaining
-   */
-  public FollowPath overrideYSpeedWithLimits(DoubleSupplier supplier) {
-    this.overrideVy = supplier;
-    this.limitOverrideVy = true;
-    return this;
-  }
-
-  /**
-   * Overrides angular velocity with a custom supplier. The output still passes through
-   * AccelerationLimiter (friction, motor, jerk limits apply). If a RotationSupplier is also set via
-   * {@link #withRotationSupplier}, this override takes precedence.
-   *
-   * @param supplier Supplies desired angular velocity in rad/s
-   * @return This command for chaining
-   */
-  public FollowPath overrideRotSpeedWithLimits(DoubleSupplier supplier) {
-    this.overrideOmega = supplier;
-    this.limitOverrideOmega = true;
-    return this;
-  }
-
-  /**
-   * Overrides the field-relative X velocity with a custom supplier. Bypasses all acceleration
-   * limits on this axis — the caller is responsible for not exceeding hardware limits. The
-   * unlimited axis does not consume friction budget from the remaining limited axes.
-   *
-   * @param supplier Supplies desired field-relative X velocity in m/s
-   * @return This command for chaining
-   */
-  public FollowPath overrideXSpeed(DoubleSupplier supplier) {
-    this.overrideVx = supplier;
-    this.limitOverrideVx = false;
-    return this;
-  }
-
-  /**
-   * Overrides the field-relative Y velocity with a custom supplier. Bypasses all acceleration
-   * limits on this axis — the caller is responsible for not exceeding hardware limits. The
-   * unlimited axis does not consume friction budget from the remaining limited axes.
-   *
-   * @param supplier Supplies desired field-relative Y velocity in m/s
-   * @return This command for chaining
-   */
-  public FollowPath overrideYSpeed(DoubleSupplier supplier) {
-    this.overrideVy = supplier;
-    this.limitOverrideVy = false;
-    return this;
-  }
-
-  /**
-   * Overrides angular velocity with a custom supplier. Bypasses all acceleration limits on this
-   * axis — the caller is responsible for not exceeding hardware limits. Rotation budget allocation
-   * is skipped entirely (rotation does not reduce translation budget).
-   *
-   * @param supplier Supplies desired angular velocity in rad/s
-   * @return This command for chaining
-   */
-  public FollowPath overrideRotSpeed(DoubleSupplier supplier) {
-    this.overrideOmega = supplier;
-    this.limitOverrideOmega = false;
     return this;
   }
 
@@ -404,34 +154,17 @@ public class FollowPath extends Command {
 
   @Override
   public void initialize() {
-    // Start from current velocity for smooth transitions (same as
-    // OrbitDrive/DriveToPoint)
     lastCommandedVelocity = swerve.getFieldSpeeds();
     lastTime = Utils.getCurrentTimeSeconds();
     lastCrossTrackError = 0;
 
-    // Default: hold the robot's current heading (swerve should not rotate unless
-    // told to)
+    // Default heading: use path heading if no override
     if (rotationSupplier == null) {
-      Rotation2d currentHeading = swerve.getPose().getRotation();
-      rotationSupplier = RotationSupplier.holdHeading(currentHeading);
+      rotationSupplier = (robotPose, pathS, pathTangent) -> path.getHeading(pathS).getRadians();
     }
     lastHeadingError = 0;
 
-    // Pre-compute arc-length ranges for center of rotation zones
-    corZoneStartS = new double[centerOfRotationZones.size()];
-    corZoneEndS = new double[centerOfRotationZones.size()];
-    for (int i = 0; i < centerOfRotationZones.size(); i++) {
-      corZoneStartS[i] =
-          path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).startWaypointIndex());
-      corZoneEndS[i] =
-          path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).endWaypointIndex());
-    }
-
-    // Always start at the beginning of the path
     lastProjectedS = 0.0;
-
-    // Defer reference path logging to first execute() to avoid blocking auto start
     referencePathLogged = false;
   }
 
@@ -449,9 +182,7 @@ public class FollowPath extends Command {
     Pose2d robotPose = swerve.getPose();
     Translation2d robotPos = robotPose.getTranslation();
 
-    // Step 1: Project robot onto path — bounded search around last known position.
-    // The bounded window prevents jumping to distant segments when hit or at
-    // crossings.
+    // Step 1: Project robot onto path — bounded search around last known position
     ProjectionResult proj =
         path.getClosestPointInRange(
             robotPos, lastProjectedS - PROJECTION_MAX_DELTA, lastProjectedS + PROJECTION_MAX_DELTA);
@@ -477,7 +208,7 @@ public class FollowPath extends Command {
 
     // Step 3: Get target point and profiled velocity
     Translation2d targetPoint = path.getPoint(sTarget);
-    double profiledSpeed = velocityProfile.getVelocity(sRobot);
+    double profiledSpeed = path.getVelocity(sRobot);
 
     // Step 4: Velocity direction — toward lookahead point
     Translation2d toTarget = targetPoint.minus(robotPos);
@@ -492,35 +223,19 @@ public class FollowPath extends Command {
     // Step 5: Cross-track PD correction + curvature feedforward
     double crossTrackRate = (dt > 1e-6) ? (crossTrackError - lastCrossTrackError) / dt : 0;
     double correction = crossTrackKp * crossTrackError + crossTrackKd * crossTrackRate;
-    // Normal vector: 90 degrees CCW from tangent (points left of path direction)
     double nx = -tangent.getY();
     double ny = tangent.getX();
-    // Curvature feedforward: proactively push toward center of curvature before
-    // error builds.
-    // Signed curvature: positive = turning left = center is in +normal direction.
     double signedKappa = path.getCurvature(sRobot);
     double curvatureFf = curvatureFfGain * profiledSpeed * profiledSpeed * signedKappa;
-    // -correction pushes toward path, +curvatureFf pushes toward center of
-    // curvature
     double corrScale = -correction + curvatureFf;
 
-    // Step 6: Combine path velocity + correction (primitive vector math)
-    double desiredVx = direction.getX() * profiledSpeed + nx * corrScale;
-    double desiredVy = direction.getY() * profiledSpeed + ny * corrScale;
+    // Step 6: Combine path velocity + correction
+    double vx = direction.getX() * profiledSpeed + nx * corrScale;
+    double vy = direction.getY() * profiledSpeed + ny * corrScale;
 
-    // Step 6.5: Apply per-axis overrides
-    double vx = (overrideVx != null) ? overrideVx.getAsDouble() : desiredVx;
-    double vy = (overrideVy != null) ? overrideVy.getAsDouble() : desiredVy;
-    boolean vxUnlimited = (overrideVx != null && !limitOverrideVx);
-    boolean vyUnlimited = (overrideVy != null && !limitOverrideVy);
-    boolean omegaUnlimited = (overrideOmega != null && !limitOverrideOmega);
-
-    // Step 7: Determine omega (override > heading supplier > 0) and rotation budget
-    // allocation
+    // Step 7: Heading control with rotation budget allocation
     double omega;
-    if (overrideOmega != null) {
-      omega = overrideOmega.getAsDouble();
-    } else if (rotationSupplier != null) {
+    if (rotationSupplier != null) {
       double targetHeading = rotationSupplier.getTargetHeading(robotPose, sRobot, tangent);
       double headingError =
           MathUtil.angleModulus(targetHeading - robotPose.getRotation().getRadians());
@@ -530,9 +245,7 @@ public class FollowPath extends Command {
       omega = 0.0;
     }
 
-    // Rotation budget allocation: only when omega goes through limits
-    if (!omegaUnlimited && omega != 0.0) {
-      // Cap angular contribution to configured fraction of friction budget
+    if (omega != 0.0) {
       double maxAngularContrib = maxRotationBudgetFraction * AccelerationLimiter.MAX_FRICTION_ACCEL;
       double angularContrib = Math.abs(omega) * AccelerationLimiter.DRIVE_BASE_RADIUS;
       if (angularContrib > maxAngularContrib) {
@@ -540,51 +253,26 @@ public class FollowPath extends Command {
         angularContrib = maxAngularContrib;
       }
 
-      // Scale limited translation axes to leave room for rotation in friction budget
       double maxFriction = AccelerationLimiter.MAX_FRICTION_ACCEL;
       double availableFraction =
           Math.sqrt(
               Math.max(0, 1.0 - (angularContrib * angularContrib) / (maxFriction * maxFriction)));
-      if (!vxUnlimited) vx *= availableFraction;
-      if (!vyUnlimited) vy *= availableFraction;
+      vx *= availableFraction;
+      vy *= availableFraction;
     }
 
-    // Step 8: Build limiter inputs — zero out unlimited axes so they don't steal
-    // friction budget
-    double limitedVx = vxUnlimited ? 0 : vx;
-    double limitedVy = vyUnlimited ? 0 : vy;
-    double limitedOmega = omegaUnlimited ? 0 : omega;
-    double currentVxForLimiter = vxUnlimited ? 0 : lastCommandedVelocity.vxMetersPerSecond;
-    double currentVyForLimiter = vyUnlimited ? 0 : lastCommandedVelocity.vyMetersPerSecond;
-    double currentOmegaForLimiter =
-        omegaUnlimited ? 0 : lastCommandedVelocity.omegaRadiansPerSecond;
-
-    // Integrate with primitive overload (normalizes desired internally, zero
-    // allocations)
+    // Step 8: Acceleration limiter
     AccelerationLimiter.integrateVelocity(
         lastCommandedVelocity,
-        currentVxForLimiter,
-        currentVyForLimiter,
-        currentOmegaForLimiter,
-        limitedVx,
-        limitedVy,
-        limitedOmega,
+        lastCommandedVelocity.vxMetersPerSecond,
+        lastCommandedVelocity.vyMetersPerSecond,
+        lastCommandedVelocity.omegaRadiansPerSecond,
+        vx,
+        vy,
+        omega,
         dt);
 
-    // Inject raw unlimited values back into the output
-    if (vxUnlimited) lastCommandedVelocity.vxMetersPerSecond = vx;
-    if (vyUnlimited) lastCommandedVelocity.vyMetersPerSecond = vy;
-    if (omegaUnlimited) lastCommandedVelocity.omegaRadiansPerSecond = omega;
-
-    // Apply center of rotation if within a configured zone
-    Translation2d activeCenter = Translation2d.kZero;
-    for (int i = 0; i < centerOfRotationZones.size(); i++) {
-      if (sRobot >= corZoneStartS[i] && sRobot <= corZoneEndS[i]) {
-        activeCenter = centerOfRotationZones.get(i).center();
-        break;
-      }
-    }
-    swerve.setControl(request.withCenterOfRotation(activeCenter).withSpeeds(lastCommandedVelocity));
+    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
     lastCrossTrackError = crossTrackError;
     lastProjectedS = sRobot;
 
@@ -601,7 +289,6 @@ public class FollowPath extends Command {
     Logger.recordOutput("FollowPath/Omega", omega);
     Logger.recordOutput("FollowPath/HeadingError", lastHeadingError);
 
-    // Publish as double[] for path editor (NT4-friendly format)
     logEditorTarget[0] = targetPoint.getX();
     logEditorTarget[1] = targetPoint.getY();
     logEditorClosest[0] = proj.point().getX();
@@ -615,17 +302,9 @@ public class FollowPath extends Command {
   @Override
   public void end(boolean interrupted) {
     swerve.setControl(new SwerveRequest.Idle());
-
-    // Clear logged path on end so it doesn't persist in AdvantageScope
     Logger.recordOutput("FollowPath/ReferencePath", new Pose2d[0]);
   }
 
-  /**
-   * Logs the full reference path as a Pose2d array for visualization in AdvantageScope.
-   *
-   * <p>Sampled at PATH_LOG_SAMPLES points. The rotation of each pose is set to the tangent
-   * direction so the trajectory arrow shows the path direction.
-   */
   private void logReferencePath() {
     Pose2d[] pathPoses = new Pose2d[PATH_LOG_SAMPLES + 1];
     double ds = path.getTotalLength() / PATH_LOG_SAMPLES;
@@ -633,8 +312,8 @@ public class FollowPath extends Command {
     for (int i = 0; i <= PATH_LOG_SAMPLES; i++) {
       double s = i * ds;
       Translation2d point = path.getPoint(s);
-      Translation2d tangent = path.getTangent(s);
-      Rotation2d heading = new Rotation2d(tangent.getX(), tangent.getY());
+      Translation2d tan = path.getTangent(s);
+      Rotation2d heading = new Rotation2d(tan.getX(), tan.getY());
       pathPoses[i] = new Pose2d(point, heading);
     }
 
@@ -656,13 +335,6 @@ public class FollowPath extends Command {
   /** Proportional gain for near-target linear taper (replaces hard dead zone). */
   private static final double HEADING_KP = 8.0;
 
-  /**
-   * Converts heading error to angular velocity using a stopping profile with linear taper.
-   *
-   * <p>Far from target: uses kinematic stopping profile {@code sqrt(2 * alpha * |error|)}. Near
-   * target: uses linear {@code kP * error} which smoothly approaches zero. The minimum of both is
-   * used, eliminating the hard dead zone that caused oscillation.
-   */
   private static double angleErrorToOmega(double headingError) {
     double absError = Math.abs(headingError);
     if (absError < 1e-4) {
