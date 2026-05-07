@@ -70,9 +70,7 @@ public class Robot extends LoggedRobot {
   public void disabledInit() {}
 
   @Override
-  public void disabledPeriodic() {
-    m_robotContainer.updateAutoSelection();
-  }
+  public void disabledPeriodic() {}
 
   @Override
   public void disabledExit() {}

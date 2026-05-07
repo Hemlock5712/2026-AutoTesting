@@ -1,18 +1,19 @@
 package frc.robot.autonomous;
 
+import choreo.trajectory.EventMarker;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.commands.FollowPath;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
-import frc.robot.utils.FieldInfo;
 import frc.robot.utils.path.ArcLengthTrajectory;
 import frc.robot.utils.path.AutoPath;
 import frc.robot.utils.path.FollowablePath;
 import frc.robot.utils.path.ProjectionResult;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
@@ -34,30 +35,17 @@ public class AutoCommands {
     return new DriveToPoint(drivetrain, pose);
   }
 
-  // ==================== Drive Commands ====================
-
-  /**
-   * Follow a path from the {@link AutoPath} enum (alliance-aware).
-   *
-   * @param path The auto path to follow
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(AutoPath path) {
-    return new FollowPath(drivetrain, path.get());
-  }
-
-  /**
-   * Follow any {@link FollowablePath} directly.
-   *
-   * @param path The path to follow
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(FollowablePath path) {
-    return new FollowPath(drivetrain, path);
-  }
-
   public Command resetPose(Supplier<Pose2d> pose) {
     return drivetrain.runOnce(() -> drivetrain.resetPose(pose.get()));
+  }
+
+  /** Resets the robot pose to the start of the given path (alliance-aware). */
+  public Command resetPose(AutoPath path) {
+    return resetPose(
+        () -> {
+          FollowablePath traj = path.get();
+          return new Pose2d(traj.getPoint(0), traj.getHeading(0));
+        });
   }
 
   // ==================== Path Actions ====================
@@ -88,6 +76,25 @@ public class AutoCommands {
       return new PathAction(
           trajectory.getArcLengthAtTimestamp(markerTimestamp), triggerDistance, command);
     }
+  }
+
+  /**
+   * Reads event markers from a Choreo trajectory and converts them to distance-based PathActions.
+   *
+   * @param path The AutoPath whose Choreo trajectory contains event markers
+   * @param eventMap Maps event marker names to the commands they should trigger
+   * @return A list of PathActions, one per matching marker occurrence
+   */
+  public List<PathAction> actionsFromChoreoEvents(
+      AutoPath path, Map<String, Supplier<Command>> eventMap) {
+    ArcLengthTrajectory traj = path.get();
+    List<PathAction> actions = new ArrayList<>();
+    for (var entry : eventMap.entrySet()) {
+      for (EventMarker marker : path.trajectory().getEvents(entry.getKey())) {
+        actions.add(PathAction.fromMarker(traj, marker.timestamp, 0.0, entry.getValue()));
+      }
+    }
+    return actions;
   }
 
   record ScheduledPathAction(double triggerS, Supplier<Command> commandSupplier) {}
@@ -252,17 +259,5 @@ public class AutoCommands {
             Math.min(path.getTotalLength(), lastProjectedS + ACTION_TRIGGER_PROJECTION_WINDOW));
     projectedS[0] = Math.max(lastProjectedS, projection.s());
     return projectedS[0];
-  }
-
-  // ==================== Position-Triggered Actions ====================
-
-  /**
-   * Returns a command that waits until the robot passes a given X position, then runs a command.
-   * The threshold is in blue-alliance coordinates and auto-flips for red alliance.
-   */
-  public Command runWhenPastX(double blueAllianceX, Command commandToRun) {
-    return Commands.sequence(
-        Commands.waitUntil(() -> FieldInfo.flipX(drivetrain.getPose().getX()) > blueAllianceX),
-        commandToRun);
   }
 }

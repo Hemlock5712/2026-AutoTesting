@@ -15,7 +15,9 @@ import frc.robot.commands.OrbitDrive;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
+import frc.robot.utils.path.AutoPath;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 public class RobotContainer {
@@ -35,13 +37,11 @@ public class RobotContainer {
           List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr", "limelight-mm"),
           drivetrain);
 
-  /* Autonomous mode selector — builds only the selected path during disabled */
+  /* Autonomous mode selector */
   private final SendableChooser<Supplier<Command>> autoChooser = new SendableChooser<>();
-  private Command cachedAutoCommand = Commands.none();
-  private Supplier<Command> lastBuiltSupplier;
 
   public RobotContainer() {
-    // Add auto options here: autoChooser.addOption("Name", () -> command);
+    autoChooser.setDefaultOption("NewPath (PD)", this::newPathAutoPD);
 
     SmartDashboard.putData("Auto Mode", autoChooser);
 
@@ -68,7 +68,8 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    return cachedAutoCommand;
+    Supplier<Command> selected = autoChooser.getSelected();
+    return (selected != null) ? selected.get() : Commands.none();
   }
 
   public double rescaleInputs(double input) {
@@ -94,16 +95,12 @@ public class RobotContainer {
     return scaledTranslation;
   }
 
-  /**
-   * Polls for changes in auto selection during disabled. Rebuilds the cached auto command only when
-   * the selection changes. Call from {@code disabledPeriodic()}.
-   */
-  public void updateAutoSelection() {
-    Supplier<Command> selected = autoChooser.getSelected();
-
-    if (selected != lastBuiltSupplier) {
-      lastBuiltSupplier = selected;
-      cachedAutoCommand = (selected != null) ? selected.get() : Commands.none();
-    }
+  private Command newPathAutoPD() {
+    return Commands.sequence(
+        autoCommands.resetPose(AutoPath.NEW_PATH),
+        autoCommands.followPathWithActions(
+            AutoPath.NEW_PATH.get(),
+            autoCommands.actionsFromChoreoEvents(
+                AutoPath.NEW_PATH, Map.of("Marker", () -> Commands.print("Marker triggered!")))));
   }
 }

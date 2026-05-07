@@ -6,7 +6,6 @@ import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -173,6 +172,7 @@ public class FollowPath extends Command {
     double currentTime = Utils.getCurrentTimeSeconds();
     double dt = currentTime - lastTime;
     lastTime = currentTime;
+    if (dt < 1e-6) dt = 0.02;
 
     if (!referencePathLogged) {
       logReferencePath();
@@ -207,8 +207,11 @@ public class FollowPath extends Command {
     double sTarget = Math.min(sRobot + lookaheadDist, path.getTotalLength());
 
     // Step 3: Get target point and profiled velocity
+    // Use max of local and lookahead velocity. This naturally handles arc-length
+    // compression at zero-velocity starts (lookahead is past the compressed zone)
+    // while preserving Choreo's deceleration profile at the path end.
     Translation2d targetPoint = path.getPoint(sTarget);
-    double profiledSpeed = path.getVelocity(sRobot);
+    double profiledSpeed = Math.max(path.getVelocity(sRobot), path.getVelocity(sTarget));
 
     // Step 4: Velocity direction — toward lookahead point
     Translation2d toTarget = targetPoint.minus(robotPos);
@@ -234,16 +237,11 @@ public class FollowPath extends Command {
     double vy = direction.getY() * profiledSpeed + ny * corrScale;
 
     // Step 7: Heading control with rotation budget allocation
-    double omega;
-    if (rotationSupplier != null) {
-      double targetHeading = rotationSupplier.getTargetHeading(robotPose, sRobot, tangent);
-      double headingError =
-          MathUtil.angleModulus(targetHeading - robotPose.getRotation().getRadians());
-      lastHeadingError = Math.abs(headingError);
-      omega = angleErrorToOmega(headingError);
-    } else {
-      omega = 0.0;
-    }
+    double targetHeading = rotationSupplier.getTargetHeading(robotPose, sRobot, tangent);
+    double headingError =
+        MathUtil.angleModulus(targetHeading - robotPose.getRotation().getRadians());
+    lastHeadingError = Math.abs(headingError);
+    double omega = angleErrorToOmega(headingError);
 
     if (omega != 0.0) {
       double maxAngularContrib = maxRotationBudgetFraction * AccelerationLimiter.MAX_FRICTION_ACCEL;
@@ -288,6 +286,7 @@ public class FollowPath extends Command {
     Logger.recordOutput("FollowPath/Curvature", kappa);
     Logger.recordOutput("FollowPath/Omega", omega);
     Logger.recordOutput("FollowPath/HeadingError", lastHeadingError);
+    Logger.recordOutput("FollowPath/RemainingArcLength", path.getTotalLength() - sRobot);
 
     logEditorTarget[0] = targetPoint.getX();
     logEditorTarget[1] = targetPoint.getY();
@@ -312,9 +311,7 @@ public class FollowPath extends Command {
     for (int i = 0; i <= PATH_LOG_SAMPLES; i++) {
       double s = i * ds;
       Translation2d point = path.getPoint(s);
-      Translation2d tan = path.getTangent(s);
-      Rotation2d heading = new Rotation2d(tan.getX(), tan.getY());
-      pathPoses[i] = new Pose2d(point, heading);
+      pathPoses[i] = new Pose2d(point, path.getHeading(s));
     }
 
     Logger.recordOutput("FollowPath/ReferencePath", pathPoses);
@@ -328,21 +325,21 @@ public class FollowPath extends Command {
   /** Conservative fraction of MAX_ANGULAR_DECEL for stopping-profile planning. */
   private static final double DECEL_BUDGET_FACTOR = 0.25;
 
-  /** Max omega achievable under default 30% rotation budget. */
-  private static final double BUDGET_MAX_OMEGA =
-      0.30 * AccelerationLimiter.MAX_FRICTION_ACCEL / AccelerationLimiter.DRIVE_BASE_RADIUS;
-
   /** Proportional gain for near-target linear taper (replaces hard dead zone). */
   private static final double HEADING_KP = 8.0;
 
-  private static double angleErrorToOmega(double headingError) {
+  private double angleErrorToOmega(double headingError) {
     double absError = Math.abs(headingError);
     if (absError < 1e-4) {
       return 0.0;
     }
+    double budgetMaxOmega =
+        maxRotationBudgetFraction
+            * AccelerationLimiter.MAX_FRICTION_ACCEL
+            / AccelerationLimiter.DRIVE_BASE_RADIUS;
     double stoppingOmega = Math.sqrt(2.0 * MAX_ANGULAR_DECEL * DECEL_BUDGET_FACTOR * absError);
     double linearOmega = HEADING_KP * absError;
-    double omega = Math.min(Math.min(stoppingOmega, linearOmega), BUDGET_MAX_OMEGA);
+    double omega = Math.min(Math.min(stoppingOmega, linearOmega), budgetMaxOmega);
     return Math.copySign(omega, headingError);
   }
 

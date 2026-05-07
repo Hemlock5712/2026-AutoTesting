@@ -240,24 +240,6 @@ public final class ArcLengthTrajectory implements FollowablePath {
     return lerp(sTable[lo], sTable[hi], frac);
   }
 
-  /**
-   * Returns the starting pose (position + heading) of this trajectory.
-   *
-   * @return Position at s=0
-   */
-  public Translation2d getStartingPosition() {
-    return new Translation2d(xSamples[0], ySamples[0]);
-  }
-
-  /**
-   * Returns the ending velocity of this trajectory (m/s).
-   *
-   * @return Speed at the last sample
-   */
-  public double getEndVelocity() {
-    return speedSamples[n - 1];
-  }
-
   // ---- Internal helpers ----
 
   /**
