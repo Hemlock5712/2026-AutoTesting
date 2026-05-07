@@ -112,6 +112,8 @@ public class RobotContainer {
     autoChooser.addOption("Anti Poof Left", autoRoutines::antiPoofLeft);
     autoChooser.addOption("Anti Poof Right", autoRoutines::antiPoofRight);
 
+    autoChooser.addOption("Depot Center Pass Deep", autoRoutines::leftDepotCenterMiddlePass);
+
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();
@@ -242,9 +244,9 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
-    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     // joystick
     //     .y()

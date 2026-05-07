@@ -541,7 +541,28 @@ public final class Paths {
           List.of(),
           List.of());
 
-  public static final PathData ANTI_POOF_LEFT =
+  public static final PathData SHORT_PATH_RIGHT =
+      new PathData(
+          List.of(
+              new Translation2d(4.21, 0.5100000000000007),
+              new Translation2d(7.486881632653061, 1.1341714285714284),
+              new Translation2d(7.945951020408163, 3.7265632653061225),
+              new Translation2d(6.973804081632653, 3.240489795918368),
+              new Translation2d(6.568742857142857, 0.9181387755102044),
+              new Translation2d(4.219387755102042, 0.48607346938775553)),
+          List.of(
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(90))),
+          VelocityConstraints.defaults()
+              .withMaxVelocity(5.1033118205322285)
+              .withMaxAcceleration(10.791000000000002),
+          List.of(new PathData.ConstraintZone(1, 2, 2, 10.791000000000002)),
+          List.of(),
+          List.of());
+
+  public static final PathData SHORT_PATH_LEFT =
       new PathData(
           List.of(
               new Translation2d(4.21, 7.7),
@@ -562,24 +583,30 @@ public final class Paths {
           List.of(),
           List.of());
 
-  public static final PathData ANTI_POOF_RIGHT =
+  public static final PathData LEFT_SIDE_AFTER_DEPOT_CLEANUP =
       new PathData(
           List.of(
-              new Translation2d(4.21, 0.5100000000000007),
-              new Translation2d(7.486881632653061, 1.1341714285714284),
-              new Translation2d(7.945951020408163, 3.7265632653061225),
-              new Translation2d(6.973804081632653, 3.240489795918368),
-              new Translation2d(6.568742857142857, 0.9181387755102044),
-              new Translation2d(4.219387755102042, 0.48607346938775553)),
+              new Translation2d(3.574174279690794, 7.582340126493325),
+              new Translation2d(5.782607167955025, 7.512600140548138),
+              new Translation2d(7.967793394237526, 7.30338018271258),
+              new Translation2d(8.362986647926915, 6.1875404075896006),
+              new Translation2d(8.246753338018271, 3.8861208713984547),
+              new Translation2d(7.549353478566409, 4.141834153197471),
+              new Translation2d(7.456366830639494, 7.2801335207308515),
+              new Translation2d(4.039107519325369, 7.582340126493325)),
           List.of(
-              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(90)),
-              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(0)),
-              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(0)),
-              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(90))),
+              new PathData.HeadingWaypoint(7, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(0, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(2, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(4, Rotation2d.fromDegrees(-90)),
+              new PathData.HeadingWaypoint(6, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(1, Rotation2d.fromDegrees(-180)),
+              new PathData.HeadingWaypoint(5, Rotation2d.fromDegrees(95))),
           VelocityConstraints.defaults()
               .withMaxVelocity(5.1033118205322285)
-              .withMaxAcceleration(10.791000000000002),
-          List.of(new PathData.ConstraintZone(1, 2, 2, 10.791000000000002)),
+              .withMaxAcceleration(10.791000000000002)
+              .withStartVelocity(1),
+          List.of(new PathData.ConstraintZone(2, 6, 2.5, 10.791000000000002)),
           List.of(),
           List.of());
 
