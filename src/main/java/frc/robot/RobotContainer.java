@@ -12,44 +12,104 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.commands.OrbitDrive;
+import frc.robot.commands.PathPlanningDemo;
 import frc.robot.generated.TunerConstants;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
-import frc.robot.subsystems.Limelight;
+import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.drive.GyroIO;
+import frc.robot.subsystems.drive.GyroIOPigeon2;
+import frc.robot.subsystems.drive.ModuleIO;
+import frc.robot.subsystems.drive.ModuleIOSim;
+import frc.robot.subsystems.drive.ModuleIOTalonFX;
+import frc.robot.subsystems.vision.Vision;
+import frc.robot.subsystems.vision.VisionIO;
+import frc.robot.subsystems.vision.VisionIOLimelight;
+import frc.robot.subsystems.vision.VisionIONoop;
+import frc.robot.subsystems.vision.VisionIOSim;
 import frc.robot.utils.path.AutoPath;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
 public class RobotContainer {
   private static final double JOYSTICK_DEADBAND = 0.05;
 
+  private static final String[] LIMELIGHT_NAMES = {
+    "limelight-br", "limelight-bl", "limelight-fl", "limelight-fr", "limelight-mm"
+  };
+
   private double maxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
   private double maxAngularRate = RotationsPerSecond.of(1).in(RadiansPerSecond);
 
   private final CommandXboxController joystick = new CommandXboxController(0);
 
-  public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+  public final Drive drivetrain;
+  public final Vision vision;
+  public final AutoCommands autoCommands;
 
-  public final AutoCommands autoCommands = new AutoCommands(drivetrain);
-
-  public final Limelight limelight =
-      new Limelight(
-          List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr", "limelight-mm"),
-          drivetrain);
-
-  /* Autonomous mode selector */
   private final SendableChooser<Supplier<Command>> autoChooser = new SendableChooser<>();
 
   public RobotContainer() {
-    autoChooser.setDefaultOption("NewPath (PD)", this::newPathAutoPD);
+    drivetrain = createDrive();
+    vision = createVision(drivetrain);
+    autoCommands = new AutoCommands(drivetrain);
 
+    autoChooser.setDefaultOption("NewPath (PD)", this::newPathAutoPD);
+    autoChooser.addOption("PathPlanningDemo", () -> PathPlanningDemo.create(drivetrain));
     SmartDashboard.putData("Auto Mode", autoChooser);
 
     configureBindings();
   }
 
+  private static Drive createDrive() {
+    return switch (Constants.getMode()) {
+      case REAL ->
+          new Drive(
+              new GyroIOPigeon2(),
+              new ModuleIOTalonFX(TunerConstants.FrontLeft),
+              new ModuleIOTalonFX(TunerConstants.FrontRight),
+              new ModuleIOTalonFX(TunerConstants.BackLeft),
+              new ModuleIOTalonFX(TunerConstants.BackRight));
+      case SIM ->
+          new Drive(
+              new GyroIO() {},
+              new ModuleIOSim(TunerConstants.FrontLeft),
+              new ModuleIOSim(TunerConstants.FrontRight),
+              new ModuleIOSim(TunerConstants.BackLeft),
+              new ModuleIOSim(TunerConstants.BackRight));
+      case REPLAY ->
+          new Drive(
+              new GyroIO() {},
+              new ModuleIO() {},
+              new ModuleIO() {},
+              new ModuleIO() {},
+              new ModuleIO() {});
+    };
+  }
+
+  private static Vision createVision(Drive drive) {
+    VisionIO[] ios = new VisionIO[LIMELIGHT_NAMES.length];
+    switch (Constants.getMode()) {
+      case REAL -> {
+        for (int i = 0; i < LIMELIGHT_NAMES.length; i++) {
+          ios[i] = new VisionIOLimelight(LIMELIGHT_NAMES[i]);
+        }
+      }
+      case SIM -> {
+        // One synthetic camera so std-dev tuning has a measurable effect in replay.
+        ios[0] = new VisionIOSim(LIMELIGHT_NAMES[0]);
+        for (int i = 1; i < LIMELIGHT_NAMES.length; i++) {
+          ios[i] = new VisionIONoop(LIMELIGHT_NAMES[i]);
+        }
+      }
+      case REPLAY -> {
+        for (int i = 0; i < LIMELIGHT_NAMES.length; i++) {
+          ios[i] = new VisionIONoop(LIMELIGHT_NAMES[i]);
+        }
+      }
+    }
+    return new Vision(drive, ios);
+  }
+
   private void configureBindings() {
-    // Cached translation velocities - computed once per cycle in velocityX supplier
     double[] translationVel = {0, 0};
 
     drivetrain.setDefaultCommand(
@@ -63,8 +123,6 @@ public class RobotContainer {
             },
             () -> translationVel[1],
             () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
-
-    // Add button bindings here
   }
 
   public Command getAutonomousCommand() {
@@ -78,7 +136,6 @@ public class RobotContainer {
 
   private final double[] scaledTranslation = new double[2];
 
-  /** Deadband + squared-magnitude rescale using raw doubles. Zero allocations. */
   public double[] rescaleTranslation(double x, double y) {
     double mag = Math.hypot(x, y);
     if (mag < JOYSTICK_DEADBAND) {
@@ -86,7 +143,6 @@ public class RobotContainer {
       scaledTranslation[1] = 0;
       return scaledTranslation;
     }
-    // Deadband: remap [deadband, 1] → [0, 1], clamp, then square for fine control
     double deadbanded = (mag - JOYSTICK_DEADBAND) / (1.0 - JOYSTICK_DEADBAND);
     if (deadbanded > 1.0) deadbanded = 1.0;
     double factor = deadbanded * deadbanded / mag;

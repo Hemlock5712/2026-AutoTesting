@@ -4,79 +4,35 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 
 /**
- * Contract between a path source and a path-following controller.
+ * A path the robot can follow. Indexed by distance s along the path (in meters).
  *
- * <p>All queries are parameterized by arc-length {@code s} (meters along the path). Implementations
- * include {@link ArcLengthTrajectory} (re-parameterized Choreo trajectories) and any future dynamic
- * path generators (A*, RRT*, etc.).
- *
- * <p>Both {@link frc.robot.commands.FollowPath} and future MPC controllers consume this interface.
+ * <p>Currently implemented by {@link ArcLengthTrajectory} (Choreo trajectories). Used by {@link
+ * frc.robot.commands.FollowPath}.
  */
 public interface FollowablePath {
 
-  /**
-   * Returns the position at arc-length {@code s} along the path.
-   *
-   * @param s Arc length in meters, clamped to [0, totalLength]
-   * @return Position on the path
-   */
+  /** Position at distance s along the path. */
   Translation2d getPoint(double s);
 
-  /**
-   * Returns the unit tangent vector at arc-length {@code s}.
-   *
-   * @param s Arc length in meters, clamped to [0, totalLength]
-   * @return Unit tangent vector (direction of travel)
-   */
+  /** Unit vector pointing in the direction of travel at distance s. */
   Translation2d getTangent(double s);
 
-  /**
-   * Returns the signed curvature at arc-length {@code s}.
-   *
-   * @param s Arc length in meters, clamped to [0, totalLength]
-   * @return Signed curvature in 1/meters (positive = turning left)
-   */
+  /** How tightly the path is turning at distance s. Positive = left turn. */
   double getCurvature(double s);
 
-  /**
-   * Returns the target speed magnitude at arc-length {@code s}.
-   *
-   * <p>For Choreo trajectories this comes from the pre-optimized velocity profile. For dynamic
-   * paths this may be computed from curvature constraints.
-   *
-   * @param s Arc length in meters, clamped to [0, totalLength]
-   * @return Target speed in m/s
-   */
+  /** Target speed at distance s, in m/s. */
   double getVelocity(double s);
 
-  /**
-   * Returns the target robot heading at arc-length {@code s}.
-   *
-   * <p>For Choreo trajectories this comes from the optimized heading profile. Heading can be
-   * overridden via {@link frc.robot.commands.FollowPath#withRotationSupplier}.
-   *
-   * @param s Arc length in meters, clamped to [0, totalLength]
-   * @return Target heading
-   */
+  /** Target robot heading at distance s. */
   Rotation2d getHeading(double s);
 
-  /**
-   * Returns the total arc length of the path in meters.
-   *
-   * @return Total path length
-   */
+  /** Total path length in meters. */
   double getTotalLength();
 
   /**
-   * Projects a point onto the path within a bounded arc-length range.
-   *
-   * <p>The bounded search prevents the projection from jumping to distant segments when the robot
-   * is hit or at path crossings.
-   *
-   * @param point The point to project onto the path
-   * @param sMin Minimum arc length to search (clamped to 0)
-   * @param sMax Maximum arc length to search (clamped to totalLength)
-   * @return Projection result with arc length, closest point, cross-track error, and tangent
+   * Finds the closest point on the path to a given location, only searching between sMin and sMax.
+   * Limiting the range prevents the robot from "snapping" to a far-away part of the path if the
+   * path crosses itself or the robot gets bumped.
    */
   ProjectionResult getClosestPointInRange(Translation2d point, double sMin, double sMax);
 }

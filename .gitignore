@@ -189,3 +189,12 @@ compile_commands.json
 # Path editor build artifacts
 path-editor/node_modules/
 path-editor/dist/
+
+# Sim runtime state (per-developer, ephemeral)
+simgui-ds.json
+simgui-window.json
+networktables.json
+sim-test.log
+
+# Local exploration / agent skills (track explicitly via .agent/ if desired)
+analysis/

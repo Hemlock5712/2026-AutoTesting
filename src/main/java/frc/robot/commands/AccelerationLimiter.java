@@ -7,98 +7,128 @@ import frc.robot.generated.TunerConstants;
 import frc.robot.utils.Motor;
 
 /**
- * Physics-based acceleration limiter for swerve drive.
+ * Limits how hard the swerve drive can accelerate, based on real motor data.
  *
- * <p>Uses real motor dyno data instead of arbitrary tuning constants. Applies two limits:
+ * <p>Two limits are applied:
  *
  * <ul>
- *   <li>Motor Limit: Torque decreases with speed (limits acceleration, not braking)
- *   <li>Friction Limit: Combined acceleration cannot exceed coefficient of friction times gravity
+ *   <li>Motor limit: Motors can't push as hard at high speed (only affects speeding up)
+ *   <li>Friction limit: Wheels can't accelerate harder than friction allows ({@code mu * g})
  * </ul>
  *
- * <p>This prevents wheel slip during aggressive maneuvers while maximizing performance.
+ * <p>Stops the wheels from slipping while still letting the robot move as fast as possible.
  */
 public final class AccelerationLimiter {
 
-  // Physical constants
   public static final double GRAVITY = 9.81; // m/s^2
 
-  // Distance from robot center to wheel (for converting angular to linear)
+  // Distance from robot center to a wheel.
   public static final double DRIVE_BASE_RADIUS =
       Math.hypot(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY);
 
-  // Maximum robot velocity from TunerX configuration
+  // Top speed of the robot.
   public static final double MAX_VELOCITY = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
 
-  // Friction coefficient of 1.0 assumes good tread on carpet. Max acceleration = coefficient * g
-  public static final double MAX_FRICTION_ACCEL = 1.1 * GRAVITY;
+  // Friction coefficient: ~1.0 for good tread on carpet. Max accel = mu * g.
+  public static final double MU_FRICTION = 1.1;
+  public static final double MAX_FRICTION_ACCEL = MU_FRICTION * GRAVITY;
 
-  // Robot parameters for motor torque calculations
+  // Drivetrain parameters used to model motor torque.
   static final Motor MOTOR = Motor.KRAKEN_X60_FOC;
   static final double GEAR_RATIO = TunerConstants.FrontLeft.DriveMotorGearRatio;
   static final double WHEEL_RADIUS = TunerConstants.FrontLeft.WheelRadius;
-  static final double ROBOT_MASS = 60; // kg, including bumpers and battery
+  public static final double ROBOT_MASS = 60; // kg, including bumpers and battery
   static final int NUM_DRIVE_MOTORS = 4;
 
-  // Stator current limit for torque model (150A per motor, 600A total max)
-  // More conservative than the 200A hardware limit in TunerConstants
+  // ---- Per-module weight transfer ----
+  // Half the wheelbase (front-back) and trackwidth (left-right). Assumes a symmetric chassis.
+  public static final double HALF_WHEELBASE = Math.abs(TunerConstants.FrontLeft.LocationX);
+  public static final double HALF_TRACKWIDTH = Math.abs(TunerConstants.FrontLeft.LocationY);
+
+  // Center of gravity offset from the chassis center. +X = forward, +Y = left, +Z = up.
+  //
+  // To measure: balance the robot on a pipe to find cx and cy. For cz, lift one side until it's
+  // about to tip and measure the tip angle - cz = HALF_TRACKWIDTH / tan(angle). Tilt slowly!
+  //
+  // Defaults assume the CoG is centered at 20cm height. Tune after measuring.
+  public static final double COG_X = 0.0;
+  public static final double COG_Y = 0.0;
+  public static final double COG_Z = 0.20;
+
+  // Module positions in the robot frame, ordered FL, FR, BL, BR.
+  public static final double[] MODULE_RX = {
+    TunerConstants.FrontLeft.LocationX,
+    TunerConstants.FrontRight.LocationX,
+    TunerConstants.BackLeft.LocationX,
+    TunerConstants.BackRight.LocationX,
+  };
+  public static final double[] MODULE_RY = {
+    TunerConstants.FrontLeft.LocationY,
+    TunerConstants.FrontRight.LocationY,
+    TunerConstants.BackLeft.LocationY,
+    TunerConstants.BackRight.LocationY,
+  };
+
+  // How much weight is on each wheel when the robot is sitting still. Computed once at startup.
+  public static final double[] MODULE_N_STATIC = computeStaticNormals();
+
+  private static double[] computeStaticNormals() {
+    double base = ROBOT_MASS * GRAVITY / 4.0;
+    double a2 = HALF_WHEELBASE * HALF_WHEELBASE;
+    double b2 = HALF_TRACKWIDTH * HALF_TRACKWIDTH;
+    double[] n = new double[MODULE_RX.length];
+    for (int i = 0; i < n.length; i++) {
+      double fx = 1.0 + MODULE_RX[i] * COG_X / a2;
+      double fy = 1.0 + MODULE_RY[i] * COG_Y / b2;
+      n[i] = base * fx * fy;
+    }
+    return n;
+  }
+
+  // Current limit per motor (more conservative than the hardware limit).
   static final double STATOR_CURRENT_LIMIT = 150.0;
 
-  // Minimum time step to prevent division by zero
+  // Minimum time step to avoid divide-by-zero.
   private static final double MIN_DT = 1e-9;
 
-  // Reusable array for limited acceleration results (FRC is single-threaded)
-  // [0] = vx, [1] = vy, [2] = omega
-  private static final double[] ACCEL_RESULT = new double[3];
+  // Scratch space for the limited acceleration result. Thread-local since this can be called
+  // from both the 50 Hz main loop and the 250 Hz fast loop.
+  private static final ThreadLocal<double[]> ACCEL_RESULT =
+      ThreadLocal.withInitial(() -> new double[3]);
 
-  // Last limited acceleration from integrateVelocity(), in caller's frame (field-relative).
-  // Stored separately from ACCEL_RESULT because that array is a scratch buffer.
-  private static double lastAccelVx = 0;
-  private static double lastAccelVy = 0;
-  private static double lastAccelOmega = 0;
+  // Last computed acceleration. volatile since multiple threads read/write it.
+  private static volatile double lastAccelVx = 0;
+  private static volatile double lastAccelVy = 0;
+  private static volatile double lastAccelOmega = 0;
 
   private AccelerationLimiter() {}
 
   /**
-   * Returns the last limited acceleration computed by {@link #integrateVelocity}.
-   *
-   * <p>The returned ChassisSpeeds represents acceleration (m/s^2 and rad/s^2), not velocity. It is
-   * in the same frame as the inputs to integrateVelocity (field-relative for all current callers).
-   *
-   * @return Last limited acceleration as ChassisSpeeds (fields are m/s^2 and rad/s^2)
+   * Returns the last computed acceleration. The fields are in m/s^2 and rad/s^2 (NOT velocity, even
+   * though the type is ChassisSpeeds).
    */
   public static ChassisSpeeds getLastAcceleration() {
     return new ChassisSpeeds(lastAccelVx, lastAccelVy, lastAccelOmega);
   }
 
-  /** Returns the X component of the last limited acceleration (m/s^2). */
+  /** X acceleration from the most recent integration step (m/s^2). */
   public static double getLastAccelVx() {
     return lastAccelVx;
   }
 
-  /** Returns the Y component of the last limited acceleration (m/s^2). */
+  /** Y acceleration from the most recent integration step (m/s^2). */
   public static double getLastAccelVy() {
     return lastAccelVy;
   }
 
-  /** Returns the angular component of the last limited acceleration (rad/s^2). */
+  /** Rotational acceleration from the most recent integration step (rad/s^2). */
   public static double getLastAccelOmega() {
     return lastAccelOmega;
   }
 
   /**
-   * Applies motor torque and friction limits to acceleration using primitives.
-   *
-   * <p>Uses a double array to avoid object allocations in the hot path: result[0] = limited accel
-   * X, result[1] = limited accel Y, result[2] = limited omega
-   *
-   * @param accelX Desired X acceleration
-   * @param accelY Desired Y acceleration
-   * @param accelOmega Desired angular acceleration
-   * @param velX Current X velocity
-   * @param velY Current Y velocity
-   * @param velOmega Current angular velocity
-   * @param result Output array for limited acceleration [vx, vy, omega]
+   * Applies motor and friction limits to a desired acceleration. Output is written into result as
+   * [accelX, accelY, accelOmega].
    */
   private static void applyLimits(
       double accelX,
@@ -110,19 +140,17 @@ public final class AccelerationLimiter {
       double maxAccel,
       double[] result) {
 
-    // First apply motor torque limit (only affects acceleration, not braking)
+    // First, limit how hard the motors can push (only matters when speeding up).
     applyMotorLimit(accelX, accelY, accelOmega, velX, velY, velOmega, result);
 
-    // Then apply friction limit (affects both acceleration and braking)
+    // Then limit by friction (matters for both speeding up and braking).
     applyFrictionLimit(result[0], result[1], result[2], maxAccel, result);
   }
 
   /**
-   * Applies motor torque limit based on motor speed-torque curve.
-   *
-   * <p>Motor torque decreases as speed increases (back-EMF effect). This limits how fast we can
-   * accelerate at high speeds. Braking is not limited because it uses regenerative braking and
-   * mechanical friction, not motor torque.
+   * Limits acceleration based on how much torque the motors can produce at the current speed.
+   * Motors push less hard the faster they spin, so we can't accelerate as fast at high speeds.
+   * Braking is unaffected (motors don't need to push hard to slow down).
    */
   private static void applyMotorLimit(
       double accelX,
@@ -133,11 +161,11 @@ public final class AccelerationLimiter {
       double velOmega,
       double[] result) {
 
-    // Check if we're braking (acceleration opposes velocity)
+    // Are we braking? (Acceleration opposing current velocity.)
     boolean linearBraking = isDecelerating(accelX, accelY, velX, velY);
     boolean angularBraking = accelOmega * velOmega < 0;
 
-    // Braking doesn't use motor torque, so no limit applies
+    // If we're only braking, no motor limit applies.
     if (linearBraking && angularBraking) {
       result[0] = accelX;
       result[1] = accelY;
@@ -145,13 +173,13 @@ public final class AccelerationLimiter {
       return;
     }
 
-    // Calculate acceleration contributions (only count accelerating components)
+    // Total accel from speeding-up parts only (braking doesn't count toward motor limit).
     double linearAccelMag = Math.hypot(accelX, accelY);
     double linearContrib = linearBraking ? 0 : linearAccelMag;
     double angularContrib = angularBraking ? 0 : Math.abs(accelOmega) * DRIVE_BASE_RADIUS;
     double combinedAccel = Math.hypot(linearContrib, angularContrib);
 
-    // Estimate worst-case module speed for torque lookup
+    // Worst-case wheel speed (for looking up motor torque at that speed).
     double linearVelMag = Math.hypot(velX, velY);
     double moduleSpeed = linearVelMag + Math.abs(velOmega) * DRIVE_BASE_RADIUS;
     double maxMotorAccel =
@@ -163,7 +191,7 @@ public final class AccelerationLimiter {
             NUM_DRIVE_MOTORS,
             STATOR_CURRENT_LIMIT);
 
-    // If under the limit, no scaling needed
+    // Already within limits - pass through unchanged.
     if (combinedAccel <= maxMotorAccel) {
       result[0] = accelX;
       result[1] = accelY;
@@ -171,7 +199,7 @@ public final class AccelerationLimiter {
       return;
     }
 
-    // Scale down accelerating components proportionally
+    // Scale down anything that's speeding up so the total fits under the motor limit.
     double scale = maxMotorAccel / combinedAccel;
     double linearScale = linearBraking ? 1.0 : scale;
     double angularScale = angularBraking ? 1.0 : scale;
@@ -180,33 +208,24 @@ public final class AccelerationLimiter {
     result[2] = accelOmega * angularScale;
   }
 
-  /**
-   * Checks if acceleration is opposing velocity (braking).
-   *
-   * @return true if the dot product of accel and velocity is negative
-   */
+  /** True if we're braking (acceleration opposes velocity). */
   private static boolean isDecelerating(double accelX, double accelY, double velX, double velY) {
     return accelX * velX + accelY * velY < 0;
   }
 
   /**
-   * Applies friction limit using circular constraint.
-   *
-   * <p>The total acceleration at each wheel cannot exceed friction coefficient times gravity.
-   * Linear and angular acceleration combine as vectors, so we use Pythagorean theorem:
-   * sqrt(linear^2 + angular^2) must be less than max friction acceleration.
+   * Limits acceleration so the wheels don't slip. Linear and angular acceleration combine like a
+   * vector: {@code sqrt(linear^2 + angular^2)} must be less than the friction limit.
    */
   private static void applyFrictionLimit(
       double accelX, double accelY, double accelOmega, double maxAccel, double[] result) {
     double effectiveLimit = Math.min(maxAccel, MAX_FRICTION_ACCEL);
     double linearMag = Math.hypot(accelX, accelY);
-    // Convert angular acceleration to equivalent linear at wheel radius
+    // Convert spin acceleration to the equivalent acceleration at the outer wheel.
     double angularContribution = Math.abs(accelOmega) * DRIVE_BASE_RADIUS;
 
-    // Combined acceleration magnitude
     double combinedAccel = Math.hypot(linearMag, angularContribution);
 
-    // If under the limit, no scaling needed
     if (combinedAccel <= effectiveLimit) {
       result[0] = accelX;
       result[1] = accelY;
@@ -214,7 +233,7 @@ public final class AccelerationLimiter {
       return;
     }
 
-    // Scale all components proportionally to stay within friction circle
+    // Scale everything down equally to stay within the friction limit.
     double scale = effectiveLimit / combinedAccel;
     result[0] = accelX * scale;
     result[1] = accelY * scale;
@@ -222,11 +241,8 @@ public final class AccelerationLimiter {
   }
 
   /**
-   * Applies jerk limit using a combined vector for linear (vx, vy) and independent for omega.
-   *
-   * <p>Limits the rate of change of acceleration. Linear jerk is constrained as a single vector
-   * magnitude (sqrt(jerkX^2 + jerkY^2) <= maxLinearJerk), ensuring direction-independent behavior.
-   * Angular jerk is clamped independently.
+   * Limits jerk - how fast the acceleration itself can change. Keeps the robot from "jerking"
+   * forward suddenly. Linear and angular jerk are limited separately.
    */
   private static void applyJerkLimit(
       double accelX,
@@ -240,7 +256,7 @@ public final class AccelerationLimiter {
       double maxOmegaJerk,
       double[] result) {
 
-    // Linear jerk as combined vector
+    // Linear jerk treated as a 2D vector.
     double jerkX = (accelX - prevAccelX) / dt;
     double jerkY = (accelY - prevAccelY) / dt;
     double jerkMag = Math.hypot(jerkX, jerkY);
@@ -254,7 +270,7 @@ public final class AccelerationLimiter {
       result[1] = accelY;
     }
 
-    // Angular jerk independently
+    // Angular jerk handled separately.
     double jerkOmega = (accelOmega - prevAccelOmega) / dt;
     if (Math.abs(jerkOmega) > maxOmegaJerk) {
       result[2] = prevAccelOmega + Math.copySign(maxOmegaJerk, jerkOmega) * dt;
@@ -264,13 +280,8 @@ public final class AccelerationLimiter {
   }
 
   /**
-   * Normalizes speeds so no swerve module exceeds max velocity.
-   *
-   * <p>Each module's speed is the vector sum of translation and rotation. The worst case is when
-   * they add constructively, so we check: translation + abs(omega) * radius
-   *
-   * @param speeds The chassis speeds to normalize
-   * @return Normalized speeds where no module exceeds max velocity
+   * Scales speeds down so no individual swerve wheel goes faster than its top speed. Wheel speed is
+   * the sum of how fast the robot is translating + how fast it's spinning at the wheel radius.
    */
   public static ChassisSpeeds normalizeSpeeds(ChassisSpeeds speeds) {
     double translationSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
@@ -284,12 +295,8 @@ public final class AccelerationLimiter {
   }
 
   /**
-   * Normalizes speeds in place so no swerve module exceeds max velocity.
-   *
-   * <p>Same logic as {@link #normalizeSpeeds(ChassisSpeeds)} but mutates the input object instead
-   * of allocating a new one. Use this on hot paths (e.g., 250Hz odometry thread).
-   *
-   * @param speeds The chassis speeds to normalize (mutated in place)
+   * Same as {@link #normalizeSpeeds} but updates the input directly instead of returning a new
+   * object. Use on the 250 Hz hot path to avoid allocations.
    */
   public static void normalizeSpeedsInPlace(ChassisSpeeds speeds) {
     double translationSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
@@ -304,19 +311,17 @@ public final class AccelerationLimiter {
     }
   }
 
-  // ==================== Allocation-free in-place API ====================
+  // ==================== Zero-allocation API ====================
 
   /**
-   * Integrates velocity in place with physics-based limits. Normalizes desired speeds internally.
+   * Integrates one timestep with physics limits. Reads the current velocity from {@code
+   * currentAndOutput} and writes the limited next velocity back to it.
    *
-   * <p>Reads current velocity from {@code currentAndOutput}, computes the limited next velocity,
-   * and writes the result back into {@code currentAndOutput}. Zero allocations.
-   *
-   * @param currentAndOutput Current velocity on entry, limited next velocity on exit
-   * @param desiredVx Desired X velocity (will be normalized)
-   * @param desiredVy Desired Y velocity (will be normalized)
-   * @param desiredOmega Desired angular velocity (will be normalized)
-   * @param dt Time step in seconds
+   * @param currentAndOutput Current velocity in/out
+   * @param desiredVx Target x velocity
+   * @param desiredVy Target y velocity
+   * @param desiredOmega Target spin rate
+   * @param dt Timestep (seconds)
    */
   public static void integrateVelocityInPlace(
       ChassisSpeeds currentAndOutput,
@@ -338,11 +343,7 @@ public final class AccelerationLimiter {
         Double.MAX_VALUE);
   }
 
-  /**
-   * Integrates velocity in place with an external acceleration cap.
-   *
-   * @see #integrateVelocityInPlace(ChassisSpeeds, double, double, double, double)
-   */
+  /** Same, but with a custom max acceleration. */
   public static void integrateVelocityInPlace(
       ChassisSpeeds currentAndOutput,
       double desiredVx,
@@ -364,11 +365,7 @@ public final class AccelerationLimiter {
         Double.MAX_VALUE);
   }
 
-  /**
-   * Integrates velocity in place with acceleration and jerk limits.
-   *
-   * @see #integrateVelocityInPlace(ChassisSpeeds, double, double, double, double)
-   */
+  /** Same, but with custom acceleration and jerk limits. */
   public static void integrateVelocityInPlace(
       ChassisSpeeds currentAndOutput,
       double desiredVx,
@@ -393,19 +390,8 @@ public final class AccelerationLimiter {
   }
 
   /**
-   * Integrates velocity with separate current and output, all primitives. Zero allocations.
-   *
-   * <p>For cases where the current velocity differs from the output object (e.g., FollowPath
-   * zeroing unlimited axes). Normalizes desired speeds internally.
-   *
-   * @param output Pre-allocated ChassisSpeeds to write the result into
-   * @param curVx Current X velocity
-   * @param curVy Current Y velocity
-   * @param curOmega Current angular velocity
-   * @param desiredVx Desired X velocity (will be normalized)
-   * @param desiredVy Desired Y velocity (will be normalized)
-   * @param desiredOmega Desired angular velocity (will be normalized)
-   * @param dt Time step in seconds
+   * Same as integrateVelocityInPlace but with the current velocity passed separately from the
+   * output. Useful when the current velocity isn't what's stored in the output object.
    */
   public static void integrateVelocity(
       ChassisSpeeds output,
@@ -433,10 +419,8 @@ public final class AccelerationLimiter {
   // ==================== Core implementation ====================
 
   /**
-   * Core integration logic. All public methods delegate here. Zero allocations.
-   *
-   * <p>Normalizes desired speeds, computes acceleration, applies motor/friction/jerk limits,
-   * integrates, and normalizes the output — all using primitives.
+   * The actual logic. Normalizes the desired speeds, computes the desired acceleration, applies
+   * motor/friction/jerk limits, then integrates to get the next velocity.
    */
   private static void integrateVelocityCore(
       ChassisSpeeds output,
@@ -451,7 +435,7 @@ public final class AccelerationLimiter {
       double maxLinearJerk,
       double maxOmegaJerk) {
 
-    // Normalize desired speeds (replaces caller's normalizeSpeeds call)
+    // Cap target speeds so no wheel exceeds its max.
     double transSpeed = Math.hypot(desVx, desVy);
     double maxModSpeed = transSpeed + Math.abs(desOmega) * DRIVE_BASE_RADIUS;
     if (maxModSpeed > MAX_VELOCITY) {
@@ -461,41 +445,42 @@ public final class AccelerationLimiter {
       desOmega *= scale;
     }
 
-    // Guard against zero or negative time step (can happen on first frame)
+    // Guard against zero/negative timestep (can happen on the first loop).
     if (dt < MIN_DT) {
       dt = MIN_DT;
     }
 
-    // Calculate wanted acceleration: (desired - current) / dt
+    // Acceleration we want to achieve: (target - current) / dt.
     double accelX = (desVx - curVx) / dt;
     double accelY = (desVy - curVy) / dt;
     double accelOmega = (desOmega - curOmega) / dt;
 
-    // Apply motor torque and friction limits (result stored in ACCEL_RESULT)
-    applyLimits(accelX, accelY, accelOmega, curVx, curVy, curOmega, maxAccel, ACCEL_RESULT);
+    // Apply motor and friction limits.
+    double[] scratch = ACCEL_RESULT.get();
+    applyLimits(accelX, accelY, accelOmega, curVx, curVy, curOmega, maxAccel, scratch);
 
-    // Apply jerk limit (uses previous frame's acceleration as baseline)
+    // Apply jerk limit (compares with last frame's acceleration).
     applyJerkLimit(
-        ACCEL_RESULT[0],
-        ACCEL_RESULT[1],
-        ACCEL_RESULT[2],
+        scratch[0],
+        scratch[1],
+        scratch[2],
         lastAccelVx,
         lastAccelVy,
         lastAccelOmega,
         dt,
         maxLinearJerk,
         maxOmegaJerk,
-        ACCEL_RESULT);
+        scratch);
 
-    // Store jerk-limited acceleration for external consumers (e.g., SWM velocity prediction)
-    lastAccelVx = ACCEL_RESULT[0];
-    lastAccelVy = ACCEL_RESULT[1];
-    lastAccelOmega = ACCEL_RESULT[2];
+    // Save for anything that needs the latest acceleration (logging, prediction, etc.).
+    lastAccelVx = scratch[0];
+    lastAccelVy = scratch[1];
+    lastAccelOmega = scratch[2];
 
-    // Integrate to get next velocity: current + limitedAccel * dt
-    output.vxMetersPerSecond = curVx + ACCEL_RESULT[0] * dt;
-    output.vyMetersPerSecond = curVy + ACCEL_RESULT[1] * dt;
-    output.omegaRadiansPerSecond = curOmega + ACCEL_RESULT[2] * dt;
+    // Step forward: new velocity = current + acceleration * dt.
+    output.vxMetersPerSecond = curVx + scratch[0] * dt;
+    output.vyMetersPerSecond = curVy + scratch[1] * dt;
+    output.omegaRadiansPerSecond = curOmega + scratch[2] * dt;
     normalizeSpeedsInPlace(output);
   }
 }

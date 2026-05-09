@@ -114,10 +114,56 @@ test {
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
 }
 
-// Simulation configuration (e.g. environment variables).
-wpi.sim.addGui()
-wpi.sim.addDriverstation().defaultEnabled = true
-wpi.sim.addWebsocketsServer()
+// Simulation configuration.
+// Standard:  ./gradlew simulateJava                                — GUI sim, manual DS control
+// Agent:     ./gradlew simulateJavaAgent                           — no GUI, auto-starts in autonomous
+//            ./gradlew simulateJavaAgent -Pmode=teleop             — no GUI, auto-starts in teleop
+//            ./gradlew simulateJavaAgent -Pmode=disabled           — no GUI, stay disabled
+// Manual flags (work on either task):
+//   -Pheadless              : skip the sim GUI window (faster startup, no desktop required)
+//   -Pmode=auto|teleop      : arm DriverStationSim into that mode at robotInit (see SimStartup.java)
+def runningAgentTask = gradle.startParameter.taskNames.any {
+    it == 'simulateJavaAgent' || it.endsWith(':simulateJavaAgent')
+}
+def isHeadless = runningAgentTask || project.hasProperty('headless')
+def explicitMode = project.hasProperty('mode') ? project.property('mode').toString().toLowerCase() : ''
+def simStartMode = explicitMode.isEmpty() && runningAgentTask ? 'auto' : explicitMode
+def replayInputLog = project.hasProperty('replay') ? project.property('replay').toString() : ''
+
+def isReplay = !replayInputLog.isEmpty()
+if (!isReplay) {
+    if (!isHeadless) {
+        wpi.sim.addGui()
+    }
+    wpi.sim.addDriverstation().defaultEnabled = true
+    wpi.sim.addWebsocketsServer()
+}
+
+// Plumb the start mode through to the JVM as a system property so SimStartup
+// can read it on robotInit and arm DriverStationSim accordingly.
+tasks.withType(JavaExec).configureEach { JavaExec t ->
+    if (t.name == 'simulateJava' || t.name == 'simulateJavaRelease' || t.name == 'simulateJavaDebug' || t.name == 'simulateExternalJavaRelease' || t.name == 'simulateExternalJavaDebug') {
+        if (isHeadless) {
+            t.systemProperty 'frc.sim.headless', 'true'
+        }
+        if (simStartMode == 'auto' || simStartMode == 'autonomous') {
+            t.systemProperty 'frc.sim.startMode', 'auto'
+        } else if (simStartMode == 'teleop') {
+            t.systemProperty 'frc.sim.startMode', 'teleop'
+        }
+        if (!replayInputLog.isEmpty()) {
+            t.systemProperty 'frc.replay.input', replayInputLog
+        }
+    }
+}
+
+// Convenience task — headless sim that auto-enters autonomous (or whatever -Pmode says).
+// Just re-targets simulateJava under the agent flag detection above.
+tasks.register('simulateJavaAgent') {
+    description = 'Run sim headless and auto-enable. Defaults to autonomous; override with -Pmode=teleop or -Pmode=disabled.'
+    group = 'GradleRIO'
+    dependsOn 'simulateJava'
+}
 
 // Setting up my Jar File. In this case, adding all libraries into the main jar ('fat jar')
 // in order to make them all available at runtime. Also adding the manifest so WPILib

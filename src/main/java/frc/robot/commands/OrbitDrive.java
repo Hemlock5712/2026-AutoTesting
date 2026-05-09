@@ -1,78 +1,80 @@
 package frc.robot.commands;
 
-import com.ctre.phoenix6.swerve.SwerveRequest;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.drive.Drive;
 import java.util.function.DoubleSupplier;
 
 /**
- * Physics-based teleop drive command.
+ * Standard teleop drive command. The driver gives field-relative velocities, and the {@link
+ * AccelerationLimiter} smooths them out so the wheels don't slip.
  *
- * <p>Applies acceleration limiting using real motor dyno data and friction coefficients. This
- * prevents wheel slip during aggressive maneuvers while allowing maximum performance.
- *
- * <p>Runs indefinitely until cancelled (typical teleop behavior).
+ * <p>The 50 Hz main loop just stores the latest joystick inputs. The 250 Hz fast loop reads them
+ * and applies physics limits.
  */
 public class OrbitDrive extends Command {
 
-  private final CommandSwerveDrivetrain swerve;
+  private final Drive drive;
   private final DoubleSupplier velocityXSupplier;
   private final DoubleSupplier velocityYSupplier;
   private final DoubleSupplier rotationalRateSupplier;
 
-  private final AccelerationLimitedFieldSpeeds request = new AccelerationLimitedFieldSpeeds();
-  private final ChassisSpeeds targetSpeeds = new ChassisSpeeds();
+  // Set by the main loop, read by the fast loop.
+  private volatile double targetVx;
+  private volatile double targetVy;
+  private volatile double targetOmega;
 
-  /**
-   * Creates an OrbitDrive command for teleop control.
-   *
-   * @param swerve The swerve drivetrain
-   * @param velocityX Supplier for field-relative X velocity in m/s
-   * @param velocityY Supplier for field-relative Y velocity in m/s
-   * @param rotationalRate Supplier for rotational rate in rad/s
-   */
+  // Used only by the fast loop.
+  private final ChassisSpeeds limitedFieldSpeeds = new ChassisSpeeds();
+
   public OrbitDrive(
-      CommandSwerveDrivetrain swerve,
+      Drive drive,
       DoubleSupplier velocityX,
       DoubleSupplier velocityY,
       DoubleSupplier rotationalRate) {
-    this.swerve = swerve;
+    this.drive = drive;
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
     this.rotationalRateSupplier = rotationalRate;
-    addRequirements(swerve);
+    addRequirements(drive);
   }
 
   @Override
   public void initialize() {
-    request.requestInit();
-    swerve.setControl(request);
+    ChassisSpeeds field = drive.getFieldSpeeds();
+    limitedFieldSpeeds.vxMetersPerSecond = field.vxMetersPerSecond;
+    limitedFieldSpeeds.vyMetersPerSecond = field.vyMetersPerSecond;
+    limitedFieldSpeeds.omegaRadiansPerSecond = field.omegaRadiansPerSecond;
+    targetVx = field.vxMetersPerSecond;
+    targetVy = field.vyMetersPerSecond;
+    targetOmega = field.omegaRadiansPerSecond;
+    drive.setHighRateController(this::tickHighRate);
   }
 
   @Override
   public void execute() {
-    double velX = velocityXSupplier.getAsDouble();
-    double velY = velocityYSupplier.getAsDouble();
-    double omega = rotationalRateSupplier.getAsDouble();
+    targetVx = velocityXSupplier.getAsDouble();
+    targetVy = velocityYSupplier.getAsDouble();
+    targetOmega = rotationalRateSupplier.getAsDouble();
+  }
 
-    targetSpeeds.vxMetersPerSecond = velX;
-    targetSpeeds.vyMetersPerSecond = velY;
-    targetSpeeds.omegaRadiansPerSecond = omega;
-    AccelerationLimiter.normalizeSpeedsInPlace(targetSpeeds);
-    request.setTargetSpeeds(
-        targetSpeeds.vxMetersPerSecond,
-        targetSpeeds.vyMetersPerSecond,
-        targetSpeeds.omegaRadiansPerSecond);
+  /** Called from the 250 Hz fast loop. dt is seconds since the previous call. */
+  private void tickHighRate(double dt) {
+    AccelerationLimiter.integrateVelocityInPlace(
+        limitedFieldSpeeds, targetVx, targetVy, targetOmega, dt);
+    Rotation2d heading = drive.getRotation();
+    drive.runVelocity(ChassisSpeeds.fromFieldRelativeSpeeds(limitedFieldSpeeds, heading));
   }
 
   @Override
   public void end(boolean interrupted) {
-    swerve.setControl(new SwerveRequest.Idle());
+    drive.clearHighRateController();
+    drive.stop();
   }
 
   @Override
   public boolean isFinished() {
-    return false; // Teleop command runs until cancelled
+    return false;
   }
 }

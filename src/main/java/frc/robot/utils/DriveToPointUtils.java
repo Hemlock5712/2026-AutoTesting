@@ -4,17 +4,15 @@ import edu.wpi.first.math.geometry.Translation2d;
 import frc.robot.commands.AccelerationLimiter;
 
 /**
- * Shared physics calculations for drive-to-point commands.
- *
- * <p>Contains methods for calculating target angular velocity and braking speeds. Used by both
- * DriveToPoint and DriveToPointWaypoints commands.
+ * Math helpers for "drive to a target" commands. Calculates target rotation speed and how fast to
+ * be going while still being able to brake to the destination.
  */
 public final class DriveToPointUtils {
 
-  // Small value to prevent division by zero in physics calculations
+  // Used to avoid divide-by-zero.
   private static final double EPSILON = 1e-9;
 
-  // Precomputed constants for performance (avoid division every cycle)
+  // Precomputed once at class load to save time per loop.
   private static final double HARDWARE_MAX_OMEGA =
       AccelerationLimiter.MAX_VELOCITY / AccelerationLimiter.DRIVE_BASE_RADIUS;
   private static final double MAX_ANGULAR_DECEL =
@@ -27,53 +25,37 @@ public final class DriveToPointUtils {
   private DriveToPointUtils() {}
 
   /**
-   * Calculates available linear acceleration after angular deceleration consumes its share.
-   *
-   * <p>Uses Pythagorean constraint: total acceleration² = linear² + angular². Since angular
-   * deceleration is needed to stop rotation at the target angle, the remaining friction budget is
-   * available for linear braking.
-   *
-   * @param targetOmega Planned angular velocity in rad/s
-   * @param angleError Remaining angle error in radians
-   * @return Available linear acceleration in m/s²
+   * How much linear acceleration is left over after rotation uses its share of friction. Uses the
+   * Pythagorean rule: linear² + angular² = total². Whatever rotation needs to stop on time, linear
+   * gets the rest.
    */
   public static double calculateAvailableLinearAccel(double targetOmega, double angleError) {
     double absAngleError = Math.abs(angleError);
 
-    // Calculate angular deceleration needed to stop rotation at target angle
-    // Using kinematic equation: alpha = omega² / (2 * theta), capped at physical max
+    // How fast we need to slow down our rotation to stop at the target angle.
+    // From physics: alpha = omega² / (2 * theta).
     double angularDecel =
         absAngleError > EPSILON
             ? Math.min((targetOmega * targetOmega) / (2.0 * absAngleError), MAX_ANGULAR_DECEL)
             : 0.0;
 
-    // Convert angular to linear contribution and compute remaining budget
+    // Convert that to a wheel-edge acceleration and subtract from total budget.
     double angularAccelContribution = angularDecel * AccelerationLimiter.DRIVE_BASE_RADIUS;
     return Math.sqrt(
         Math.max(0, MAX_FRICTION_ACCEL_SQ - angularAccelContribution * angularAccelContribution));
   }
 
   /**
-   * Calculates target angular velocity using time-synchronized approach.
+   * Picks a rotation speed so the robot finishes rotating right when it arrives. Far from the
+   * target, rotation is slow (we have time). Close to the target, rotation speeds up to finish on
+   * time. Capped by the hardware max and by what we can stop in time.
    *
-   * <p>Key insight: omega is calculated so rotation finishes when translation finishes. When far
-   * away, translationTime is large, so omega is small (prioritizes translation). When close,
-   * translationTime is small, so omega increases to finish rotation on time.
-   *
-   * <p>Applies three constraints and returns the minimum:
-   *
-   * <ul>
-   *   <li>Stopping constraint: max omega that allows stopping at target angle
-   *   <li>Time-synchronized: omega to finish rotation when translation completes
-   *   <li>Hardware limit: physical maximum of the drivetrain
-   * </ul>
-   *
-   * @param angleError Signed angle error in radians (positive = counterclockwise)
-   * @param distance Distance to target in meters (use remaining path distance for waypoints)
-   * @param currentSpeed Current linear speed in m/s
-   * @param currentOmega Current angular velocity in rad/s
-   * @param reactionBuffer Time buffer in seconds (rotation finishes early by this amount)
-   * @return Target angular velocity in rad/s (signed to match angleError direction)
+   * @param angleError Angle remaining (positive = need to turn left)
+   * @param distance Distance to the target (m)
+   * @param currentSpeed Current speed (m/s)
+   * @param currentOmega Current rotation speed (rad/s)
+   * @param reactionBuffer Time cushion - finish rotating this many seconds early
+   * @return Rotation speed in rad/s, signed to match angleError
    */
   public static double calculateTargetOmega(
       double angleError,
@@ -84,25 +66,22 @@ public final class DriveToPointUtils {
 
     double absAngle = Math.abs(angleError);
 
-    // No rotation needed if angle error is negligible
+    // Already at the right angle.
     if (absAngle < EPSILON) {
       return 0.0;
     }
 
-    // LIMIT 1: How fast can we spin and still stop at the target angle?
-    // Shrink angle by how far we'll rotate during reaction delay
+    // Limit 1: max speed we can spin and still stop on time.
     double bufferedAngle = Math.max(0, absAngle - Math.abs(currentOmega) * reactionBuffer);
     double maxStoppingOmega = Math.sqrt(STOPPING_OMEGA_FACTOR * bufferedAngle);
 
-    // LIMIT 2: How fast to finish rotating when driving finishes?
-    // Shrink distance by how far we'll travel during reaction delay
+    // Limit 2: speed needed to finish rotating exactly when we arrive.
     double effectiveDistance = Math.max(0, distance - currentSpeed * reactionBuffer);
 
-    // Estimate available linear acceleration (accounting for friction shared with rotation)
-    // Use current omega to estimate - this creates a feedback loop that converges
+    // How much linear accel is left after rotation takes its share.
     double availableLinearAccel = calculateAvailableLinearAccel(currentOmega, angleError);
 
-    // Estimate how long driving will take (pick the longer/safer estimate)
+    // Estimate driving time - use whichever is longer (braking vs cruising).
     double brakingTime =
         availableLinearAccel > EPSILON
             ? Math.sqrt(2.0 * effectiveDistance / availableLinearAccel)
@@ -110,26 +89,17 @@ public final class DriveToPointUtils {
     double cruiseTime = currentSpeed > 0 ? effectiveDistance / currentSpeed : brakingTime;
     double driveTime = Math.max(brakingTime, cruiseTime);
 
-    // Rotation speed needed to finish in that time
+    // Rotation speed = angle / time.
     double timeBasedOmega = driveTime > 0 ? 2.0 * absAngle / driveTime : HARDWARE_MAX_OMEGA;
 
-    // Use the smallest limit, with correct +/- direction
+    // Take the smallest limit, with the right sign.
     return Math.copySign(min(maxStoppingOmega, timeBasedOmega, HARDWARE_MAX_OMEGA), angleError);
   }
 
   /**
-   * Calculates per-axis target velocity for braking to a target end speed.
-   *
-   * <p>This method calculates braking speeds for each axis independently, projecting the scalar end
-   * speed onto each axis based on the direction to the goal.
-   *
-   * @param toGoal Vector from current position to goal (field-centric)
-   * @param currentVelocity Current velocity for reaction time buffering
-   * @param brakingReactionTime Expected delay before braking begins
-   * @param targetOmega Planned angular velocity (reduces available braking force)
-   * @param angleError Remaining angle error (determines rotation deceleration needs)
-   * @param endTargetSpeed Scalar end speed (projected onto axes based on direction)
-   * @return Target velocity vector
+   * Picks a target velocity that will brake the robot toward the goal, ending at endTargetSpeed.
+   * Calculates each axis (x, y) independently and shares the friction budget between them based on
+   * which axis needs more.
    */
   public static Translation2d calculatePerAxisBrakingVelocity(
       Translation2d toGoal,
@@ -144,16 +114,15 @@ public final class DriveToPointUtils {
       return new Translation2d();
     }
 
-    // Calculate available linear acceleration after angular deceleration
+    // How much linear accel we have to work with.
     double availableLinearAccel = calculateAvailableLinearAccel(targetOmega, angleError);
 
-    // Get displacement components
     double toGoalX = toGoal.getX();
     double toGoalY = toGoal.getY();
     double distanceX = Math.abs(toGoalX);
     double distanceY = Math.abs(toGoalY);
 
-    // Project scalar endTargetSpeed onto each axis based on direction
+    // Split the end speed across x and y based on direction to the goal.
     double dirX = toGoalX / distance;
     double dirY = toGoalY / distance;
     double effectiveEndSpeedX = endTargetSpeed * Math.abs(dirX);
@@ -162,11 +131,9 @@ public final class DriveToPointUtils {
     double currentSpeedX = Math.abs(currentVelocity.getX());
     double currentSpeedY = Math.abs(currentVelocity.getY());
 
-    // Two-pass demand-ratio budget split: distributes braking acceleration proportional
-    // to what each axis actually needs, so the constrained axis gets enough budget.
-    // This matches the acceleration direction the AccelerationLimiter will see at execution.
+    // Share friction budget proportionally to how much each axis actually needs.
 
-    // Pass 1: Optimistic target speeds using full budget per axis
+    // Step 1: optimistic targets assuming the full budget on each axis.
     double optTargetX =
         calculateAxisBrakingSpeed(
             distanceX,
@@ -182,15 +149,15 @@ public final class DriveToPointUtils {
             availableLinearAccel,
             effectiveEndSpeedY);
 
-    // Pass 2: Measure velocity-change demand from each axis
+    // Step 2: measure how much velocity each axis needs to change.
     double demandX = Math.abs(optTargetX - currentSpeedX);
     double demandY = Math.abs(optTargetY - currentSpeedY);
     double totalDemand = Math.hypot(demandX, demandY);
 
-    // Pass 3: Split budget proportional to demands (hypot(accelX, accelY) = availableLinearAccel)
+    // Step 3: split the friction budget by demand.
     double accelX, accelY;
     if (totalDemand < EPSILON) {
-      // No significant demand on either axis — use direction-based fallback
+      // No demand - just split by direction to the goal.
       accelX = availableLinearAccel * Math.abs(dirX);
       accelY = availableLinearAccel * Math.abs(dirY);
     } else {
@@ -198,7 +165,7 @@ public final class DriveToPointUtils {
       accelY = availableLinearAccel * (demandY / totalDemand);
     }
 
-    // Pass 4: Recompute target speeds with demand-proportional budgets
+    // Step 4: redo the target speeds with the split budget.
     double targetSpeedX =
         calculateAxisBrakingSpeed(
             distanceX, currentSpeedX, brakingReactionTime, accelX, effectiveEndSpeedX);
@@ -206,31 +173,15 @@ public final class DriveToPointUtils {
         calculateAxisBrakingSpeed(
             distanceY, currentSpeedY, brakingReactionTime, accelY, effectiveEndSpeedY);
 
-    // Build velocity vector with correct signs (toward goal)
+    // Final velocity vector pointing toward the goal.
     return new Translation2d(
         Math.copySign(targetSpeedX, toGoalX), Math.copySign(targetSpeedY, toGoalY));
   }
 
   /**
-   * Calculates target speed for braking to a target speed at the destination.
-   *
-   * <p>This method determines how fast we can be traveling while still being able to reach the
-   * target speed at the destination. It accounts for:
-   *
-   * <ul>
-   *   <li>Distance remaining to target
-   *   <li>Friction budget shared between rotation and translation
-   *   <li>System reaction time before braking begins
-   *   <li>Desired end speed (0 = stop, or higher for pass-through)
-   * </ul>
-   *
-   * @param distance Distance to target in meters
-   * @param currentSpeed Current linear speed in m/s
-   * @param brakingReactionTime Expected delay before braking begins (accounts for system latency)
-   * @param targetOmega Planned angular velocity (reduces available braking force)
-   * @param angleError Remaining angle error (determines rotation deceleration needs)
-   * @param targetEndSpeed Target speed at destination in m/s (0 = stop)
-   * @return Target speed in m/s that allows reaching targetEndSpeed at the destination
+   * How fast we can go right now and still slow to {@code targetEndSpeed} by the time we get there.
+   * Accounts for the friction budget shared with rotation, plus a small lag time before braking
+   * actually starts.
    */
   public static double calculateBrakingTargetSpeed(
       double distance,
@@ -246,17 +197,8 @@ public final class DriveToPointUtils {
   }
 
   /**
-   * Core braking calculation for a single axis.
-   *
-   * <p>Uses kinematic equation v² = v_end² + 2*a*d to calculate the speed needed to reach endSpeed
-   * after traveling distance. Applies reaction time buffering when decelerating.
-   *
-   * @param distance Distance to target
-   * @param currentSpeed Current speed along this axis (absolute value)
-   * @param reactionTime Expected delay before braking begins
-   * @param availableAccel Available acceleration for this axis
-   * @param endSpeed Target speed at destination
-   * @return Target speed that allows reaching endSpeed at destination
+   * Braking math for one axis. Uses {@code v² = v_end² + 2*a*d} to find the max speed that lets us
+   * reach endSpeed after traveling distance.
    */
   private static double calculateAxisBrakingSpeed(
       double distance,
@@ -269,7 +211,7 @@ public final class DriveToPointUtils {
     double endSpeedSq = endSpeed * endSpeed;
     double bufferedTargetSpeed = Math.sqrt(endSpeedSq + 2.0 * availableAccel * bufferedDistance);
 
-    // Use buffered if decelerating, full distance if accelerating
+    // If we're slowing down, use the buffered distance. If speeding up, use full distance.
     if (bufferedTargetSpeed < currentSpeed) {
       return Math.min(bufferedTargetSpeed, AccelerationLimiter.MAX_VELOCITY);
     } else {
@@ -279,14 +221,7 @@ public final class DriveToPointUtils {
     }
   }
 
-  /**
-   * Returns the minimum of three values.
-   *
-   * @param a First value
-   * @param b Second value
-   * @param c Third value
-   * @return The smallest of the three values
-   */
+  /** Smallest of three values. */
   private static double min(double a, double b, double c) {
     return Math.min(a, Math.min(b, c));
   }

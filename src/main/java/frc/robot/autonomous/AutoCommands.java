@@ -6,7 +6,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.commands.FollowPath;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.drive.Drive;
 import frc.robot.utils.path.ArcLengthTrajectory;
 import frc.robot.utils.path.AutoPath;
 import frc.robot.utils.path.FollowablePath;
@@ -18,16 +18,14 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 /**
- * Reusable command builders for autonomous routines.
- *
- * <p>Paths come from {@link AutoPath} (Choreo trajectories re-parameterized by arc-length). All
- * path following is distance-based — the robot tracks its position on the path, not a clock.
+ * Helpers for building autonomous routines. Paths come from {@link AutoPath} and are followed by
+ * distance (not time) - if the robot stalls, the path waits for it.
  */
 public class AutoCommands {
 
-  private final CommandSwerveDrivetrain drivetrain;
+  private final Drive drivetrain;
 
-  public AutoCommands(CommandSwerveDrivetrain drivetrain) {
+  public AutoCommands(Drive drivetrain) {
     this.drivetrain = drivetrain;
   }
 
@@ -36,10 +34,10 @@ public class AutoCommands {
   }
 
   public Command resetPose(Supplier<Pose2d> pose) {
-    return drivetrain.runOnce(() -> drivetrain.resetPose(pose.get()));
+    return Commands.runOnce(() -> drivetrain.resetPose(pose.get()), drivetrain);
   }
 
-  /** Resets the robot pose to the start of the given path (alliance-aware). */
+  /** Resets the robot's pose to the path's starting pose, flipped if we're red alliance. */
   public Command resetPose(AutoPath path) {
     return resetPose(
         () -> {
@@ -51,23 +49,15 @@ public class AutoCommands {
   // ==================== Path Actions ====================
 
   /**
-   * An action to trigger at a specific arc-length position along a path.
+   * A command that fires at a certain distance along a path.
    *
-   * @param triggerS Arc-length position in meters where the action triggers
-   * @param triggerDistance How far before triggerS to fire (meters, subtracted from triggerS)
-   * @param command The command to run when triggered
+   * @param triggerS Where on the path the action fires (meters from start)
+   * @param triggerDistance Fire this many meters early (lead time before triggerS)
+   * @param command The command to run
    */
   public record PathAction(double triggerS, double triggerDistance, Supplier<Command> command) {
 
-    /**
-     * Creates a PathAction from a Choreo event marker timestamp.
-     *
-     * @param trajectory The arc-length trajectory (for timestamp→s conversion)
-     * @param markerTimestamp The Choreo event marker timestamp in seconds
-     * @param triggerDistance How far before the marker to fire (meters)
-     * @param command The command to run
-     * @return A PathAction with the correct arc-length trigger
-     */
+    /** Creates a PathAction from a Choreo event marker, using the marker's timestamp. */
     public static PathAction fromMarker(
         ArcLengthTrajectory trajectory,
         double markerTimestamp,
@@ -79,11 +69,8 @@ public class AutoCommands {
   }
 
   /**
-   * Reads event markers from a Choreo trajectory and converts them to distance-based PathActions.
-   *
-   * @param path The AutoPath whose Choreo trajectory contains event markers
-   * @param eventMap Maps event marker names to the commands they should trigger
-   * @return A list of PathActions, one per matching marker occurrence
+   * Pulls all event markers out of a Choreo trajectory and turns them into PathActions. The
+   * eventMap maps marker names to the commands that should run when that marker is reached.
    */
   public List<PathAction> actionsFromChoreoEvents(
       AutoPath path, Map<String, Supplier<Command>> eventMap) {
@@ -166,12 +153,8 @@ public class AutoCommands {
   private static final double ACTION_TRIGGER_PROJECTION_WINDOW = 0.75;
 
   /**
-   * Follow a path with distance-triggered actions and optional alongside commands.
-   *
-   * @param path The path to follow (from AutoPath or any FollowablePath)
-   * @param actions Ordered list of actions to trigger along the path
-   * @param alongside Commands that run for the entire path duration
-   * @return A command that follows the path with all actions wired
+   * Drives a path while running actions at specific distances along it. Optional alongside commands
+   * run for the whole path.
    */
   public Command followPathWithActions(
       FollowablePath path, List<PathAction> actions, Command... alongside) {
@@ -204,7 +187,7 @@ public class AutoCommands {
       return alongside.length == 0 ? pathCmd : pathCmd.deadlineFor(alongside);
     }
 
-    // Build scheduled actions sorted by trigger arc-length
+    // Sort actions by where they trigger so we fire them in order.
     List<ScheduledPathAction> scheduled = new ArrayList<>(actions.size());
     for (PathAction action : actions) {
       double triggerS = Math.max(0.0, action.triggerS() - action.triggerDistance());

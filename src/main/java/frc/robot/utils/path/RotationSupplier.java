@@ -5,33 +5,29 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 
 /**
- * Supplies the desired target heading during path following.
+ * Decides what direction the robot should face during path following.
  *
- * <p>Unlike a simple {@code DoubleSupplier}, this interface receives path context (robot pose,
- * arc-length position, and path tangent) so rotation strategies can be path-aware.
- *
- * <p>For Choreo trajectories, the default heading comes from the trajectory itself via {@link
- * FollowablePath#getHeading}. This interface is used to override that default when needed.
+ * <p>By default the path's own heading is used. This interface lets you override that with custom
+ * logic (face a target, hold a heading, etc.).
  */
 @FunctionalInterface
 public interface RotationSupplier {
 
   /**
-   * Returns the desired target heading for the robot.
+   * Returns the heading the robot should face right now, in radians.
    *
-   * @param robotPose Current robot pose (position + heading)
-   * @param pathS Current arc-length position on the path (meters)
-   * @param pathTangent Unit tangent vector of the path at the projected point
-   * @return Target heading in radians
+   * @param robotPose Where the robot is and which way it's facing
+   * @param pathS How far along the path the robot is (m)
+   * @param pathTangent Unit vector pointing along the path at the robot's location
    */
   double getTargetHeading(Pose2d robotPose, double pathS, Translation2d pathTangent);
 
-  /** Aligns the robot heading with the path tangent direction (face the direction of travel). */
+  /** Robot faces the direction of travel. */
   static RotationSupplier faceForward() {
     return (robotPose, pathS, pathTangent) -> Math.atan2(pathTangent.getY(), pathTangent.getX());
   }
 
-  /** Aims the robot at a fixed field point (e.g., the goal) while driving the path. */
+  /** Robot aims at a fixed point on the field (e.g., the goal) the whole time. */
   static RotationSupplier facePoint(Translation2d target) {
     return (robotPose, pathS, pathTangent) -> {
       Translation2d toTarget = target.minus(robotPose.getTranslation());
@@ -39,7 +35,7 @@ public interface RotationSupplier {
     };
   }
 
-  /** Maintains a fixed heading throughout the path. */
+  /** Robot keeps the same heading throughout the path. */
   static RotationSupplier holdHeading(Rotation2d heading) {
     return (robotPose, pathS, pathTangent) -> heading.getRadians();
   }

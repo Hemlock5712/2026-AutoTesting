@@ -7,23 +7,18 @@ import edu.wpi.first.math.geometry.Translation2d;
 import java.util.List;
 
 /**
- * Re-parameterizes a Choreo {@link Trajectory} from time to arc-length for distance-based path
- * following.
+ * Converts a Choreo {@link Trajectory} from time-based to distance-based.
  *
- * <p>Choreo outputs time-optimal trajectories indexed by timestamp. This adapter integrates speed
- * over time to build a cumulative arc-length table, then provides all queries by arc-length {@code
- * s} (meters). The path follower tracks the robot's actual position on the path, not a clock — if
- * the robot gets hit or stalls, the path "waits."
- *
- * <p>Implements {@link FollowablePath} so it can be consumed by both {@link
- * frc.robot.commands.FollowPath} and future MPC controllers.
+ * <p>Choreo gives us a path indexed by time ("at 1.5 sec, be here"). This class converts it to be
+ * indexed by distance along the path ("at 2.3 m, be here"). That way, if the robot gets bumped or
+ * slows down, the path just waits for it to catch up - no fighting the clock.
  */
 public final class ArcLengthTrajectory implements FollowablePath {
 
-  /** Coarse search step size in meters for closest-point projection. */
+  /** Step size when searching for the closest path point to the robot (m). */
   private static final double COARSE_SEARCH_STEP = 0.05;
 
-  /** Maximum Newton-Raphson iterations for closest-point refinement. */
+  /** Max number of refinement steps to find the exact closest point. */
   private static final int MAX_NEWTON_ITERATIONS = 8;
 
   private final double[] sTable;
@@ -37,12 +32,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
   private final double totalLength;
   private final int n; // number of samples
 
-  /**
-   * Creates an arc-length-parameterized trajectory from Choreo samples.
-   *
-   * @param trajectory The Choreo trajectory to re-parameterize
-   * @return A new ArcLengthTrajectory
-   */
+  /** Creates a distance-based path from a Choreo trajectory. */
   public static ArcLengthTrajectory fromChoreo(Trajectory<SwerveSample> trajectory) {
     return new ArcLengthTrajectory(trajectory.samples());
   }
@@ -62,7 +52,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
     speedSamples = new double[n];
     tSamples = new double[n];
 
-    // Extract sample data and build arc-length table via trapezoidal integration
+    // Copy the data and compute the distance to each sample as we go.
     SwerveSample first = samples.get(0);
     sTable[0] = 0.0;
     xSamples[0] = first.x;
@@ -83,7 +73,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
       speedSamples[i] = Math.hypot(s.vx, s.vy);
       tSamples[i] = s.t;
 
-      // Trapezoidal integration: s[i] = s[i-1] + avg(speed) * dt
+      // Distance traveled in this step = average speed * time elapsed.
       double dt = s.t - tSamples[i - 1];
       double avgSpeed = (speedSamples[i] + speedSamples[i - 1]) / 2.0;
       sTable[i] = sTable[i - 1] + avgSpeed * dt;
@@ -111,7 +101,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
     double vy = lerp(vySamples[idx], vySamples[idx + 1], frac);
     double mag = Math.hypot(vx, vy);
     if (mag < 1e-12) {
-      // Fallback: finite difference of position
+      // Velocity is zero - fall back to position difference.
       double dx = xSamples[idx + 1] - xSamples[idx];
       double dy = ySamples[idx + 1] - ySamples[idx];
       mag = Math.hypot(dx, dy);
@@ -127,22 +117,19 @@ public final class ArcLengthTrajectory implements FollowablePath {
     int idx = bracketIndex(s);
     double frac = bracketFraction(s, idx);
 
-    // Compute curvature from interpolated velocity and finite-difference acceleration
+    // Curvature = how fast the path is turning. Computed from velocity and acceleration.
     double vx = lerp(vxSamples[idx], vxSamples[idx + 1], frac);
     double vy = lerp(vySamples[idx], vySamples[idx + 1], frac);
 
-    // Finite difference for acceleration (use adjacent samples)
     double ds = sTable[idx + 1] - sTable[idx];
     if (ds < 1e-12) return 0.0;
     double dvx = vxSamples[idx + 1] - vxSamples[idx];
     double dvy = vySamples[idx + 1] - vySamples[idx];
-    // Convert dt-based acceleration to ds-based
     double speed = Math.hypot(vx, vy);
     if (speed < 1e-6) return 0.0;
     double ax = dvx / ds * speed;
     double ay = dvy / ds * speed;
 
-    // Signed curvature: κ = (vx * ay - vy * ax) / |v|³
     double v3 = speed * speed * speed;
     return (vx * ay - vy * ax) / v3;
   }
@@ -161,11 +148,10 @@ public final class ArcLengthTrajectory implements FollowablePath {
     int idx = bracketIndex(s);
     double frac = bracketFraction(s, idx);
 
-    // Shortest-angle interpolation for heading
+    // Always rotate the short way around (don't take the long way past 180°).
     double h0 = headingSamples[idx];
     double h1 = headingSamples[idx + 1];
     double diff = h1 - h0;
-    // Wrap to [-pi, pi]
     diff = diff - 2 * Math.PI * Math.floor((diff + Math.PI) / (2 * Math.PI));
     return Rotation2d.fromRadians(h0 + frac * diff);
   }
@@ -183,7 +169,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
       return buildProjectionResult(sMin, point);
     }
 
-    // Coarse grid search
+    // First, scan along the path to find the roughly closest point.
     double bestS = sMin;
     double bestDistSq = Double.MAX_VALUE;
     int numSteps = Math.max(1, (int) ((sMax - sMin) / COARSE_SEARCH_STEP));
@@ -201,7 +187,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
       }
     }
 
-    // Newton-Raphson refinement
+    // Then refine to find the exact closest point.
     bestS = refineProjection(bestS, point, sMin, sMax);
     return buildProjectionResult(bestS, point);
   }
@@ -209,19 +195,14 @@ public final class ArcLengthTrajectory implements FollowablePath {
   // ---- Choreo-specific utilities ----
 
   /**
-   * Converts a Choreo timestamp to the corresponding arc-length position.
-   *
-   * <p>Used to convert Choreo event markers (which are timestamp-based) to arc-length triggers for
-   * distance-based action scheduling.
-   *
-   * @param timestamp Timestamp in seconds from the Choreo trajectory
-   * @return Arc-length in meters at that timestamp
+   * Looks up which point on the path matches a Choreo timestamp. Used to convert Choreo event
+   * markers (timestamp-based) into distance-based triggers.
    */
   public double getArcLengthAtTimestamp(double timestamp) {
     if (timestamp <= tSamples[0]) return 0.0;
     if (timestamp >= tSamples[n - 1]) return totalLength;
 
-    // Binary search for the bracket
+    // Binary search to find which two samples bracket this timestamp.
     int lo = 0;
     int hi = n - 1;
     while (lo + 1 < hi) {
@@ -242,11 +223,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
 
   // ---- Internal helpers ----
 
-  /**
-   * Binary search for the bracket index: sTable[idx] <= s < sTable[idx+1].
-   *
-   * @return Index of the lower bracket bound
-   */
+  /** Finds which two samples surround the given distance s. */
   private int bracketIndex(double s) {
     int lo = 0;
     int hi = n - 1;
@@ -261,14 +238,14 @@ public final class ArcLengthTrajectory implements FollowablePath {
     return lo;
   }
 
-  /** Returns the interpolation fraction within the bracket. */
+  /** How far between the two bracketing samples we are (0=at idx, 1=at idx+1). */
   private double bracketFraction(double s, int idx) {
     double range = sTable[idx + 1] - sTable[idx];
     if (range < 1e-12) return 0.0;
     return (s - sTable[idx]) / range;
   }
 
-  /** Interpolates position at arc-length s. Returns [x, y]. */
+  /** Computes the (x, y) position at distance s along the path. */
   private double[] interpolate(double s) {
     int idx = bracketIndex(s);
     double frac = bracketFraction(s, idx);
@@ -282,7 +259,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
     Translation2d tangent = getTangent(s);
     Translation2d toRobot = robotPosition.minus(pathPoint);
 
-    // Cross-track error: signed distance, positive = left of path direction
+    // How far off the path the robot is. Positive = left of the path direction.
     double crossTrack = tangent.getX() * toRobot.getY() - tangent.getY() * toRobot.getX();
     return new ProjectionResult(s, pathPoint, crossTrack, tangent);
   }
@@ -293,7 +270,7 @@ public final class ArcLengthTrajectory implements FollowablePath {
       Translation2d tangent = getTangent(s);
       Translation2d diff = pathPoint.minus(robotPosition);
 
-      // f(s) = dot(diff, tangent) — zero when diff is perpendicular to tangent
+      // We're closest when the robot is directly off to the side of the path direction.
       double f = diff.getX() * tangent.getX() + diff.getY() * tangent.getY();
 
       double curvature = getCurvature(s);

@@ -18,7 +18,16 @@
       "Bash(git stash pop:*)",
       "Bash(python test_swm.py)",
       "Bash(python -c \":*)",
-      "Bash(find /c/Users/joeoj/Downloads/2026-AutoTesting/src/main/java/frc/robot/subsystems -type f -name \"*.java\" -exec wc -l {} +)"
+      "Bash(find /c/Users/joeoj/Downloads/2026-AutoTesting/src/main/java/frc/robot/subsystems -type f -name \"*.java\" -exec wc -l {} +)",
+      "Bash(gh issue list)",
+      "Bash(gh issue list --state all)",
+      "Bash(./gradlew simulateJava)",
+      "Bash(./gradlew simulateJavaAgent)",
+      "Bash(./gradlew simulateJavaAgent:*)",
+      "Bash(taskkill //F //IM java.exe)",
+      "Bash(./gradlew printClasspath)",
+      "Read(//c/Users/joeoj/.gradle/**)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
