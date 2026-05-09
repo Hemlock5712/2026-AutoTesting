@@ -178,7 +178,9 @@ public class ModuleIOTalonFX implements ModuleIO {
     driveAppliedVolts = driveTalon.getMotorVoltage();
     driveCurrent = driveTalon.getStatorCurrent();
 
-    // Create turn status signals
+    // Create turn status signals. The fused steer position lives on turnTalon.getPosition()
+    // (Talon firmware fuses rotor + cancoder absolute internally). We also subscribe to the
+    // cancoder absolute position for the disconnect alert and as an AKit-logged diagnostic.
     turnAbsolutePosition = cancoder.getAbsolutePosition();
     turnPosition = turnTalon.getPosition();
     turnPositionQueue = PhoenixOdometryThread.getInstance().registerSignal(turnPosition.clone());
@@ -186,10 +188,10 @@ public class ModuleIOTalonFX implements ModuleIO {
     turnAppliedVolts = turnTalon.getMotorVoltage();
     turnCurrent = turnTalon.getStatorCurrent();
 
-    // Configure periodic frames. The cancoder's absolute-position frame is the rate at which
-    // FusedCANcoder fusion on the steer talon receives fresh absolute-reference data — keep it
-    // at the odometry rate so every odometry sample has up-to-date fusion (otherwise samples
-    // between cancoder publishes are rotor-only).
+    // Configure periodic frames. The cancoder absolute-position broadcast is what the Talon's
+    // FusedCANcoder fusion uses for absolute references — match it to the rotor odometry rate
+    // so every odometry sample is fully fused. Going higher than ODOMETRY_FREQUENCY would be
+    // wasted CAN bandwidth (the rotor side caps fusion fresh-rate).
     BaseStatusSignal.setUpdateFrequencyForAll(
         Drive.ODOMETRY_FREQUENCY, drivePosition, turnPosition, turnAbsolutePosition);
     BaseStatusSignal.setUpdateFrequencyForAll(
@@ -211,9 +213,21 @@ public class ModuleIOTalonFX implements ModuleIO {
         BaseStatusSignal.refreshAll(turnPosition, turnVelocity, turnAppliedVolts, turnCurrent);
     var turnEncoderStatus = BaseStatusSignal.refreshAll(turnAbsolutePosition);
 
+    // Azimuth coupling compensation. The drive shaft is dragged along by the steer mechanism
+    // at CouplingGearRatio drive-rotor turns per steer-mechanism turn. drivePosition is
+    // post-SensorToMechanismRatio (wheel rotations), so the phantom wheel motion to subtract
+    // is steer_mech_rad * (CouplingGearRatio / DriveMotorGearRatio). CTRE's SwerveDrivetrain
+    // class does this internally; we're not using it, so we do it here.
+    final double couplingFactor = constants.CouplingGearRatio / constants.DriveMotorGearRatio;
+
+    double rawDriveRad = Units.rotationsToRadians(drivePosition.getValueAsDouble());
+    double rawTurnMechRad = Units.rotationsToRadians(turnPosition.getValueAsDouble());
+    double rawDriveVelRad = Units.rotationsToRadians(driveVelocity.getValueAsDouble());
+    double rawTurnVelRad = Units.rotationsToRadians(turnVelocity.getValueAsDouble());
+
     inputs.driveConnected = driveConnectedDebounce.calculate(driveStatus.isOK());
-    inputs.drivePositionRad = Units.rotationsToRadians(drivePosition.getValueAsDouble());
-    inputs.driveVelocityRadPerSec = Units.rotationsToRadians(driveVelocity.getValueAsDouble());
+    inputs.drivePositionRad = rawDriveRad - rawTurnMechRad * couplingFactor;
+    inputs.driveVelocityRadPerSec = rawDriveVelRad - rawTurnVelRad * couplingFactor;
     inputs.driveAppliedVolts = driveAppliedVolts.getValueAsDouble();
     inputs.driveCurrentAmps = driveCurrent.getValueAsDouble();
 
@@ -221,20 +235,30 @@ public class ModuleIOTalonFX implements ModuleIO {
     inputs.turnEncoderConnected = turnEncoderConnectedDebounce.calculate(turnEncoderStatus.isOK());
     inputs.turnAbsolutePosition = Rotation2d.fromRotations(turnAbsolutePosition.getValueAsDouble());
     inputs.turnPosition = Rotation2d.fromRotations(turnPosition.getValueAsDouble());
-    inputs.turnVelocityRadPerSec = Units.rotationsToRadians(turnVelocity.getValueAsDouble());
+    inputs.turnVelocityRadPerSec = rawTurnVelRad;
     inputs.turnAppliedVolts = turnAppliedVolts.getValueAsDouble();
     inputs.turnCurrentAmps = turnCurrent.getValueAsDouble();
 
-    inputs.odometryTimestamps =
-        timestampQueue.stream().mapToDouble((Double value) -> value).toArray();
-    inputs.odometryDrivePositionsRad =
-        drivePositionQueue.stream()
-            .mapToDouble((Double value) -> Units.rotationsToRadians(value))
-            .toArray();
-    inputs.odometryTurnPositions =
-        turnPositionQueue.stream()
-            .map((Double value) -> Rotation2d.fromRotations(value))
-            .toArray(Rotation2d[]::new);
+    // Drain the high-rate queues in parallel so each odometry sample gets the matching steer
+    // angle for its own coupling correction. The queues are populated together by the Phoenix
+    // odometry thread, but defensively truncate to the shortest length.
+    Double[] driveSamples = drivePositionQueue.toArray(new Double[0]);
+    Double[] turnSamples = turnPositionQueue.toArray(new Double[0]);
+    Double[] timestampSamples = timestampQueue.toArray(new Double[0]);
+    int n = Math.min(driveSamples.length, Math.min(turnSamples.length, timestampSamples.length));
+    double[] correctedDriveRad = new double[n];
+    Rotation2d[] turnRotations = new Rotation2d[n];
+    double[] timestamps = new double[n];
+    for (int i = 0; i < n; i++) {
+      double driveRad = Units.rotationsToRadians(driveSamples[i]);
+      double turnMechRad = Units.rotationsToRadians(turnSamples[i]);
+      correctedDriveRad[i] = driveRad - turnMechRad * couplingFactor;
+      turnRotations[i] = Rotation2d.fromRotations(turnSamples[i]);
+      timestamps[i] = timestampSamples[i];
+    }
+    inputs.odometryTimestamps = timestamps;
+    inputs.odometryDrivePositionsRad = correctedDriveRad;
+    inputs.odometryTurnPositions = turnRotations;
     timestampQueue.clear();
     drivePositionQueue.clear();
     turnPositionQueue.clear();

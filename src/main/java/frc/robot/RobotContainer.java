@@ -5,6 +5,8 @@ import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -17,6 +19,7 @@ import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
+import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOTalonFX;
@@ -28,6 +31,9 @@ import frc.robot.subsystems.vision.VisionIOSim;
 import frc.robot.utils.path.AutoPath;
 import java.util.Map;
 import java.util.function.Supplier;
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.littletonrobotics.junction.Logger;
 
 public class RobotContainer {
   private static final double JOYSTICK_DEADBAND = 0.05;
@@ -41,16 +47,33 @@ public class RobotContainer {
 
   private final CommandXboxController joystick = new CommandXboxController(0);
 
+  // MapleSim spawn pose — clear of the field perimeter so the rigid-body sim doesn't start
+  // wedged against a wall. The estimator is reset to match in the constructor.
+  private static final Pose2d SIM_SPAWN_POSE = new Pose2d(8.0, 4.0, Rotation2d.kZero);
+
   public final Drive drivetrain;
   public final Vision vision;
   public final AutoCommands autoCommands;
 
+  // Non-null only in SIM. Held so Robot.simulationPeriodic can tick the arena and so vision can
+  // read ground truth.
+  private final SwerveDriveSimulation driveSimulation;
+
   private final SendableChooser<Supplier<Command>> autoChooser = new SendableChooser<>();
 
   public RobotContainer() {
-    drivetrain = createDrive();
-    vision = createVision(drivetrain);
+    driveSimulation = createDriveSimulation();
+    drivetrain = createDrive(driveSimulation);
+    vision = createVision(drivetrain, driveSimulation);
     autoCommands = new AutoCommands(drivetrain);
+
+    if (driveSimulation != null) {
+      // Keep the sim chassis aligned with any future estimator resets (e.g. auto routines that
+      // reset to a path-start pose) — otherwise the sim chassis stays stranded and the
+      // controller diverges. Then align the estimator with the spawn pose.
+      drivetrain.onPoseReset(driveSimulation::setSimulationWorldPose);
+      drivetrain.resetPose(SIM_SPAWN_POSE);
+    }
 
     autoChooser.setDefaultOption("NewPath (PD)", this::newPathAutoPD);
     autoChooser.addOption("PathPlanningDemo", () -> PathPlanningDemo.create(drivetrain));
@@ -59,7 +82,22 @@ public class RobotContainer {
     configureBindings();
   }
 
-  private static Drive createDrive() {
+  /** Tick MapleSim physics. Called from {@link Robot#simulationPeriodic}. No-op outside SIM. */
+  public void updateSimulation() {
+    if (driveSimulation == null) return;
+    SimulatedArena.getInstance().simulationPeriodic();
+    Logger.recordOutput("FieldSimulation/RobotPose", driveSimulation.getSimulatedDriveTrainPose());
+  }
+
+  private static SwerveDriveSimulation createDriveSimulation() {
+    if (Constants.getMode() != Constants.Mode.SIM) return null;
+    SwerveDriveSimulation sim =
+        new SwerveDriveSimulation(Drive.getMapleSimConfig(), SIM_SPAWN_POSE);
+    SimulatedArena.getInstance().addDriveTrainSimulation(sim);
+    return sim;
+  }
+
+  private static Drive createDrive(SwerveDriveSimulation sim) {
     return switch (Constants.getMode()) {
       case REAL ->
           new Drive(
@@ -70,11 +108,11 @@ public class RobotContainer {
               new ModuleIOTalonFX(TunerConstants.BackRight));
       case SIM ->
           new Drive(
-              new GyroIO() {},
-              new ModuleIOSim(TunerConstants.FrontLeft),
-              new ModuleIOSim(TunerConstants.FrontRight),
-              new ModuleIOSim(TunerConstants.BackLeft),
-              new ModuleIOSim(TunerConstants.BackRight));
+              new GyroIOSim(sim.getGyroSimulation()),
+              new ModuleIOSim(sim.getModules()[0]),
+              new ModuleIOSim(sim.getModules()[1]),
+              new ModuleIOSim(sim.getModules()[2]),
+              new ModuleIOSim(sim.getModules()[3]));
       case REPLAY ->
           new Drive(
               new GyroIO() {},
@@ -85,7 +123,7 @@ public class RobotContainer {
     };
   }
 
-  private static Vision createVision(Drive drive) {
+  private static Vision createVision(Drive drive, SwerveDriveSimulation sim) {
     VisionIO[] ios = new VisionIO[LIMELIGHT_NAMES.length];
     switch (Constants.getMode()) {
       case REAL -> {
@@ -94,8 +132,9 @@ public class RobotContainer {
         }
       }
       case SIM -> {
-        // One synthetic camera so std-dev tuning has a measurable effect in replay.
-        ios[0] = new VisionIOSim(LIMELIGHT_NAMES[0]);
+        // One synthetic camera reading the simulated truth pose. Other slots stay no-op so
+        // std-dev tuning has a single, measurable input to reason about.
+        ios[0] = new VisionIOSim(LIMELIGHT_NAMES[0], sim::getSimulatedDriveTrainPose);
         for (int i = 1; i < LIMELIGHT_NAMES.length; i++) {
           ios[i] = new VisionIONoop(LIMELIGHT_NAMES[i]);
         }

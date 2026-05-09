@@ -1,25 +1,18 @@
 package frc.robot.subsystems.vision;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
+import java.util.function.Supplier;
 
 /**
- * Fake vision IO used in sim. Always reports the robot at a fixed point on the field.
+ * Sim vision IO that reports the simulated robot's true pose every tick. Backed by maple-sim's
+ * physics ground truth, so this fills the role a real Limelight would: an external pose source.
  *
- * <p>We use a fixed pose (not "truth + noise") to avoid feedback - if we read drive.getPose() and
- * fed it back, vision would just confirm whatever the estimator already thinks. With a fixed
- * reference, you can clearly see how the estimator weights vision vs odometry by tweaking the
- * std-dev values.
+ * <p>Std-dev tuning still has a measurable effect because we report a fixed synthetic tag count and
+ * distance; tweaking those values in {@code Vision.computeVisionStdDev} changes how aggressively
+ * the estimator pulls toward this measurement.
  */
 public class VisionIOSim implements VisionIO {
-
-  /** The fake "observed" robot pose. */
-  private static final double FIXED_POSE_X = 8.0;
-
-  private static final double FIXED_POSE_Y = 4.0;
-  private static final double FIXED_POSE_THETA_RAD = 0.0;
 
   private static final int SYNTHETIC_TAG_COUNT = 2;
   private static final double SYNTHETIC_AVG_TAG_DISTANCE_M = 2.0;
@@ -27,9 +20,11 @@ public class VisionIOSim implements VisionIO {
   private static final boolean SYNTHETIC_IS_MEGATAG2 = true;
 
   private final String name;
+  private final Supplier<Pose2d> truthPoseSupplier;
 
-  public VisionIOSim(String name) {
+  public VisionIOSim(String name, Supplier<Pose2d> truthPoseSupplier) {
     this.name = name;
+    this.truthPoseSupplier = truthPoseSupplier;
   }
 
   @Override
@@ -41,9 +36,7 @@ public class VisionIOSim implements VisionIO {
   public void updateInputs(VisionInputsAutoLogged inputs) {
     inputs.newFrame = true;
     inputs.hasObservation = true;
-    inputs.latestPose =
-        new Pose2d(
-            new Translation2d(FIXED_POSE_X, FIXED_POSE_Y), new Rotation2d(FIXED_POSE_THETA_RAD));
+    inputs.latestPose = truthPoseSupplier.get();
     inputs.latestTimestampSeconds = Timer.getFPGATimestamp();
     inputs.tagCount = SYNTHETIC_TAG_COUNT;
     inputs.avgTagDistance = SYNTHETIC_AVG_TAG_DISTANCE_M;

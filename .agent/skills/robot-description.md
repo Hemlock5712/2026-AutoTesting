@@ -18,12 +18,18 @@ The Drive constructor takes one `GyroIO` and four `ModuleIO`s. [RobotContainer](
 | Mode | GyroIO | ModuleIO |
 | --- | --- | --- |
 | REAL | [GyroIOPigeon2](src/main/java/frc/robot/subsystems/drive/GyroIOPigeon2.java) | [ModuleIOTalonFX](src/main/java/frc/robot/subsystems/drive/ModuleIOTalonFX.java) — Phoenix6 TalonFX×2 + CANcoder per module |
-| SIM | empty `GyroIO {}` (Drive falls back to kinematic twist) | [ModuleIOSim](src/main/java/frc/robot/subsystems/drive/ModuleIOSim.java) — DCMotorSim physics |
+| SIM | [GyroIOSim](src/main/java/frc/robot/subsystems/drive/GyroIOSim.java) (wraps maple-sim `GyroSimulation`) | [ModuleIOSim](src/main/java/frc/robot/subsystems/drive/ModuleIOSim.java) — maple-sim `SwerveModuleSimulation` (rigid-body physics via dyn4j) |
 | REPLAY | empty | empty (AKit fills `@AutoLog` inputs from log) |
 
 **250 Hz odometry on real hardware.** [PhoenixOdometryThread](src/main/java/frc/robot/subsystems/drive/PhoenixOdometryThread.java) is a singleton thread that does `BaseStatusSignal.waitForAll(...)` (CAN-FD) or sleeps + `refreshAll(...)` (CAN 2.0) at `Drive.ODOMETRY_FREQUENCY` (250 Hz on FD, 100 Hz else). It samples each registered position signal into a per-signal queue. `Drive.periodic()` acquires `Drive.odometryLock`, the IOs drain their queues into `@AutoLog` arrays, and the pose estimator is updated once per logged sample (so all 250 sub-cycles are walked through). Vision adds measurements via `drive.addVisionMeasurement(pose, fpgaTs, stdDevs)`.
 
-In SIM, `ModuleIOSim` runs physics in `updateInputs` once per cycle (50 Hz) — high-frequency odometry adds nothing in sim and would just be noise.
+**SIM uses [maple-sim](https://github.com/Shenzhen-Robotics-Alliance/maple-sim).** The chassis spawn pose lives in [RobotContainer.SIM_SPAWN_POSE](src/main/java/frc/robot/RobotContainer.java) (default `(8.0, 4.0)`); the estimator is reset to match at construction, and `Drive.onPoseReset` wires future estimator resets through to `SwerveDriveSimulation.setSimulationWorldPose` so auto-routine resets don't strand the sim chassis. `Robot.simulationPeriodic` ticks the arena via `RobotContainer.updateSimulation`, which also logs ground-truth pose to `FieldSimulation/RobotPose`. [VisionIOSim](src/main/java/frc/robot/subsystems/vision/VisionIOSim.java) feeds the simulated truth pose back into the estimator. Maple-sim uses 5 sub-ticks per 20 ms cycle (≈250 Hz effective); each `ModuleIO.updateInputs` writes one odometry sample per sub-tick.
+
+**Drive odometry refinements (vs. the upstream AKit template):**
+- **Arc-integrated module deltas.** [Drive.arcIntegrate](src/main/java/frc/robot/subsystems/drive/Drive.java) replaces straight-line per-sample integration with arc integration assuming constant module ω during the sample, then re-encodes the arc displacement as an effective `(distance, angle)` so WPILib's straight-chord kinematics produces the arc-correct twist.
+- **Azimuth coupling compensation.** [ModuleIOTalonFX](src/main/java/frc/robot/subsystems/drive/ModuleIOTalonFX.java) subtracts the phantom drive motion induced by steer rotation (`steer_mech_rad * CouplingGearRatio / DriveMotorGearRatio`) from raw drive position and velocity. CTRE's `SwerveDrivetrain` does this internally; we don't use that class so we do it ourselves. SIM is untouched (maple-sim has independent shafts, no coupling to subtract).
+- **Skid metric.** [SkidDetection](src/main/java/frc/robot/subsystems/drive/SkidDetection.java) decomposes per-module velocities into chassis-translation estimates (`v_module − ω × r_module` with gyro-derived ω), reports `Drive/Skid/MaxOverMinRatio`, `MagnitudeStdDev`, etc. Diagnostic only — no std-dev or outlier-rejection hookup yet, awaiting on-bot tuning data.
+- **Field-escape diagnostic.** `Drive/FieldEscapeHits` counts periodic ticks where the estimator pose has crossed any field wall. Diagnostic only — we tried clamping the cached pose to the field but it bit legitimate near-wall path overshoots and was reverted.
 
 Drive exposes the canonical AKit API (`runVelocity(ChassisSpeeds)`, `setPose(Pose2d)` aliased as `resetPose`, `getPose`, `getRotation`, `getRobotSpeeds`, `getFieldSpeeds`, `addVisionMeasurement`, `samplePoseAt`, `stopWithX`, `sysIdQuasistatic/Dynamic`). Commands feed it `ChassisSpeeds` — there is no `setControl(SwerveRequest)` anywhere; CTRE's `SwerveDrivetrain` and `CommandSwerveDrivetrain` are not used.
 
@@ -114,7 +120,9 @@ When adding new autos: add an `AutoPath` enum entry, a `Choreo.chor` path, and a
 | Subsystem + binding wiring     | [RobotContainer.java](src/main/java/frc/robot/RobotContainer.java)     |
 | Mode enum (REAL/SIM/REPLAY)    | [Constants.java](src/main/java/frc/robot/Constants.java)               |
 | Drive subsystem                | [subsystems/drive/Drive.java](src/main/java/frc/robot/subsystems/drive/Drive.java) |
-| Module / Gyro IOs              | [subsystems/drive/ModuleIO.java](src/main/java/frc/robot/subsystems/drive/ModuleIO.java) (+ TalonFX, Sim impls), [GyroIO.java](src/main/java/frc/robot/subsystems/drive/GyroIO.java) (+ Pigeon2 impl) |
+| Module / Gyro IOs              | [subsystems/drive/ModuleIO.java](src/main/java/frc/robot/subsystems/drive/ModuleIO.java) (+ TalonFX, Sim impls), [GyroIO.java](src/main/java/frc/robot/subsystems/drive/GyroIO.java) (+ Pigeon2, Sim impls) |
+| Maple-sim physics + spawn      | [vendordeps/maple-sim.json](vendordeps/maple-sim.json), `Drive.getMapleSimConfig()`, `RobotContainer.SIM_SPAWN_POSE` |
+| Skid / field-escape diagnostics | [subsystems/drive/SkidDetection.java](src/main/java/frc/robot/subsystems/drive/SkidDetection.java), `Drive/FieldEscapeHits` AKit output |
 | 250 Hz odometry collector      | [subsystems/drive/PhoenixOdometryThread.java](src/main/java/frc/robot/subsystems/drive/PhoenixOdometryThread.java) |
 | Phoenix retry helper           | [util/PhoenixUtil.java](src/main/java/frc/robot/util/PhoenixUtil.java) |
 | Swerve hardware constants      | [generated/TunerConstants.java](src/main/java/frc/robot/generated/TunerConstants.java) |

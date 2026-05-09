@@ -7,6 +7,8 @@ import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -215,5 +217,166 @@ public final class FieldInfo {
 
   public static double flipY(Distance y) {
     return flipY(y.in(Meters));
+  }
+
+  // ==================== 2026 Field Elements ====================
+  // Adapted from FRC 6328 Mechanical-Advantage RobotCode2026Public/FieldConstants.java.
+  // Blue-alliance perspective; pass through flip() for red.
+
+  public static final double fuelDiameter = Units.inchesToMeters(5.91);
+
+  public static Translation2d fieldCenter() {
+    return new Translation2d(lengthMeters() / 2.0, widthMeters() / 2.0);
+  }
+
+  /** Central scoring structure with four faces and a 3D inner volume. */
+  public static final class Hub {
+    public static final double width = Units.inchesToMeters(47.0);
+    public static final double height = Units.inchesToMeters(72.0);
+    public static final double innerWidth = Units.inchesToMeters(41.7);
+    public static final double innerHeight = Units.inchesToMeters(56.5);
+
+    static final double centerX = aprilTags().getTagPose(26).get().getX() + width / 2.0;
+    private static final double centerY = widthMeters() / 2.0;
+
+    public static final Translation3d topCenterPoint = new Translation3d(centerX, centerY, height);
+    public static final Translation3d innerCenterPoint =
+        new Translation3d(centerX, centerY, innerHeight);
+
+    public static final Translation2d nearLeftCorner =
+        new Translation2d(centerX - width / 2.0, centerY + width / 2.0);
+    public static final Translation2d nearRightCorner =
+        new Translation2d(centerX - width / 2.0, centerY - width / 2.0);
+    public static final Translation2d farLeftCorner =
+        new Translation2d(centerX + width / 2.0, centerY + width / 2.0);
+    public static final Translation2d farRightCorner =
+        new Translation2d(centerX + width / 2.0, centerY - width / 2.0);
+
+    public static final Pose2d nearFace = aprilTags().getTagPose(26).get().toPose2d();
+    public static final Pose2d farFace = aprilTags().getTagPose(20).get().toPose2d();
+    public static final Pose2d rightFace = aprilTags().getTagPose(18).get().toPose2d();
+    public static final Pose2d leftFace = aprilTags().getTagPose(21).get().toPose2d();
+  }
+
+  /** Climb structure with three rung heights. */
+  public static final class Tower {
+    public static final double width = Units.inchesToMeters(49.25);
+    public static final double depth = Units.inchesToMeters(45.0);
+    public static final double height = Units.inchesToMeters(78.25);
+    public static final double innerOpeningWidth = Units.inchesToMeters(32.250);
+    public static final double frontFaceX = Units.inchesToMeters(43.51);
+    public static final double uprightHeight = Units.inchesToMeters(72.1);
+
+    public static final double lowRungHeight = Units.inchesToMeters(27.0);
+    public static final double midRungHeight = Units.inchesToMeters(45.0);
+    public static final double highRungHeight = Units.inchesToMeters(63.0);
+
+    private static final double tagY = aprilTags().getTagPose(31).get().getY();
+
+    public static final Translation2d centerPoint = new Translation2d(frontFaceX, tagY);
+    public static final Translation2d leftUpright =
+        new Translation2d(frontFaceX, tagY + innerOpeningWidth / 2.0 + Units.inchesToMeters(0.75));
+    public static final Translation2d rightUpright =
+        new Translation2d(frontFaceX, tagY - innerOpeningWidth / 2.0 - Units.inchesToMeters(0.75));
+  }
+
+  /** Floor obstacle on the left side of the hub. */
+  public static final class LeftBump {
+    public static final double width = Units.inchesToMeters(73.0);
+    public static final double height = Units.inchesToMeters(6.513);
+    public static final double depth = Units.inchesToMeters(44.4);
+
+    public static final Translation2d nearLeftCorner =
+        Hub.nearLeftCorner.plus(new Translation2d(0.0, width));
+    public static final Translation2d nearRightCorner = Hub.nearLeftCorner;
+    public static final Translation2d farLeftCorner =
+        Hub.farLeftCorner.plus(new Translation2d(0.0, width));
+    public static final Translation2d farRightCorner = Hub.farLeftCorner;
+  }
+
+  /** Floor obstacle on the right side of the hub. */
+  public static final class RightBump {
+    public static final double width = Units.inchesToMeters(73.0);
+    public static final double height = Units.inchesToMeters(6.513);
+    public static final double depth = Units.inchesToMeters(44.4);
+
+    public static final Translation2d nearLeftCorner = Hub.nearRightCorner;
+    public static final Translation2d nearRightCorner =
+        Hub.nearRightCorner.minus(new Translation2d(0.0, width));
+    public static final Translation2d farLeftCorner = Hub.farRightCorner;
+    public static final Translation2d farRightCorner =
+        Hub.farRightCorner.minus(new Translation2d(0.0, width));
+  }
+
+  /** Trench on the left side; opening points define the entrance plane. */
+  public static final class LeftTrench {
+    public static final double width = Units.inchesToMeters(65.65);
+    public static final double depth = Units.inchesToMeters(47.0);
+    public static final double height = Units.inchesToMeters(40.25);
+    public static final double openingWidth = Units.inchesToMeters(50.34);
+    public static final double openingHeight = Units.inchesToMeters(22.25);
+
+    public static final Translation3d openingTopLeft =
+        new Translation3d(Hub.centerX, widthMeters(), openingHeight);
+    public static final Translation3d openingTopRight =
+        new Translation3d(Hub.centerX, widthMeters() - openingWidth, openingHeight);
+    public static final Translation2d center =
+        openingTopLeft.toTranslation2d().interpolate(openingTopRight.toTranslation2d(), 0.5);
+  }
+
+  /** Trench on the right side; opening points define the entrance plane. */
+  public static final class RightTrench {
+    public static final double width = Units.inchesToMeters(65.65);
+    public static final double depth = Units.inchesToMeters(47.0);
+    public static final double height = Units.inchesToMeters(40.25);
+    public static final double openingWidth = Units.inchesToMeters(50.34);
+    public static final double openingHeight = Units.inchesToMeters(22.25);
+
+    public static final Translation3d openingTopLeft =
+        new Translation3d(Hub.centerX, openingWidth, openingHeight);
+    public static final Translation3d openingTopRight =
+        new Translation3d(Hub.centerX, 0.0, openingHeight);
+    public static final Translation2d center =
+        openingTopLeft.toTranslation2d().interpolate(openingTopRight.toTranslation2d(), 0.5);
+  }
+
+  /** Game-piece intake/storage zone behind the alliance wall. */
+  public static final class Depot {
+    public static final double width = Units.inchesToMeters(42.0);
+    public static final double depth = Units.inchesToMeters(27.0);
+    public static final double height = Units.inchesToMeters(1.125);
+    public static final double distanceFromCenterY = Units.inchesToMeters(75.93);
+
+    public static final Translation3d depotCenter =
+        new Translation3d(depth, widthMeters() / 2.0 + distanceFromCenterY, height);
+    public static final Translation3d leftCorner =
+        new Translation3d(depth, widthMeters() / 2.0 + distanceFromCenterY + width / 2.0, height);
+    public static final Translation3d rightCorner =
+        new Translation3d(depth, widthMeters() / 2.0 + distanceFromCenterY - width / 2.0, height);
+  }
+
+  /** Alliance-wall feature with a low opening. */
+  public static final class Outpost {
+    public static final double width = Units.inchesToMeters(31.8);
+    public static final double openingDistanceFromFloor = Units.inchesToMeters(28.1);
+    public static final double height = Units.inchesToMeters(7.0);
+
+    public static final Translation2d centerPoint =
+        new Translation2d(0.0, aprilTags().getTagPose(29).get().getY());
+  }
+
+  /** Central neutral-zone region containing fuel game pieces. */
+  public static final class FuelPool {
+    public static final double width = Units.inchesToMeters(181.9);
+    public static final double depth = Units.inchesToMeters(71.9);
+
+    public static final Translation2d nearLeftCorner =
+        new Translation2d(lengthMeters() / 2.0 - depth / 2.0, widthMeters() / 2.0 + width / 2.0);
+    public static final Translation2d nearRightCorner =
+        new Translation2d(lengthMeters() / 2.0 - depth / 2.0, widthMeters() / 2.0 - width / 2.0);
+    public static final Translation2d leftCenter =
+        new Translation2d(lengthMeters() / 2.0, widthMeters() / 2.0 + width / 2.0);
+    public static final Translation2d rightCenter =
+        new Translation2d(lengthMeters() / 2.0, widthMeters() / 2.0 - width / 2.0);
   }
 }

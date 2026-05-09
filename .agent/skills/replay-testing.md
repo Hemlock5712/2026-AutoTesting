@@ -22,7 +22,7 @@ The drive subsystem is a direct port of the [AdvantageKit talonfx_swerve templat
 | Mode | GyroIO | ModuleIO | What runs |
 | --- | --- | --- | --- |
 | REAL | [GyroIOPigeon2](src/main/java/frc/robot/subsystems/drive/GyroIOPigeon2.java) | [ModuleIOTalonFX](src/main/java/frc/robot/subsystems/drive/ModuleIOTalonFX.java) | Hardware via Phoenix6, 250 Hz odometry via [PhoenixOdometryThread](src/main/java/frc/robot/subsystems/drive/PhoenixOdometryThread.java) |
-| SIM | empty `GyroIO {}` | [ModuleIOSim](src/main/java/frc/robot/subsystems/drive/ModuleIOSim.java) | DCMotorSim physics, 50 Hz odometry |
+| SIM | [GyroIOSim](src/main/java/frc/robot/subsystems/drive/GyroIOSim.java) | [ModuleIOSim](src/main/java/frc/robot/subsystems/drive/ModuleIOSim.java) | maple-sim rigid-body physics (dyn4j); ~250 Hz effective via 5 sub-tick samples per 20 ms cycle |
 | REPLAY | empty | empty `ModuleIO {}` | AKit replays `@AutoLog` inputs from the WPILOG; estimator runs the same code |
 
 Vision pose-estimator weights live in [Vision.java](src/main/java/frc/robot/subsystems/vision/Vision.java) — these are the **primary tuning surface** for replay-based iteration.
@@ -48,15 +48,21 @@ The keys are symmetric — same suffix under both prefixes — so you can pull b
 
 Critical: when comparing, make sure you compare `/RealOutputs/Odometry/Robot` (source's pose) vs `/ReplayOutputs/Odometry/Robot` (replay's pose). If you compare `/RealOutputs/...` against itself in the replay log you'll see zero delta — that's just the source data carried forward, not a verification of anything.
 
-## Compare poses tool
+## Log inspection scripts
 
-`scripts/compare_poses.py` is a small WPILOG parser using `wpiutil.log.DataLogReader` that extracts the last `Odometry/Robot` (or `Drive/Pose`) from each log:
+Three small WPILOG helpers in [scripts/](scripts/), all using `wpiutil.log.DataLogReader`:
 
-```powershell
-python scripts/compare_poses.py logs/akit_X.wpilog logs/akit_X_replay.wpilog
-```
+- **[scripts/compare_poses.py](scripts/compare_poses.py)** — reads the *last* `Odometry/Robot` (or `Drive/Pose`) entry from each log and prints the delta. The default tool for replay regression checks.
 
-For an unaltered replay, expect **0.0000 m delta**. Anything non-zero indicates a code change between record and replay (or a bug in the IO logging layer).
+  ```powershell
+  python scripts/compare_poses.py logs/akit_X.wpilog logs/akit_X_replay.wpilog
+  ```
+
+  For an unaltered replay, expect **0.0000 m delta**. Anything non-zero indicates a code change between record and replay (or a bug in the IO logging layer).
+
+- **[scripts/compare_poses_at_time.py](scripts/compare_poses_at_time.py)** — same idea, but samples poses at matching timestamps instead of just the last entry. Use this when AKit's record-dedup makes the "last pose" comparison misleading (e.g. one log keeps logging while the bot is parked because vision is still updating). Supports `--stride <seconds>` to walk through the run.
+
+- **[scripts/check_vision_in_log.py](scripts/check_vision_in_log.py)** — prints `True/False` for whether a wpilog contains any vision observations. Useful when triaging why a replay's pose tracking diverged: was vision actually feeding the source log, or did the camera publish nothing?
 
 ## Tuning vision std-devs against a log
 
@@ -76,7 +82,7 @@ Replay is fast enough that you can sweep coefficients in a script — invoke gra
 
 - **Replay has no hardware:** anything that talks to NT or hardware directly during replay will misbehave. The Vision IO impl ([VisionIOLimelight](src/main/java/frc/robot/subsystems/vision/VisionIOLimelight.java)) is bypassed in REPLAY mode (RobotContainer wires an empty `VisionIO` no-op instead) — vision observations come from the AKit-replayed `@AutoLog` inputs.
 - **Build-time check:** AdvantageKit refuses to start replay if any `wpi.sim.*` extension is registered. The gradle file gates these on `!isReplay` so this stays automatic, but if you add new sim extensions remember to gate them similarly.
-- **Sim odometry is 50 Hz, not 250 Hz.** The AKit template's `ModuleIOSim` writes one sample per `updateInputs` call (50 Hz). Real-bot odometry is still 250 Hz. This is intentional — sim physics integrates at the main loop rate, and high-frequency sim odometry would be noise. The pose estimator handles either rate identically; only the log fidelity differs.
+- **Sim odometry runs at ~250 Hz effective via maple-sim sub-ticks.** Each `ModuleIOSim.updateInputs` (called at 50 Hz) writes `SimulatedArena.getSimulationSubTicksIn1Period()` samples — defaults to 5, so 250 Hz effective. The pose estimator walks all sub-tick samples, just like the real bot's 250 Hz `PhoenixOdometryThread`. Maple-sim handles rigid-body physics; vision pose comes from the sim ground truth via [VisionIOSim](src/main/java/frc/robot/subsystems/vision/VisionIOSim.java).
 
 ## Typical agent loop
 
