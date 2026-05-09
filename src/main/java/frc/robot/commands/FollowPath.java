@@ -272,7 +272,7 @@ public class FollowPath extends Command {
 
     swerve.setControl(request.withSpeeds(lastCommandedVelocity));
     lastCrossTrackError = crossTrackError;
-    lastProjectedS = sRobot;
+    lastProjectedS = Math.max(lastProjectedS, sRobot);
 
     // Log tracking data
     double progress = (path.getTotalLength() > 0) ? sRobot / path.getTotalLength() : 0;

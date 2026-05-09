@@ -195,7 +195,11 @@ public class AutoCommands {
     if (completionTolerance > 0) {
       pathCmd.withCompletionTolerance(completionTolerance);
     }
+    return wrapWithActions(pathCmd, path, actions, alongside);
+  }
 
+  private Command wrapWithActions(
+      Command pathCmd, FollowablePath path, List<PathAction> actions, Command... alongside) {
     if (actions.isEmpty()) {
       return alongside.length == 0 ? pathCmd : pathCmd.deadlineFor(alongside);
     }
