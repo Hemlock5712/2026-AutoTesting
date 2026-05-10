@@ -47,6 +47,7 @@ public class DriveTrainSimulationConfig {
    * @param gyroSimulationFactory the factory that creates appropriate gyro simulation for the
    *     drivetrain.
    */
+  @SafeVarargs
   public DriveTrainSimulationConfig(
       Mass robotMass,
       Distance bumperLengthX,
@@ -207,7 +208,8 @@ public class DriveTrainSimulationConfig {
    *     or specify four factories in the order (FL, FR, BL, BR)
    * @return the current instance of {@link DriveTrainSimulationConfig} for method chaining.
    */
-  public DriveTrainSimulationConfig withSwerveModules(
+  @SafeVarargs
+  public final DriveTrainSimulationConfig withSwerveModules(
       Supplier<SwerveModuleSimulation>... swerveModuleSimulationFactory) {
     if (swerveModuleSimulationFactory.length == 1)
       return withSwerveModule(swerveModuleSimulationFactory[0]);
@@ -233,6 +235,7 @@ public class DriveTrainSimulationConfig {
    * @param swerveModuleSimulationFactory the new factory for swerve module simulations.
    * @return the current instance of {@link DriveTrainSimulationConfig} for method chaining.
    */
+  @SuppressWarnings("unchecked")
   public DriveTrainSimulationConfig withSwerveModule(
       Supplier<SwerveModuleSimulation> swerveModuleSimulationFactory) {
     this.swerveModuleSimulationFactories = new Supplier[moduleTranslations.length];
