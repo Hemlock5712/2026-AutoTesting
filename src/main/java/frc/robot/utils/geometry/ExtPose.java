@@ -4,7 +4,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
-import frc.robot.utils.FieldFlip;
 import frc.robot.utils.TunableTable;
 
 /**
@@ -51,9 +50,9 @@ public final class ExtPose extends ExtGeometry<Pose2d> {
   @Override
   protected void set(Pose2d newValue) {
     original = newValue;
-    overWidth = FieldFlip.overWidth(newValue);
-    overLength = FieldFlip.overLength(newValue);
-    overDiagonal = FieldFlip.overDiagonal(newValue);
+    overWidth = Flips.overWidth(newValue);
+    overLength = Flips.overLength(newValue);
+    overDiagonal = Flips.overDiagonal(newValue);
   }
 
   @Override

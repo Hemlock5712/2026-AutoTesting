@@ -23,21 +23,22 @@ The Drive constructor takes one `GyroIO` and four `ModuleIO`s. [RobotContainer](
 
 **250 Hz odometry on real hardware.** [PhoenixOdometryThread](src/main/java/frc/robot/subsystems/drive/PhoenixOdometryThread.java) is a singleton thread that does `BaseStatusSignal.waitForAll(...)` (CAN-FD) or sleeps + `refreshAll(...)` (CAN 2.0) at `Drive.ODOMETRY_FREQUENCY` (250 Hz on FD, 100 Hz else). It samples each registered position signal into a per-signal queue. `Drive.periodic()` acquires `Drive.odometryLock`, the IOs drain their queues into `@AutoLog` arrays, and the pose estimator is updated once per logged sample (so all 250 sub-cycles are walked through). Vision adds measurements via `drive.addVisionMeasurement(pose, fpgaTs, stdDevs)`.
 
-**SIM uses [maple-sim](https://github.com/Shenzhen-Robotics-Alliance/maple-sim).** The chassis spawn pose lives in [RobotContainer.SIM_SPAWN_POSE](src/main/java/frc/robot/RobotContainer.java) (default `(8.0, 4.0)`); the estimator is reset to match at construction, and `Drive.onPoseReset` wires future estimator resets through to `SwerveDriveSimulation.setSimulationWorldPose` so auto-routine resets don't strand the sim chassis. `Robot.simulationPeriodic` ticks the arena via `RobotContainer.updateSimulation`, which also logs ground-truth pose to `FieldSimulation/RobotPose`. [VisionIOSim](src/main/java/frc/robot/subsystems/vision/VisionIOSim.java) feeds the simulated truth pose back into the estimator. Maple-sim uses 5 sub-ticks per 20 ms cycle (≈250 Hz effective); each `ModuleIO.updateInputs` writes one odometry sample per sub-tick.
+**SIM uses [maple-sim](https://github.com/Shenzhen-Robotics-Alliance/maple-sim)** (vendored under [simlib/](src/main/java/frc/robot/simlib/)). The chassis spawn pose lives in [RobotContainer.SIM_SPAWN_POSE](src/main/java/frc/robot/RobotContainer.java) (default `(8.0, 4.0)`); the estimator is reset to match at construction, and `Drive.onPoseReset` wires future estimator resets through to `SwerveDriveSimulation.setSimulationWorldPose` so auto-routine resets don't strand the sim chassis. `Robot.simulationPeriodic` ticks the arena via `RobotContainer.updateSimulation`, which calls `Drive.updateSimulationGroundTruth(truth)` — that logs `Drive/Sim/GroundTruthPose`, `Drive/Sim/PoseErrorMeters`, and `Drive/Sim/HeadingErrorRad` (the answer to "what does the estimator think vs. what's actually happening"). [VisionIOSim](src/main/java/frc/robot/subsystems/vision/VisionIOSim.java) feeds the simulated truth pose back into the estimator. Maple-sim uses 5 sub-ticks per 20 ms cycle (≈250 Hz effective); each `ModuleIO.updateInputs` writes one odometry sample per sub-tick.
 
 **Drive odometry refinements (vs. the upstream AKit template):**
 - **Arc-integrated module deltas.** [Drive.arcIntegrate](src/main/java/frc/robot/subsystems/drive/Drive.java) replaces straight-line per-sample integration with arc integration assuming constant module ω during the sample, then re-encodes the arc displacement as an effective `(distance, angle)` so WPILib's straight-chord kinematics produces the arc-correct twist.
 - **Azimuth coupling compensation.** [ModuleIOTalonFX](src/main/java/frc/robot/subsystems/drive/ModuleIOTalonFX.java) subtracts the phantom drive motion induced by steer rotation (`steer_mech_rad * CouplingGearRatio / DriveMotorGearRatio`) from raw drive position and velocity. CTRE's `SwerveDrivetrain` does this internally; we don't use that class so we do it ourselves. SIM is untouched (maple-sim has independent shafts, no coupling to subtract).
-- **Skid metric.** [SkidDetection](src/main/java/frc/robot/subsystems/drive/SkidDetection.java) decomposes per-module velocities into chassis-translation estimates (`v_module − ω × r_module` with gyro-derived ω), reports `Drive/Skid/MaxOverMinRatio`, `MagnitudeStdDev`, etc. Diagnostic only — no std-dev or outlier-rejection hookup yet, awaiting on-bot tuning data.
-- **Field-escape diagnostic.** `Drive/FieldEscapeHits` counts periodic ticks where the estimator pose has crossed any field wall. Diagnostic only — we tried clamping the cached pose to the field but it bit legitimate near-wall path overshoots and was reverted.
+- **Field-escape diagnostic.** `Drive/Diagnostics/FieldEscapeHits` counts periodic ticks where the estimator pose has crossed any field wall. Diagnostic only — we tried clamping the cached pose to the field but it bit legitimate near-wall path overshoots and was reverted.
+- **Arc-integration rejection counter.** `Drive/Diagnostics/ArcIntegrateRejections` counts odometry samples thrown out because an input was non-finite (e.g. MapleSim brownout poisoning a steer angle with NaN).
+- **Per-module friction utilization.** `Drive/Diagnostics/FrictionRatios` exposes each wheel's `a_i / (mu*g)` for tuning the friction limiter.
 
-Drive exposes the canonical AKit API (`runVelocity(ChassisSpeeds)`, `setPose(Pose2d)` aliased as `resetPose`, `getPose`, `getRotation`, `getRobotSpeeds`, `getFieldSpeeds`, `addVisionMeasurement`, `samplePoseAt`, `stopWithX`, `sysIdQuasistatic/Dynamic`). Commands feed it `ChassisSpeeds` — there is no `setControl(SwerveRequest)` anywhere; CTRE's `SwerveDrivetrain` and `CommandSwerveDrivetrain` are not used.
+Drive exposes the canonical API: `runVelocity(ChassisSpeeds)`, `resetPose(Pose2d)`, `getPose`, `getRotation`, `getRobotSpeeds`, `getFieldSpeeds`, `addVisionMeasurement`, `samplePoseAt`, `stopWithX`, `pointWheelsAt`, plus the high-rate hook `setControl(SwerveRequest) / clearControl()`. CTRE's `SwerveDrivetrain` and `CommandSwerveDrivetrain` are not used.
 
-**250 Hz "high-rate" hook for commands.** Drive owns a `Notifier` that fires at 4 ms (`Drive.HIGH_RATE_PERIOD_S`) and invokes a `DoubleConsumer` controller installed by the active command. This mirrors the original CTRE `AccelerationLimitedFieldSpeeds` pattern (limiter on CTRE's odometry thread). Use it via `drive.setHighRateController(this::tickHighRate)` in `command.initialize()` and `drive.clearHighRateController()` in `command.end()`. The callback receives elapsed seconds since the previous tick. Commands publish their target velocity via volatile fields in `execute()` (50 Hz); the hook reads them, integrates the limiter with sub-cycle dt, and pushes to `runVelocity`. **Threading rules for the hook:**
+**250 Hz fast loop for commands.** Drive owns a `Notifier` that fires at 4 ms (`Drive.HIGH_RATE_PERIOD_S`) and invokes the active `SwerveRequest` (see [SwerveRequest.java](src/main/java/frc/robot/subsystems/drive/SwerveRequest.java) and the implementations under [requests/](src/main/java/frc/robot/subsystems/drive/requests/)). Use it via `drive.setControl(request)` in `command.initialize()` and `drive.clearControl()` in `command.end()`. Commands publish their target velocity into the request's volatile fields on the 50 Hz main loop; the fast loop reads them and pushes to `runVelocity`. **Threading rules for `SwerveRequest.apply(...)`:**
 - Reads of `getPose() / getRotation() / getRobotSpeeds() / getFieldSpeeds()` are tear-free (volatile snapshots published from `periodic`).
 - `runVelocity(...)` is safe to call (Phoenix6 motor controls and ModuleIOSim setpoint writes are atomic enough; logging is deferred to `periodic`).
-- **Do not call `Logger.recordOutput` from the hook** — AKit's `StructBuffer`s aren't thread-safe, and concurrent writes corrupt the byte buffer. Drive's `periodic` already logs the latest setpoint snapshot for you.
-- `AccelerationLimiter`'s scratch buffer is `ThreadLocal`, so the limiter is safe to call from any thread.
+- **Do not call `Logger.recordOutput` from `apply()`** — AKit's `StructBuffer`s aren't thread-safe, and concurrent writes corrupt the byte buffer. Stash diagnostics in volatile fields and let the subsystem log them from `periodic()`.
+- `AccelerationLimiter`'s scratch buffers are `ThreadLocal`, so the limiter is safe to call from any thread.
 
 Module geometry / gearing / IDs / gains live in [generated/TunerConstants.java](src/main/java/frc/robot/generated/TunerConstants.java), generated by Tuner X. Only the constant declarations are kept — the `createDrivetrain()` factory and `TunerSwerveDrivetrain` inner class were removed.
 
@@ -70,15 +71,14 @@ This is the load-bearing detail of the codebase. The robot **does not chase a ti
    - Completion: within `0.05 m` of path end *and* speed below `0.1 m/s`.
 5. **`AutoCommands.followPathWithActions`** ([src/main/java/frc/robot/autonomous/AutoCommands.java](src/main/java/frc/robot/autonomous/AutoCommands.java)) wraps `FollowPath` with **`PathAction`s** triggered at specific arc-length positions. Choreo `EventMarker` timestamps are converted to arc-length via `PathAction.fromMarker`.
 
-Alliance flipping is handled inside `AutoPath.get()` — pre-computed at load time, picked at runtime via `FieldInfo.shouldFlip()`.
+Alliance flipping is handled inside `AutoPath.get()` — pre-computed at load time, picked at runtime via `FieldInfo.shouldFlip()`. For non-path field locations, use the `Ext*` containers in [utils/geometry/](src/main/java/frc/robot/utils/geometry/) (`ExtPose`, `ExtTranslation`, `ExtRotation`) — declare a blue-origin value and call `.get()` at runtime to get the alliance-flipped variant. The flip math is private to that package; there is no longer a `FieldFlip` utility class.
 
-> **Critical convention:** never introduce a time-based path follower. The whole control architecture assumes `s` (arc length), not `t`. There used to be `SplinePath` / `CubicSegment` / `VelocityProfile` infrastructure — it was deleted in the Choreo migration and shouldn't come back.
+> **Critical convention:** never introduce a time-based path follower. The whole control architecture assumes `s` (arc length), not `t`.
 
 ### Other movement commands
 
+- **`TeleopDrive`** — default teleop command. Translation from left stick (rescaled with deadband + squared magnitude), rotation from right stick.
 - **`DriveToPoint`** — closed-loop drive to a target `Pose2d`. Used for non-path-based moves (alignment, station approach).
-- **`OrbitDrive`** — default teleop command. Translation from left stick (squared with deadband and rescale), rotation from right stick, both fed through `AccelerationLimitedFieldSpeeds`.
-- **`AxisLockDrive`** — locks one translation axis for habit-aligned driving.
 
 ## Logging
 
@@ -121,10 +121,11 @@ When adding new autos: add an `AutoPath` enum entry, a `Choreo.chor` path, and a
 | Mode enum (REAL/SIM/REPLAY)    | [Constants.java](src/main/java/frc/robot/Constants.java)               |
 | Drive subsystem                | [subsystems/drive/Drive.java](src/main/java/frc/robot/subsystems/drive/Drive.java) |
 | Module / Gyro IOs              | [subsystems/drive/ModuleIO.java](src/main/java/frc/robot/subsystems/drive/ModuleIO.java) (+ TalonFX, Sim impls), [GyroIO.java](src/main/java/frc/robot/subsystems/drive/GyroIO.java) (+ Pigeon2, Sim impls) |
-| Maple-sim physics + spawn      | [vendordeps/maple-sim.json](vendordeps/maple-sim.json), `Drive.getMapleSimConfig()`, `RobotContainer.SIM_SPAWN_POSE` |
-| Skid / field-escape diagnostics | [subsystems/drive/SkidDetection.java](src/main/java/frc/robot/subsystems/drive/SkidDetection.java), `Drive/FieldEscapeHits` AKit output |
+| Maple-sim physics + spawn      | [simlib/](src/main/java/frc/robot/simlib/) (vendored), `Drive.getMapleSimConfig()`, `RobotContainer.SIM_SPAWN_POSE` |
+| Sim vs estimator comparison    | `Drive/Sim/{GroundTruthPose, PoseErrorMeters, HeadingErrorRad}` from `Drive.updateSimulationGroundTruth` |
+| Drive diagnostics              | `Drive/Diagnostics/{FieldEscapeHits, ArcIntegrateRejections, FrictionRatios}` |
 | 250 Hz odometry collector      | [subsystems/drive/PhoenixOdometryThread.java](src/main/java/frc/robot/subsystems/drive/PhoenixOdometryThread.java) |
-| Phoenix retry helper           | [util/PhoenixUtil.java](src/main/java/frc/robot/util/PhoenixUtil.java) |
+| Phoenix retry helper           | [utils/PhoenixUtil.java](src/main/java/frc/robot/utils/PhoenixUtil.java) |
 | Swerve hardware constants      | [generated/TunerConstants.java](src/main/java/frc/robot/generated/TunerConstants.java) |
 | Path math                      | [utils/path/](src/main/java/frc/robot/utils/path/)                     |
 | Path-following controller      | [commands/FollowPath.java](src/main/java/frc/robot/commands/FollowPath.java) |

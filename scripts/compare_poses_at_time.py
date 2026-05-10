@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare /RealOutputs/Odometry/Robot vs /ReplayOutputs/Odometry/Robot at matching timestamps.
+"""Compare /RealOutputs/Drive/Pose vs /ReplayOutputs/Drive/Pose at matching timestamps.
 
 Walks both logs in parallel, samples the most-recent pose <= target_timestamp from each,
 and reports the delta. Useful when AKit dedup makes the "last pose" comparison misleading
@@ -22,10 +22,8 @@ from pathlib import Path
 
 from wpiutil.log import DataLogReader
 
-# Match an absolute key first, fall back to suffix match for /<prefix>/Odometry/Robot or
-# /<prefix>/Drive/Pose so old logs still work.
-SIM_KEYS = ["/RealOutputs/Odometry/Robot", "/RealOutputs/Drive/Pose"]
-REP_KEYS = ["/ReplayOutputs/Odometry/Robot", "/ReplayOutputs/Drive/Pose"]
+SIM_KEYS = ["/RealOutputs/Drive/Pose"]
+REP_KEYS = ["/ReplayOutputs/Drive/Pose"]
 
 
 def collect(path: Path, keys: list[str]):
@@ -48,9 +46,9 @@ def collect(path: Path, keys: list[str]):
             break
 
     if target_name is None:
-        # Fuzzy fallback (suffix match on Pose key, struct:Pose2d type)
+        # Fuzzy fallback (suffix match on Drive/Pose, struct:Pose2d type)
         for n, t in entries.values():
-            if t == "struct:Pose2d" and (n.endswith("/Odometry/Robot") or n.endswith("/Drive/Pose")):
+            if t == "struct:Pose2d" and n.endswith("/Drive/Pose"):
                 target_name = n
                 break
 

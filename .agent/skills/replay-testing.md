@@ -46,13 +46,13 @@ The output log contains both:
 
 The keys are symmetric — same suffix under both prefixes — so you can pull both columns side by side and compute a delta.
 
-Critical: when comparing, make sure you compare `/RealOutputs/Odometry/Robot` (source's pose) vs `/ReplayOutputs/Odometry/Robot` (replay's pose). If you compare `/RealOutputs/...` against itself in the replay log you'll see zero delta — that's just the source data carried forward, not a verification of anything.
+Critical: when comparing, make sure you compare `/RealOutputs/Drive/Pose` (source's pose) vs `/ReplayOutputs/Drive/Pose` (replay's pose). If you compare `/RealOutputs/...` against itself in the replay log you'll see zero delta — that's just the source data carried forward, not a verification of anything.
 
 ## Log inspection scripts
 
 Three small WPILOG helpers in [scripts/](scripts/), all using `wpiutil.log.DataLogReader`:
 
-- **[scripts/compare_poses.py](scripts/compare_poses.py)** — reads the *last* `Odometry/Robot` (or `Drive/Pose`) entry from each log and prints the delta. The default tool for replay regression checks.
+- **[scripts/compare_poses.py](scripts/compare_poses.py)** — reads the *last* `Drive/Pose` entry from each log and prints the delta. The default tool for replay regression checks.
 
   ```powershell
   python scripts/compare_poses.py logs/akit_X.wpilog logs/akit_X_replay.wpilog
@@ -73,7 +73,7 @@ Three small WPILOG helpers in [scripts/](scripts/), all using `wpiutil.log.DataL
    - `MEGATAG2_ROTATION_STD_DEV`
    - `MAX_EFFECTIVE_TAG_COUNT`
 3. `./gradlew simulateJava -Preplay=logs/<file>.wpilog -Pheadless`.
-4. Compare `/ReplayOutputs/Odometry/Robot` against the original `/RealOutputs/Odometry/Robot` (or against ground truth).
+4. Compare `/ReplayOutputs/Drive/Pose` against the original `/RealOutputs/Drive/Pose` (or against ground truth).
 5. If the new std-devs land closer to truth and nothing else regressed → ship it. Otherwise → revert and iterate.
 
 Replay is fast enough that you can sweep coefficients in a script — invoke gradle in a loop, parse the resulting `_replay.wpilog`, plot. **Verified responsiveness:** changing `XY_STD_DEV_COEFFICIENT` from 0.333 to 33.3 (100× looser) produced a 15.22 m shift in the replayed final pose against the same log — std-dev tuning has measurable, predictable effects.

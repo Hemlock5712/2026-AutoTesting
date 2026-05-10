@@ -1,7 +1,6 @@
 package frc.robot.utils.geometry;
 
 import edu.wpi.first.math.geometry.Rotation2d;
-import frc.robot.utils.FieldFlip;
 import frc.robot.utils.TunableTable;
 
 /**
@@ -69,9 +68,9 @@ public final class ExtRotation extends ExtGeometry<Rotation2d> {
   @Override
   protected void set(Rotation2d newValue) {
     original = newValue;
-    overWidth = FieldFlip.overWidth(newValue);
-    overLength = FieldFlip.overLength(newValue);
-    overDiagonal = FieldFlip.overDiagonal(newValue);
+    overWidth = Flips.overWidth(newValue);
+    overLength = Flips.overLength(newValue);
+    overDiagonal = Flips.overDiagonal(newValue);
   }
 
   @Override

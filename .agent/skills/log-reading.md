@@ -31,28 +31,43 @@ When iterating on a controller, the keys you care about are *almost always* unde
 
 ## Useful keys in this codebase
 
+All drive state lives under one `Drive/*` tree, modeled after CTRE's `SwerveDriveState`.
+
 | Key                                                       | What it is                                            |
 | --------------------------------------------------------- | ----------------------------------------------------- |
-| `/RealOutputs/Drive/Pose`                                 | Estimated robot pose (CTRE in REAL/SIM, Java in REPLAY) |
-| `/ReplayOutputs/Drive/Pose`                               | Java pose estimator output (only present in replay logs) |
-| `/RealOutputs/Drive/MeasuredStates`                       | Per-module measured swerve states                     |
-| `/RealOutputs/Drive/DesiredStates`                        | Per-module commanded swerve targets                   |
-| `/RealOutputs/Drive/MeasuredChassisSpeeds`                | Robot-relative measured chassis speeds                |
-| `/RealOutputs/Drive/FieldSpeeds`                          | Field-relative chassis speeds                         |
-| `/AdvantageKit/Drive/ModuleFL/...` etc.                   | Per-module AKit inputs: drive/steer position, applied volts, currents, temps, plus 250 Hz odometry sample arrays |
+| `/RealOutputs/Drive/Pose`                                 | Estimator pose (where the robot *thinks* it is)       |
+| `/RealOutputs/Drive/RawHeading`                           | Raw gyro yaw, before vision fusion                    |
+| `/RealOutputs/Drive/Speeds`                               | Measured robot-relative chassis speeds                |
+| `/RealOutputs/Drive/FieldSpeeds`                          | Measured field-relative chassis speeds                |
+| `/RealOutputs/Drive/TranslationSpeedMps`                  | Magnitude of horizontal velocity (m/s)                |
+| `/RealOutputs/Drive/RotationSpeedRadPerSec`               | Magnitude of yaw rate (rad/s)                         |
+| `/RealOutputs/Drive/ModuleStates`                         | Per-module measured swerve states                     |
+| `/RealOutputs/Drive/ModuleTargets`                        | Per-module commanded swerve targets                   |
+| `/RealOutputs/Drive/ModulePositions`                      | Per-module distance + angle (estimator inputs)        |
+| `/RealOutputs/Drive/SetpointSpeeds`                       | Target chassis speeds                                 |
+| `/RealOutputs/Drive/Sim/GroundTruthPose`                  | (sim only) physics pose — where the robot *actually* is |
+| `/RealOutputs/Drive/Sim/PoseErrorMeters`                  | (sim only) distance between estimator pose and physics pose |
+| `/RealOutputs/Drive/Sim/HeadingErrorRad`                  | (sim only) heading delta between estimator and physics |
+| `/RealOutputs/Drive/Diagnostics/FieldEscapeHits`          | Counter — ticks where the estimator left the field    |
+| `/RealOutputs/Drive/Diagnostics/ArcIntegrateRejections`   | Counter — odometry samples rejected for non-finite inputs |
+| `/RealOutputs/Drive/Diagnostics/FrictionRatios`           | Per-module friction utilization (a_i / mu*g)          |
+| `/AdvantageKit/Drive/Module<0-3>/...`                     | Per-module AKit inputs: drive/steer position, applied volts, currents, plus 250 Hz odometry sample arrays |
 | `/AdvantageKit/Drive/Gyro/...`                            | Gyro AKit inputs: yaw, yaw rate, 250 Hz yaw sample arrays |
 | `/AdvantageKit/Vision/<camera>/...`                       | Per-camera Vision inputs: filtered pose, tag count, ambiguity, distance, MT2 flag |
-| `/RealOutputs/Vision/FusedPose`                           | Time-synced inverse-variance fused pose pushed to estimator |
+| `/RealOutputs/Vision/<camera>/XYStdDev`                   | Computed XY standard deviation (lower = more trusted) |
+| `/RealOutputs/Vision/<camera>/ThetaStdDev`                | Computed heading standard deviation                   |
 | `/RealOutputs/FollowPath/Progress`                        | 0..1 along the active path (arc-length based)         |
 | `/RealOutputs/FollowPath/CrossTrackError`                 | Lateral error to nearest path point (m)               |
 | `/RealOutputs/FollowPath/HeadingError`                    | Heading error vs path heading (rad)                   |
 | `/RealOutputs/FollowPath/ProfiledSpeed`                   | Path's commanded speed at projection (m/s)            |
 | `/RealOutputs/FollowPath/ActualSpeed`                     | Robot's measured speed (m/s)                          |
+| `/RealOutputs/FollowPath/ReferencePath`                   | Pose2d[] sampling of the active reference path        |
+| `/RealOutputs/FollowPath/TargetPoint`, `/ClosestPoint`    | [x,y] of the lookahead target and the closest path point |
 | `/DriverStation/Enabled`, `/DriverStation/Autonomous`     | Use these to find auto / teleop start times           |
 | `/SmartDashboard/Auto Mode/selected`                      | Which auto routine was chosen                         |
 | `/RealOutputs/Mode`                                       | "REAL", "SIM", or "REPLAY" — confirms run mode        |
 | `Timing/CommandSchedulerMs`, `Timing/TotalMs`             | Per-loop time cost (Robot.robotPeriodic)              |
-| `Timing/DriveCTREMs` / `Timing/DriveReplayMs` / `Timing/VisionMs` | Per-subsystem time cost                       |
+| `Timing/VisionMs`                                         | Vision subsystem time cost                            |
 
 **Finding the start of auto / teleop:**
 - Start of auto: first sample where `/DriverStation/Enabled == true` AND `/DriverStation/Autonomous == true`.

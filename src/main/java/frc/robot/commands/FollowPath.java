@@ -223,10 +223,8 @@ public class FollowPath extends Command {
     logEditorTarget[1] = targetPoint.getY();
     logEditorClosest[0] = proj.point().getX();
     logEditorClosest[1] = proj.point().getY();
-    Logger.recordOutput("PathEditor/TargetPoint", logEditorTarget);
-    Logger.recordOutput("PathEditor/ClosestPoint", logEditorClosest);
-    Logger.recordOutput("PathEditor/CrossTrackError", crossTrackError);
-    Logger.recordOutput("PathEditor/Progress", progress);
+    Logger.recordOutput("FollowPath/TargetPoint", logEditorTarget);
+    Logger.recordOutput("FollowPath/ClosestPoint", logEditorClosest);
   }
 
   @Override

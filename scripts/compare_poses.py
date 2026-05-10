@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Compare final Drive/Pose entries between two WPILOG files.
 
-Used to verify that DriveReplay (Java pose estimator on logged 250 Hz inputs) lands
-in approximately the same place as DriveCTRE (CTRE JNI estimator) did during sim.
-Or to check how a vision std-dev change shifts the replayed pose.
+Used to verify replay determinism (re-running a recorded log should land the pose
+estimator within sub-millimeter of the original), and to check how a vision std-dev
+change shifts the replayed pose.
 
 Requires `robotpy-wpiutil` (already on the WPILib install path; otherwise pip install).
 """

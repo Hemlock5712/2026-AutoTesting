@@ -45,7 +45,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
-import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
@@ -93,6 +92,8 @@ public class Drive extends SubsystemBase {
    * #setControl(SwerveRequest)} and unplug in {@code end()}.
    */
   private static final double HIGH_RATE_PERIOD_S = 0.004;
+
+  private static final SwerveModuleState[] EMPTY_STATES = new SwerveModuleState[0];
 
   static final Lock odometryLock = new ReentrantLock();
 
@@ -195,8 +196,7 @@ public class Drive extends SubsystemBase {
           module.stop();
         }
       }
-      Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
-      Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+      latestSetpointStates = EMPTY_STATES;
     }
     lastSeenDisabled = isDisabled;
 
@@ -204,14 +204,53 @@ public class Drive extends SubsystemBase {
 
     cachedPose = poseEstimator.getEstimatedPosition();
     if (isOutsideField(cachedPose)) fieldEscapeHits++;
-    Logger.recordOutput("Drive/FieldEscapeHits", fieldEscapeHits);
     cachedRobotSpeeds = kinematics.toChassisSpeeds(getModuleStates());
 
-    Logger.recordOutput(
-        "Drive/Friction/ModuleRatios", AccelerationLimiter.getLastModuleFrictionRatios());
-    logLatestSetpoint();
+    logState();
 
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.getMode() != Mode.SIM);
+  }
+
+  /**
+   * Logs everything a CTRE-style {@code SwerveDriveState} carries, all under one {@code Drive/*}
+   * tree. Single source of truth for "what's the drivetrain doing right now" — pose, speeds, module
+   * states, targets, and diagnostics. Add new drive-related logs here so they stay in one place
+   * instead of leaking into top-level namespaces.
+   */
+  private void logState() {
+    Logger.recordOutput("Drive/Pose", cachedPose);
+    Logger.recordOutput("Drive/RawHeading", rawGyroRotation);
+    Logger.recordOutput("Drive/Speeds", cachedRobotSpeeds);
+    Logger.recordOutput("Drive/FieldSpeeds", getFieldSpeeds());
+    Logger.recordOutput("Drive/TranslationSpeedMps", translationSpeed());
+    Logger.recordOutput("Drive/RotationSpeedRadPerSec", rotationSpeed());
+    Logger.recordOutput("Drive/ModuleStates", getModuleStates());
+    Logger.recordOutput("Drive/ModulePositions", getModulePositions());
+
+    Logger.recordOutput("Drive/ModuleTargets", latestSetpointStates);
+    Logger.recordOutput("Drive/SetpointSpeeds", latestSetpointSpeeds);
+
+    Logger.recordOutput("Drive/Diagnostics/FieldEscapeHits", fieldEscapeHits);
+    Logger.recordOutput("Drive/Diagnostics/ArcIntegrateRejections", arcIntegrateRejections);
+    Logger.recordOutput(
+        "Drive/Diagnostics/FrictionRatios", AccelerationLimiter.getLastModuleFrictionRatios());
+  }
+
+  /**
+   * SIM-only: logs the MapleSim ground-truth pose alongside the estimator's pose and their
+   * difference. Driver-visible answer to "where the robot thinks it is" vs "where the robot
+   * actually is" — useful for tuning slip/skid models and (later) vision.
+   *
+   * <p>Call from {@code Robot#simulationPeriodic} (or wherever the physics tick lives).
+   */
+  public void updateSimulationGroundTruth(Pose2d truthPose) {
+    Pose2d est = cachedPose;
+    double dx = est.getX() - truthPose.getX();
+    double dy = est.getY() - truthPose.getY();
+    Logger.recordOutput("Drive/Sim/GroundTruthPose", truthPose);
+    Logger.recordOutput("Drive/Sim/PoseErrorMeters", Math.hypot(dx, dy));
+    Logger.recordOutput(
+        "Drive/Sim/HeadingErrorRad", est.getRotation().minus(truthPose.getRotation()).getRadians());
   }
 
   /** Drains all odometry samples accumulated since the last tick into the pose estimator. */
@@ -236,7 +275,6 @@ public class Drive extends SubsystemBase {
       }
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, effectiveModulePositions);
     }
-    Logger.recordOutput("Drive/Odometry/ArcIntegrateRejections", arcIntegrateRejections);
   }
 
   /**
@@ -280,16 +318,6 @@ public class Drive extends SubsystemBase {
     // Any sub-µm displacement just retains the last good angle.
     Rotation2d thetaEff = (dEff < 1.0e-6) ? rawCurrent.angle : new Rotation2d(dx, dy);
     return new SwerveModulePosition(dEff, thetaEff);
-  }
-
-  /** Logs the most recent setpoint from the main thread so AKit's logger stays single-threaded. */
-  private void logLatestSetpoint() {
-    SwerveModuleState[] sp = latestSetpointStates;
-    if (sp.length > 0) {
-      Logger.recordOutput("SwerveStates/Setpoints", sp);
-      Logger.recordOutput("SwerveStates/SetpointsOptimized", sp);
-      Logger.recordOutput("SwerveChassisSpeeds/Setpoints", latestSetpointSpeeds);
-    }
   }
 
   // --- Fast loop ---
@@ -394,7 +422,6 @@ public class Drive extends SubsystemBase {
     latestSetpointSpeeds = new ChassisSpeeds();
   }
 
-  @AutoLogOutput(key = "SwerveStates/Measured")
   public SwerveModuleState[] getModuleStates() {
     SwerveModuleState[] states = new SwerveModuleState[4];
     for (int i = 0; i < 4; i++) {
@@ -412,7 +439,6 @@ public class Drive extends SubsystemBase {
   }
 
   /** Robot-relative chassis speeds. Safe to call from any thread. */
-  @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
   public ChassisSpeeds getRobotSpeeds() {
     return cachedRobotSpeeds;
   }
@@ -432,7 +458,6 @@ public class Drive extends SubsystemBase {
   }
 
   /** Estimated pose. Safe to call from any thread. */
-  @AutoLogOutput(key = "Odometry/Robot")
   public Pose2d getPose() {
     return cachedPose;
   }

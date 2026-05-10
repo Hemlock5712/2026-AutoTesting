@@ -5,7 +5,6 @@ import static edu.wpi.first.units.Units.Meters;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
-import frc.robot.utils.FieldFlip;
 import frc.robot.utils.TunableTable;
 
 /**
@@ -67,9 +66,9 @@ public final class ExtTranslation extends ExtGeometry<Translation2d> {
   @Override
   protected void set(Translation2d newValue) {
     original = newValue;
-    overWidth = FieldFlip.overWidth(newValue);
-    overLength = FieldFlip.overLength(newValue);
-    overDiagonal = FieldFlip.overDiagonal(newValue);
+    overWidth = Flips.overWidth(newValue);
+    overLength = Flips.overLength(newValue);
+    overDiagonal = Flips.overDiagonal(newValue);
   }
 
   @Override

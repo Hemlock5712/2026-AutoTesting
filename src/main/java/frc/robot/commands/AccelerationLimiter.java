@@ -238,23 +238,10 @@ public final class AccelerationLimiter {
   }
 
   /**
-   * Limits chassis acceleration so the wheels don't slip overall, while exposing the per-module
-   * over-ratios (with weight transfer) as a diagnostic.
-   *
-   * <p>Earlier versions scaled chassis accel by {@code 1/worstRatio} where each module's limit was
-   * {@code mu * 4 * N_i / m}. With weight transfer that divides by the lightest module's normal,
-   * which clamps chassis accel to roughly the lightest wheel's "fair share" of friction — far below
-   * the chassis-total grip {@code mu * sum(N_i)/m = mu*g}. In a real swerve the heavier modules can
-   * carry the load when a corner is briefly light (and it goes to zero only if a wheel lifts). The
-   * old behavior killed chassis accel anytime a corner saw weight transfer, so the path follower
-   * couldn't decelerate or turn at the planned rate. We saw 90%+ of frames at {@code worstRatio>1}
-   * during a Choreo run, with cross-track errors building to 0.85 m through curves.
-   *
-   * <p>Now the actual scaling uses the friction-circle envelope {@code sqrt(a_lin^2 + (alpha*r)^2)
-   * <= mu*g}, while we still compute per-module ratios with weight transfer for logging — so the
-   * "alignment of translation + rotation overloads one corner" case still shows up in {@code
-   * Drive/Friction/ModuleRatios}, and the {@code weightTransferMakesFrontMoreRestrictive...} test
-   * still observes the front/rear differential.
+   * Limits chassis acceleration so the wheels don't slip. Uses the friction-circle envelope {@code
+   * sqrt(a_lin^2 + (alpha*r)^2) <= mu*g} for the chassis-total scaling, and computes per-module
+   * over-ratios with weight transfer as a diagnostic (logged to {@code
+   * Drive/Diagnostics/FrictionRatios}).
    */
   private static void applyPerModuleFrictionLimit(
       double accelX,

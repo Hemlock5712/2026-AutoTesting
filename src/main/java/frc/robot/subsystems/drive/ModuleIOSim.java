@@ -16,7 +16,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import frc.robot.generated.TunerConstants;
 import frc.robot.simlib.drivesims.SwerveModuleSimulation;
 import frc.robot.simlib.motorsims.SimulatedMotorController;
-import frc.robot.util.PhoenixUtil;
+import frc.robot.utils.PhoenixUtil;
 import java.util.Arrays;
 
 /**

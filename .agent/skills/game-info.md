@@ -32,9 +32,9 @@ The codebase enforces these as project conventions — agents should respect the
 >
 > Recommended structure once known:
 >
-> | Name             | Blue pose (x, y, θ)        | Red pose          | Defined in                                           |
-> | ---------------- | -------------------------- | ----------------- | ---------------------------------------------------- |
-> | `STATION_LEFT`   | `(1.20, 7.05, 0°)`         | flip via FieldFlip | [utils/FieldInfo.java](src/main/java/frc/robot/utils/FieldInfo.java) |
+> | Name             | Blue pose (x, y, θ)        | Red pose                 | Defined in                                           |
+> | ---------------- | -------------------------- | ------------------------ | ---------------------------------------------------- |
+> | `STATION_LEFT`   | `(1.20, 7.05, 0°)`         | call `.get()` on ExtPose | [utils/FieldInfo.java](src/main/java/frc/robot/utils/FieldInfo.java) |
 > | `SCORING_REEF_A` | …                          | …                 | …                                                    |
 >
 > Until the season's game-piece / scoring constants are pinned in code, refer to **the official 2026 FRC game manual** for canonical zone names, dimensions, and rules. Don't make up coordinates from memory — pull them from the manual or the field CAD.

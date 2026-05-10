@@ -7,6 +7,9 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -28,19 +31,36 @@ import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
-import frc.robot.subsystems.vision.VisionIOLimelight;
 import frc.robot.subsystems.vision.VisionIONoop;
-import frc.robot.subsystems.vision.VisionIOSim;
+import frc.robot.subsystems.vision.VisionIOPhotonVision;
+import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.utils.path.AutoPath;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.littletonrobotics.junction.Logger;
 
 public class RobotContainer {
   private static final double JOYSTICK_DEADBAND = 0.05;
 
-  private static final String[] LIMELIGHT_NAMES = {
-    "limelight-br", "limelight-bl", "limelight-fl", "limelight-fr", "limelight-mm"
+  // PhotonVision camera names. Each maps to a coprocessor pipeline configured in the PhotonVision
+  // web UI. Order corresponds to CAMERA_TRANSFORMS below.
+  private static final String[] CAMERA_NAMES = {"photon-fl", "photon-fr", "photon-bl", "photon-br"};
+
+  // Robot-to-camera transforms. Placeholder coprocessor mounts: ~10 in forward of center,
+  // ~10 in to the side, ~9 in up, pitched 15° up, yawed toward the corresponding corner. Tune
+  // these against your real robot CAD before trusting trig-solve distances.
+  private static final Transform3d[] CAMERA_TRANSFORMS = {
+    new Transform3d(
+        new Translation3d(0.254, 0.254, 0.229),
+        new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(30.0))),
+    new Transform3d(
+        new Translation3d(0.254, -0.254, 0.229),
+        new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(-30.0))),
+    new Transform3d(
+        new Translation3d(-0.254, 0.254, 0.229),
+        new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(150.0))),
+    new Transform3d(
+        new Translation3d(-0.254, -0.254, 0.229),
+        new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(-150.0)))
   };
 
   private double maxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
@@ -65,7 +85,7 @@ public class RobotContainer {
   public RobotContainer() {
     driveSimulation = createDriveSimulation();
     drivetrain = createDrive(driveSimulation);
-    vision = createVision(drivetrain, driveSimulation);
+    vision = createVision(drivetrain);
     autoCommands = new AutoCommands(drivetrain);
 
     if (driveSimulation != null) {
@@ -87,16 +107,11 @@ public class RobotContainer {
   public void updateSimulation() {
     if (driveSimulation == null) return;
     SimulatedArena.getInstance().simulationPeriodic();
-    Pose2d truth = driveSimulation.getSimulatedDriveTrainPose();
-    Logger.recordOutput("FieldSimulation/RobotPose", truth);
-    // Per-tick odometry error for A/B comparing the friction limiter against ground truth.
-    Pose2d est = drivetrain.getPose();
-    double dx = est.getX() - truth.getX();
-    double dy = est.getY() - truth.getY();
-    Logger.recordOutput("FieldSimulation/OdomErrorMeters", Math.hypot(dx, dy));
-    Logger.recordOutput(
-        "FieldSimulation/OdomHeadingErrorRad",
-        est.getRotation().minus(truth.getRotation()).getRadians());
+    Pose2d truthPose = driveSimulation.getSimulatedDriveTrainPose();
+    drivetrain.updateSimulationGroundTruth(truthPose);
+    // Drive the PhotonVision sim from the same ground-truth pose so all cameras observe a
+    // consistent world. One update per loop — calling per-camera would generate duplicate frames.
+    VisionIOPhotonVisionSim.update(truthPose);
   }
 
   private static SwerveDriveSimulation createDriveSimulation() {
@@ -138,25 +153,23 @@ public class RobotContainer {
     };
   }
 
-  private static Vision createVision(Drive drive, SwerveDriveSimulation sim) {
-    VisionIO[] ios = new VisionIO[LIMELIGHT_NAMES.length];
+  private static Vision createVision(Drive drive) {
+    VisionIO[] ios = new VisionIO[CAMERA_NAMES.length];
     switch (Constants.getMode()) {
       case REAL -> {
-        for (int i = 0; i < LIMELIGHT_NAMES.length; i++) {
-          ios[i] = new VisionIOLimelight(LIMELIGHT_NAMES[i]);
+        for (int i = 0; i < CAMERA_NAMES.length; i++) {
+          ios[i] = new VisionIOPhotonVision(CAMERA_NAMES[i], CAMERA_TRANSFORMS[i]);
         }
       }
       case SIM -> {
-        // One synthetic camera reading the simulated truth pose. Other slots stay no-op so
-        // std-dev tuning has a single, measurable input to reason about.
-        ios[0] = new VisionIOSim(LIMELIGHT_NAMES[0], sim::getSimulatedDriveTrainPose);
-        for (int i = 1; i < LIMELIGHT_NAMES.length; i++) {
-          ios[i] = new VisionIONoop(LIMELIGHT_NAMES[i]);
+        for (int i = 0; i < CAMERA_NAMES.length; i++) {
+          ios[i] = new VisionIOPhotonVisionSim(CAMERA_NAMES[i], CAMERA_TRANSFORMS[i]);
         }
       }
       case REPLAY -> {
-        for (int i = 0; i < LIMELIGHT_NAMES.length; i++) {
-          ios[i] = new VisionIONoop(LIMELIGHT_NAMES[i]);
+        // No IO work in replay — Logger.processInputs feeds the inputs from the log file.
+        for (int i = 0; i < CAMERA_NAMES.length; i++) {
+          ios[i] = new VisionIONoop(CAMERA_NAMES[i]);
         }
       }
     }
