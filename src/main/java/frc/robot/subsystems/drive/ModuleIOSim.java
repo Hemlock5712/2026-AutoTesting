@@ -13,7 +13,6 @@ import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.util.Units;
 import frc.robot.generated.TunerConstants;
 import frc.robot.simlib.drivesims.SwerveModuleSimulation;
 import frc.robot.simlib.motorsims.SimulatedMotorController;
@@ -27,9 +26,23 @@ import java.util.Arrays;
 public class ModuleIOSim implements ModuleIO {
   // TunerConstants doesn't carry sim-only gains, so they live here.
   private static final double DRIVE_KS = 0.03;
-  private static final double DRIVE_KV_ROT = 0.91035; // (volt * sec) / rotation
-  private static final double DRIVE_KV = 1.0 / Units.rotationsToRadians(1.0 / DRIVE_KV_ROT);
-  private static final double DRIVE_KP = 0.05;
+  // kV chosen so that FF = 12V at the rated top wheel speed (kSpeedAt12Volts / wheelRadius).
+  // The earlier hard-coded 0.91035 V*s/rev gave FF ≈ 14.3 V at top speed — capped at 12 V by the
+  // battery clamp, but more importantly the FF over-drove the motor at every intermediate speed.
+  // During hard deceleration that meant the applied voltage stayed above back-EMF at the
+  // setpoint, so the motor still produced forward torque (only the small KP*error term opposed
+  // it) and the chassis lagged its commanded brake by ~1 m/s — visible as ~0.4 m of overshoot
+  // at the end of paths. Computing kV from kSpeedAt12Volts brings FF into agreement with
+  // back-EMF at every speed, so FF alone produces braking torque whenever the wheel is faster
+  // than its setpoint.
+  private static final double DRIVE_KV =
+      12.0
+          / (TunerConstants.kSpeedAt12Volts.in(MetersPerSecond)
+              / TunerConstants.FrontLeft.WheelRadius);
+  // Bumped from 0.05 to 0.4 (matching real-robot driveGains.kP) so the velocity loop has enough
+  // authority to clamp tracking lag during hard brake commands. With the old gain, peak lag during
+  // the path-end deceleration was ~1 m/s (most of the end-of-path overshoot).
+  private static final double DRIVE_KP = 0.4;
   private static final double TURN_KP = 8.0;
 
   private final SwerveModuleSimulation moduleSimulation;
