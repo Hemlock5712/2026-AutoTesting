@@ -95,11 +95,31 @@ public final class AccelerationLimiter {
   // from both the 50 Hz main loop and the 250 Hz fast loop.
   private static final ThreadLocal<double[]> ACCEL_RESULT =
       ThreadLocal.withInitial(() -> new double[3]);
+  // Per-module scratch for normal forces. Same threading rationale as ACCEL_RESULT.
+  private static final ThreadLocal<double[]> NORMALS_SCRATCH =
+      ThreadLocal.withInitial(() -> new double[MODULE_RX.length]);
 
   // Last computed acceleration. volatile since multiple threads read/write it.
+  // Stored in whatever frame the caller passed in (currently field-frame for all callers).
   private static volatile double lastAccelVx = 0;
   private static volatile double lastAccelVy = 0;
   private static volatile double lastAccelOmega = 0;
+
+  // Last per-module friction utilization (a_i / limit_i). Logged by Drive.
+  private static volatile double[] lastModuleFrictionRatios = new double[MODULE_RX.length];
+
+  /** Snapshot of the most recent per-module friction utilization. */
+  public static double[] getLastModuleFrictionRatios() {
+    return lastModuleFrictionRatios.clone();
+  }
+
+  /** Test hook: clears the last-accel state used for weight-transfer estimation. */
+  static void resetLastAccelForTest() {
+    lastAccelVx = 0;
+    lastAccelVy = 0;
+    lastAccelOmega = 0;
+    lastModuleFrictionRatios = new double[MODULE_RX.length];
+  }
 
   private AccelerationLimiter() {}
 
@@ -129,6 +149,9 @@ public final class AccelerationLimiter {
   /**
    * Applies motor and friction limits to a desired acceleration. Output is written into result as
    * [accelX, accelY, accelOmega].
+   *
+   * <p>{@code headingRadians} rotates field-frame accel into robot frame for the per-module
+   * friction check. Pass {@code 0} when the caller is already operating in robot frame.
    */
   private static void applyLimits(
       double accelX,
@@ -138,13 +161,14 @@ public final class AccelerationLimiter {
       double velY,
       double velOmega,
       double maxAccel,
+      double headingRadians,
       double[] result) {
 
     // First, limit how hard the motors can push (only matters when speeding up).
     applyMotorLimit(accelX, accelY, accelOmega, velX, velY, velOmega, result);
 
     // Then limit by friction (matters for both speeding up and braking).
-    applyFrictionLimit(result[0], result[1], result[2], maxAccel, result);
+    applyPerModuleFrictionLimit(result[0], result[1], result[2], maxAccel, headingRadians, result);
   }
 
   /**
@@ -214,30 +238,65 @@ public final class AccelerationLimiter {
   }
 
   /**
-   * Limits acceleration so the wheels don't slip. Linear and angular acceleration combine like a
-   * vector: {@code sqrt(linear^2 + angular^2)} must be less than the friction limit.
+   * Scales the command by the worst module's over-ratio of {@code |a_i| / (mu * 4 * N_i / m)},
+   * where {@code N_i} includes static distribution + dynamic weight transfer from last frame.
    */
-  private static void applyFrictionLimit(
-      double accelX, double accelY, double accelOmega, double maxAccel, double[] result) {
-    double effectiveLimit = Math.min(maxAccel, MAX_FRICTION_ACCEL);
-    double linearMag = Math.hypot(accelX, accelY);
-    // Convert spin acceleration to the equivalent acceleration at the outer wheel.
-    double angularContribution = Math.abs(accelOmega) * DRIVE_BASE_RADIUS;
+  private static void applyPerModuleFrictionLimit(
+      double accelX,
+      double accelY,
+      double accelOmega,
+      double maxAccel,
+      double headingRadians,
+      double[] result) {
+    double effectiveMu = Math.min(MAX_FRICTION_ACCEL, maxAccel) / GRAVITY;
 
-    double combinedAccel = Math.hypot(linearMag, angularContribution);
+    double cosH = Math.cos(headingRadians);
+    double sinH = Math.sin(headingRadians);
+    double axR = accelX * cosH + accelY * sinH;
+    double ayR = -accelX * sinH + accelY * cosH;
+    double prevAxR = lastAccelVx * cosH + lastAccelVy * sinH;
+    double prevAyR = -lastAccelVx * sinH + lastAccelVy * cosH;
 
-    if (combinedAccel <= effectiveLimit) {
+    double[] normals = NORMALS_SCRATCH.get();
+    normalForcesWithTransfer(prevAxR, prevAyR, normals);
+
+    double worstRatio = 0.0;
+    double[] ratios = new double[MODULE_RX.length];
+    for (int i = 0; i < MODULE_RX.length; i++) {
+      double aix = axR - accelOmega * MODULE_RY[i];
+      double aiy = ayR + accelOmega * MODULE_RX[i];
+      double mag = Math.hypot(aix, aiy);
+      double limit = effectiveMu * 4.0 * normals[i] / ROBOT_MASS;
+      double ratio = limit > 1e-9 ? mag / limit : Double.POSITIVE_INFINITY;
+      ratios[i] = ratio;
+      if (ratio > worstRatio) worstRatio = ratio;
+    }
+    lastModuleFrictionRatios = ratios;
+
+    if (worstRatio > 1.0) {
+      double scale = 1.0 / worstRatio;
+      result[0] = accelX * scale;
+      result[1] = accelY * scale;
+      result[2] = accelOmega * scale;
+    } else {
       result[0] = accelX;
       result[1] = accelY;
       result[2] = accelOmega;
-      return;
     }
+  }
 
-    // Scale everything down equally to stay within the friction limit.
-    double scale = effectiveLimit / combinedAccel;
-    result[0] = accelX * scale;
-    result[1] = accelY * scale;
-    result[2] = accelOmega * scale;
+  /** Per-module normal force = static distribution + dynamic load shift from accel. */
+  static void normalForcesWithTransfer(double axRobot, double ayRobot, double[] out) {
+    double cz = COG_Z;
+    // Per-axle delta is m*a*cz/(2*half), split across the two wheels on that axle (/2 again).
+    double dxBase = ROBOT_MASS * axRobot * cz / (4.0 * HALF_WHEELBASE);
+    double dyBase = ROBOT_MASS * ayRobot * cz / (4.0 * HALF_TRACKWIDTH);
+    for (int i = 0; i < MODULE_RX.length; i++) {
+      double signX = Math.signum(MODULE_RX[i]);
+      double signY = Math.signum(MODULE_RY[i]);
+      double n = MODULE_N_STATIC[i] - dxBase * signX - dyBase * signY;
+      out[i] = Math.max(n, 0.0);
+    }
   }
 
   /**
@@ -340,7 +399,34 @@ public final class AccelerationLimiter {
         dt,
         MAX_FRICTION_ACCEL,
         Double.MAX_VALUE,
-        Double.MAX_VALUE);
+        Double.MAX_VALUE,
+        0.0);
+  }
+
+  /**
+   * Same, but with the robot heading (radians) supplied so the per-module friction check can rotate
+   * field-frame accel into robot frame. Pass the same frame the velocities are in.
+   */
+  public static void integrateVelocityInPlace(
+      ChassisSpeeds currentAndOutput,
+      double desiredVx,
+      double desiredVy,
+      double desiredOmega,
+      double dt,
+      double headingRadians) {
+    integrateVelocityCore(
+        currentAndOutput,
+        currentAndOutput.vxMetersPerSecond,
+        currentAndOutput.vyMetersPerSecond,
+        currentAndOutput.omegaRadiansPerSecond,
+        desiredVx,
+        desiredVy,
+        desiredOmega,
+        dt,
+        MAX_FRICTION_ACCEL,
+        Double.MAX_VALUE,
+        Double.MAX_VALUE,
+        headingRadians);
   }
 
   /** Same, but with a custom max acceleration. */
@@ -350,7 +436,8 @@ public final class AccelerationLimiter {
       double desiredVy,
       double desiredOmega,
       double dt,
-      double maxAccel) {
+      double maxAccel,
+      double headingRadians) {
     integrateVelocityCore(
         currentAndOutput,
         currentAndOutput.vxMetersPerSecond,
@@ -362,7 +449,8 @@ public final class AccelerationLimiter {
         dt,
         maxAccel,
         Double.MAX_VALUE,
-        Double.MAX_VALUE);
+        Double.MAX_VALUE,
+        headingRadians);
   }
 
   /** Same, but with custom acceleration and jerk limits. */
@@ -374,7 +462,8 @@ public final class AccelerationLimiter {
       double dt,
       double maxAccel,
       double maxLinearJerk,
-      double maxOmegaJerk) {
+      double maxOmegaJerk,
+      double headingRadians) {
     integrateVelocityCore(
         currentAndOutput,
         currentAndOutput.vxMetersPerSecond,
@@ -386,7 +475,8 @@ public final class AccelerationLimiter {
         dt,
         maxAccel,
         maxLinearJerk,
-        maxOmegaJerk);
+        maxOmegaJerk,
+        headingRadians);
   }
 
   /**
@@ -413,7 +503,8 @@ public final class AccelerationLimiter {
         dt,
         MAX_FRICTION_ACCEL,
         Double.MAX_VALUE,
-        Double.MAX_VALUE);
+        Double.MAX_VALUE,
+        0.0);
   }
 
   // ==================== Core implementation ====================
@@ -433,7 +524,8 @@ public final class AccelerationLimiter {
       double dt,
       double maxAccel,
       double maxLinearJerk,
-      double maxOmegaJerk) {
+      double maxOmegaJerk,
+      double headingRadians) {
 
     // Cap target speeds so no wheel exceeds its max.
     double transSpeed = Math.hypot(desVx, desVy);
@@ -457,7 +549,8 @@ public final class AccelerationLimiter {
 
     // Apply motor and friction limits.
     double[] scratch = ACCEL_RESULT.get();
-    applyLimits(accelX, accelY, accelOmega, curVx, curVy, curOmega, maxAccel, scratch);
+    applyLimits(
+        accelX, accelY, accelOmega, curVx, curVy, curOmega, maxAccel, headingRadians, scratch);
 
     // Apply jerk limit (compares with last frame's acceleration).
     applyJerkLimit(

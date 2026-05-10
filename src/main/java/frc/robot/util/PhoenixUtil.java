@@ -6,8 +6,8 @@ import com.ctre.phoenix6.StatusCode;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import frc.robot.Constants;
+import frc.robot.simlib.SimulatedArena;
 import java.util.function.Supplier;
-import org.ironmaple.simulation.SimulatedArena;
 
 /** Small helpers for Phoenix6 calls — modeled on the AKit template's {@code PhoenixUtil}. */
 public final class PhoenixUtil {

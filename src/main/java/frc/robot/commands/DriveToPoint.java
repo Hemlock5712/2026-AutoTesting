@@ -9,13 +9,15 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.drive.requests.FieldCentric;
 import frc.robot.utils.DriveToPointUtils;
 import java.util.function.Supplier;
 
 /**
  * Drives the robot to a target pose, slowing down smoothly as it approaches.
  *
- * <p>Plans the target velocity at 50 Hz, then uses the 250 Hz fast loop to smoothly accelerate.
+ * <p>Plans the target velocity in {@link #execute()} (50 Hz) and writes it into a {@link
+ * FieldCentric} request, which applies the acceleration limiter on the 250 Hz fast loop.
  */
 public class DriveToPoint extends Command {
 
@@ -34,12 +36,7 @@ public class DriveToPoint extends Command {
   private double cachedDistance;
   private double cachedAngleError;
 
-  // Set by the main loop, read by the fast loop.
-  private volatile double targetVx;
-  private volatile double targetVy;
-  private volatile double targetOmega;
-
-  private final ChassisSpeeds limitedFieldSpeeds = new ChassisSpeeds();
+  private final FieldCentric request = new FieldCentric();
 
   public DriveToPoint(Drive drive, Supplier<Pose2d> goalPose) {
     this.drive = drive;
@@ -49,16 +46,9 @@ public class DriveToPoint extends Command {
 
   @Override
   public void initialize() {
-    ChassisSpeeds field = drive.getFieldSpeeds();
-    limitedFieldSpeeds.vxMetersPerSecond = field.vxMetersPerSecond;
-    limitedFieldSpeeds.vyMetersPerSecond = field.vyMetersPerSecond;
-    limitedFieldSpeeds.omegaRadiansPerSecond = field.omegaRadiansPerSecond;
-    targetVx = field.vxMetersPerSecond;
-    targetVy = field.vyMetersPerSecond;
-    targetOmega = field.omegaRadiansPerSecond;
     cachedDistance = Double.POSITIVE_INFINITY;
     cachedAngleError = Double.POSITIVE_INFINITY;
-    drive.setHighRateController(this::tickHighRate);
+    drive.setControl(request);
   }
 
   @Override
@@ -98,22 +88,16 @@ public class DriveToPoint extends Command {
       }
     }
 
-    targetVx = targetLinearVel.getX();
-    targetVy = targetLinearVel.getY();
-    targetOmega = omega;
-  }
-
-  private void tickHighRate(double dt) {
-    AccelerationLimiter.integrateVelocityInPlace(
-        limitedFieldSpeeds, targetVx, targetVy, targetOmega, dt);
-    drive.runVelocity(
-        ChassisSpeeds.fromFieldRelativeSpeeds(limitedFieldSpeeds, drive.getRotation()));
+    request
+        .withVelocityX(targetLinearVel.getX())
+        .withVelocityY(targetLinearVel.getY())
+        .withRotationalRate(omega);
   }
 
   @Override
   public void end(boolean interrupted) {
-    drive.clearHighRateController();
-    drive.stop();
+    drive.clearControl();
+    drive.runVelocity(new ChassisSpeeds());
   }
 
   @Override

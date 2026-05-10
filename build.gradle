@@ -107,6 +107,13 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // dyn4j powers the chassis physics inside our trimmed simlib (frc.robot.simlib.*). It
+    // ships in the roboRIO bundle (~250 KB) but the sim classes that reference it are gated
+    // on Constants.getMode() == SIM in RobotContainer, so dyn4j classes never actually load
+    // on the robot. If keeping dyn4j out of the roboRIO bundle becomes important, the right
+    // fix is a sim-only source set; `implementation` works for both targets today.
+    implementation 'org.dyn4j:dyn4j:5.0.2'
 }
 
 test {

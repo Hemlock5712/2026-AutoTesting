@@ -15,10 +15,10 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import frc.robot.generated.TunerConstants;
+import frc.robot.simlib.drivesims.SwerveModuleSimulation;
+import frc.robot.simlib.motorsims.SimulatedMotorController;
 import frc.robot.util.PhoenixUtil;
 import java.util.Arrays;
-import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
-import org.ironmaple.simulation.motorsims.SimulatedMotorController;
 
 /**
  * Physics sim implementation of module IO backed by maple-sim's {@link SwerveModuleSimulation}. Sim

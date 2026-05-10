@@ -11,8 +11,8 @@ package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 
+import frc.robot.simlib.drivesims.GyroSimulation;
 import frc.robot.util.PhoenixUtil;
-import org.ironmaple.simulation.drivesims.GyroSimulation;
 
 /** Sim gyro IO backed by maple-sim's {@link GyroSimulation}. */
 public class GyroIOSim implements GyroIO {

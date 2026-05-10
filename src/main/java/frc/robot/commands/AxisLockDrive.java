@@ -6,6 +6,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.drive.requests.FieldCentric;
 import frc.robot.utils.DriveToPointUtils;
 import frc.robot.utils.FieldInfo;
 import java.util.function.DoubleSupplier;
@@ -15,8 +16,8 @@ import java.util.function.Supplier;
  * Teleop command that locks one or more axes (X, Y, rotation) to a target value while letting the
  * driver control the others. Decelerates smoothly to a stop on each locked axis.
  *
- * <p>Target velocities are computed at 50 Hz. The acceleration limiter applies them on the 250 Hz
- * fast loop.
+ * <p>Target velocities are computed at 50 Hz in {@link #execute()} and written into the {@link
+ * FieldCentric} request, which applies the acceleration limiter on the 250 Hz fast loop.
  */
 public class AxisLockDrive extends Command {
 
@@ -38,13 +39,7 @@ public class AxisLockDrive extends Command {
   private Rotation2d lockedHeading = Rotation2d.kZero;
   private boolean wasDriverRotating = false;
 
-  // Set by the main loop, read by the fast loop.
-  private volatile double targetVx;
-  private volatile double targetVy;
-  private volatile double targetOmega;
-
-  // Used only by the fast loop.
-  private final ChassisSpeeds limitedFieldSpeeds = new ChassisSpeeds();
+  private final FieldCentric request = new FieldCentric();
 
   public AxisLockDrive(
       Drive drive,
@@ -86,16 +81,9 @@ public class AxisLockDrive extends Command {
 
   @Override
   public void initialize() {
-    ChassisSpeeds field = drive.getFieldSpeeds();
-    limitedFieldSpeeds.vxMetersPerSecond = field.vxMetersPerSecond;
-    limitedFieldSpeeds.vyMetersPerSecond = field.vyMetersPerSecond;
-    limitedFieldSpeeds.omegaRadiansPerSecond = field.omegaRadiansPerSecond;
-    targetVx = field.vxMetersPerSecond;
-    targetVy = field.vyMetersPerSecond;
-    targetOmega = field.omegaRadiansPerSecond;
     lockedHeading = drive.getRotation();
     wasDriverRotating = false;
-    drive.setHighRateController(this::tickHighRate);
+    drive.setControl(request);
   }
 
   @Override
@@ -129,16 +117,7 @@ public class AxisLockDrive extends Command {
             ? calculateLockedRotationOmega(currentPose.getRotation())
             : calculateHeadingLockedOmega(flippedOmega);
 
-    targetVx = velX;
-    targetVy = velY;
-    targetOmega = omega;
-  }
-
-  private void tickHighRate(double dt) {
-    AccelerationLimiter.integrateVelocityInPlace(
-        limitedFieldSpeeds, targetVx, targetVy, targetOmega, dt);
-    drive.runVelocity(
-        ChassisSpeeds.fromFieldRelativeSpeeds(limitedFieldSpeeds, drive.getRotation()));
+    request.withVelocityX(velX).withVelocityY(velY).withRotationalRate(omega);
   }
 
   /**
@@ -205,8 +184,8 @@ public class AxisLockDrive extends Command {
 
   @Override
   public void end(boolean interrupted) {
-    drive.clearHighRateController();
-    drive.stop();
+    drive.clearControl();
+    drive.runVelocity(new ChassisSpeeds());
   }
 
   @Override

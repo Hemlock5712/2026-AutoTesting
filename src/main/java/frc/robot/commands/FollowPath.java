@@ -7,6 +7,7 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.drive.requests.FieldCentric;
 import frc.robot.utils.path.FollowablePath;
 import frc.robot.utils.path.ProjectionResult;
 import frc.robot.utils.path.RotationSupplier;
@@ -19,8 +20,8 @@ import org.littletonrobotics.junction.Logger;
  * we track the robot's distance along the path, if the robot gets bumped or stalls, the path just
  * waits - it doesn't fight a clock.
  *
- * <p>Plans the target velocity in {@code execute()} (50 Hz). The acceleration limiter then smoothly
- * accelerates toward that target on the 250 Hz fast loop.
+ * <p>Plans the target velocity in {@link #execute()} (50 Hz) and writes it into a {@link
+ * FieldCentric} request, which applies the acceleration limiter on the 250 Hz fast loop.
  */
 public class FollowPath extends Command {
 
@@ -49,13 +50,7 @@ public class FollowPath extends Command {
   private static final double PROJECTION_MAX_DELTA = 0.5;
   private static final int PATH_LOG_SAMPLES = 50;
 
-  // Set by the main loop, read by the fast loop.
-  private volatile double targetVx;
-  private volatile double targetVy;
-  private volatile double targetOmega;
-
-  // Used only by the fast loop.
-  private final ChassisSpeeds limitedFieldSpeeds = new ChassisSpeeds();
+  private final FieldCentric request = new FieldCentric();
 
   // Used only by the main loop.
   private double lastTime;
@@ -114,14 +109,6 @@ public class FollowPath extends Command {
 
   @Override
   public void initialize() {
-    ChassisSpeeds field = drive.getFieldSpeeds();
-    limitedFieldSpeeds.vxMetersPerSecond = field.vxMetersPerSecond;
-    limitedFieldSpeeds.vyMetersPerSecond = field.vyMetersPerSecond;
-    limitedFieldSpeeds.omegaRadiansPerSecond = field.omegaRadiansPerSecond;
-    targetVx = field.vxMetersPerSecond;
-    targetVy = field.vyMetersPerSecond;
-    targetOmega = field.omegaRadiansPerSecond;
-
     lastTime = Timer.getFPGATimestamp();
     lastCrossTrackError = 0;
 
@@ -136,7 +123,7 @@ public class FollowPath extends Command {
     tangentAtEnd[0] = t.getX();
     tangentAtEnd[1] = t.getY();
 
-    drive.setHighRateController(this::tickHighRate);
+    drive.setControl(request);
   }
 
   @Override
@@ -214,9 +201,7 @@ public class FollowPath extends Command {
       vy *= availableFraction;
     }
 
-    targetVx = vx;
-    targetVy = vy;
-    targetOmega = omega;
+    request.withVelocityX(vx).withVelocityY(vy).withRotationalRate(omega);
 
     lastCrossTrackError = crossTrackError;
     lastProjectedS = Math.max(lastProjectedS, sRobot);
@@ -244,17 +229,10 @@ public class FollowPath extends Command {
     Logger.recordOutput("PathEditor/Progress", progress);
   }
 
-  private void tickHighRate(double dt) {
-    AccelerationLimiter.integrateVelocityInPlace(
-        limitedFieldSpeeds, targetVx, targetVy, targetOmega, dt);
-    drive.runVelocity(
-        ChassisSpeeds.fromFieldRelativeSpeeds(limitedFieldSpeeds, drive.getRotation()));
-  }
-
   @Override
   public void end(boolean interrupted) {
-    drive.clearHighRateController();
-    drive.stop();
+    drive.clearControl();
+    drive.runVelocity(new ChassisSpeeds());
     Logger.recordOutput("FollowPath/ReferencePath", new Pose2d[0]);
   }
 

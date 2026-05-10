@@ -13,9 +13,12 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
-import frc.robot.commands.OrbitDrive;
 import frc.robot.commands.PathPlanningDemo;
+import frc.robot.commands.TeleopDrive;
 import frc.robot.generated.TunerConstants;
+import frc.robot.simlib.SimulatedArena;
+import frc.robot.simlib.drivesims.SwerveDriveSimulation;
+import frc.robot.simlib.motorsims.SimulatedBattery;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
@@ -31,8 +34,6 @@ import frc.robot.subsystems.vision.VisionIOSim;
 import frc.robot.utils.path.AutoPath;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.littletonrobotics.junction.Logger;
 
 public class RobotContainer {
@@ -86,7 +87,16 @@ public class RobotContainer {
   public void updateSimulation() {
     if (driveSimulation == null) return;
     SimulatedArena.getInstance().simulationPeriodic();
-    Logger.recordOutput("FieldSimulation/RobotPose", driveSimulation.getSimulatedDriveTrainPose());
+    Pose2d truth = driveSimulation.getSimulatedDriveTrainPose();
+    Logger.recordOutput("FieldSimulation/RobotPose", truth);
+    // Per-tick odometry error for A/B comparing the friction limiter against ground truth.
+    Pose2d est = drivetrain.getPose();
+    double dx = est.getX() - truth.getX();
+    double dy = est.getY() - truth.getY();
+    Logger.recordOutput("FieldSimulation/OdomErrorMeters", Math.hypot(dx, dy));
+    Logger.recordOutput(
+        "FieldSimulation/OdomHeadingErrorRad",
+        est.getRotation().minus(truth.getRotation()).getRadians());
   }
 
   private static SwerveDriveSimulation createDriveSimulation() {
@@ -94,6 +104,11 @@ public class RobotContainer {
     SwerveDriveSimulation sim =
         new SwerveDriveSimulation(Drive.getMapleSimConfig(), SIM_SPAWN_POSE);
     SimulatedArena.getInstance().addDriveTrainSimulation(sim);
+    // After all module sims have registered as electrical appliances, neutralize MapleSim's
+    // battery sim. Its LinearFilter gets poisoned by NaN under heavy current draw and produces
+    // a brownout/Rotation2d-zero cascade that corrupts the chassis state. YAGSL's vendored
+    // ironmaple snapshot exposes this as a public API.
+    SimulatedBattery.disableBatterySim();
     return sim;
   }
 
@@ -152,7 +167,7 @@ public class RobotContainer {
     double[] translationVel = {0, 0};
 
     drivetrain.setDefaultCommand(
-        new OrbitDrive(
+        new TeleopDrive(
             drivetrain,
             () -> {
               double[] scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());

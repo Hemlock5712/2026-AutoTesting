@@ -13,9 +13,6 @@ package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
 
-import edu.wpi.first.hal.FRCNetComm.tInstances;
-import edu.wpi.first.hal.FRCNetComm.tResourceType;
-import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -37,18 +34,17 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
+import frc.robot.commands.AccelerationLimiter;
 import frc.robot.generated.TunerConstants;
+import frc.robot.simlib.drivesims.COTS;
+import frc.robot.simlib.drivesims.configs.DriveTrainSimulationConfig;
+import frc.robot.simlib.drivesims.configs.SwerveModuleSimulationConfig;
 import frc.robot.utils.FieldInfo;
-import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
-import org.ironmaple.simulation.drivesims.COTS;
-import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
-import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -64,9 +60,9 @@ public class Drive extends SubsystemBase {
               Math.hypot(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
               Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
 
-  // Chassis params for MapleSim physics. Tune to the real bot once we have a measurement.
-  private static final double ROBOT_MASS_KG = 74.088;
-  private static final double WHEEL_COF = 1.2;
+  // MapleSim physics shares constants with the limiter — one source of truth.
+  private static final double ROBOT_MASS_KG = AccelerationLimiter.ROBOT_MASS;
+  private static final double WHEEL_COF = AccelerationLimiter.MU_FRICTION;
 
   private static DriveTrainSimulationConfig mapleSimConfig = null;
 
@@ -94,7 +90,7 @@ public class Drive extends SubsystemBase {
   /**
    * Period for the 250 Hz fast loop. Used by commands that need physics-limit updates more often
    * than the normal 50 Hz robot loop (e.g. the acceleration limiter). Commands plug in via {@link
-   * #setHighRateController} and unplug in {@code end()}.
+   * #setControl(SwerveRequest)} and unplug in {@code end()}.
    */
   private static final double HIGH_RATE_PERIOD_S = 0.004;
 
@@ -122,7 +118,7 @@ public class Drive extends SubsystemBase {
   private final SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(
           kinematics, rawGyroRotation, effectiveModulePositions, Pose2d.kZero);
-  private final List<Consumer<Pose2d>> poseResetListeners = new CopyOnWriteArrayList<>();
+  private Consumer<Pose2d> poseResetListener = null;
 
   // --- Cached snapshots read by the 250 Hz fast loop without locks ---
   private volatile Pose2d cachedPose = Pose2d.kZero;
@@ -137,10 +133,19 @@ public class Drive extends SubsystemBase {
   private static final double FIELD_ESCAPE_MARGIN_M = 0.0;
   private long fieldEscapeHits = 0;
 
+  // Tracks DS-disable transitions so we stop the modules once on the rising edge instead of
+  // every periodic tick (avoiding a 50 Hz storm of stop() calls racing the 250 Hz hook).
+  private boolean lastSeenDisabled = false;
+  // Counts arc-integration samples rejected because an input was non-finite (e.g. MapleSim
+  // poisoning the steer angle with NaN). Logged so it stays visible if it ever fires on
+  // hardware.
+  private long arcIntegrateRejections = 0;
+
   // --- Fast-loop hook ---
   private final Notifier highRateNotifier = new Notifier(this::tickHighRate);
   private volatile DoubleConsumer highRateController = null;
   private double highRateLastTime = 0.0;
+  private volatile SwerveRequest activeRequest = null;
 
   public Drive(
       GyroIO gyroIO,
@@ -153,8 +158,6 @@ public class Drive extends SubsystemBase {
     modules[1] = new Module(frModuleIO, 1, TunerConstants.FrontRight);
     modules[2] = new Module(blModuleIO, 2, TunerConstants.BackLeft);
     modules[3] = new Module(brModuleIO, 3, TunerConstants.BackRight);
-
-    HAL.report(tResourceType.kResourceType_RobotDrive, tInstances.kRobotDriveSwerve_AdvantageKit);
 
     PhoenixOdometryThread.getInstance().start();
 
@@ -182,13 +185,20 @@ public class Drive extends SubsystemBase {
       module.postIoPeriodic();
     }
 
-    if (DriverStation.isDisabled()) {
-      for (var module : modules) {
-        module.stop();
+    boolean isDisabled = DriverStation.isDisabled();
+    if (isDisabled) {
+      // Stop only on the falling enable→disable edge. The 250 Hz hook is gated below in
+      // tickHighRate, so once we've stopped the modules they stay stopped — no need to retry
+      // every tick (which would race the Notifier and pointlessly hammer setControl).
+      if (!lastSeenDisabled) {
+        for (var module : modules) {
+          module.stop();
+        }
       }
       Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
       Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
     }
+    lastSeenDisabled = isDisabled;
 
     updateOdometry();
 
@@ -197,7 +207,8 @@ public class Drive extends SubsystemBase {
     Logger.recordOutput("Drive/FieldEscapeHits", fieldEscapeHits);
     cachedRobotSpeeds = kinematics.toChassisSpeeds(getModuleStates());
 
-    logSkidMetrics();
+    Logger.recordOutput(
+        "Drive/Friction/ModuleRatios", AccelerationLimiter.getLastModuleFrictionRatios());
     logLatestSetpoint();
 
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.getMode() != Mode.SIM);
@@ -225,6 +236,7 @@ public class Drive extends SubsystemBase {
       }
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, effectiveModulePositions);
     }
+    Logger.recordOutput("Drive/Odometry/ArcIntegrateRejections", arcIntegrateRejections);
   }
 
   /**
@@ -238,11 +250,20 @@ public class Drive extends SubsystemBase {
    * </pre>
    *
    * Falls back to a straight chord when delta_theta is below numerical noise. Returns the chord
-   * magnitude as the distance and atan2(dy, dx) as the direction.
+   * magnitude as the distance and atan2(dy, dx) as the direction. Rejects samples whose inputs are
+   * non-finite (which happens in sim when MapleSim's brownout/LinearFilter feedback poisons the
+   * steer angle with NaN — see Issue B in the May 2026 audit) by emitting a zero-displacement
+   * sample anchored to the last good angle and bumping the rejection counter.
    */
-  private static SwerveModulePosition arcIntegrate(
+  private SwerveModulePosition arcIntegrate(
       SwerveModulePosition rawCurrent, SwerveModulePosition rawLast) {
     double deltaS = rawCurrent.distanceMeters - rawLast.distanceMeters;
+    double currentRad = rawCurrent.angle.getRadians();
+    double lastRad = rawLast.angle.getRadians();
+    if (!Double.isFinite(deltaS) || !Double.isFinite(currentRad) || !Double.isFinite(lastRad)) {
+      arcIntegrateRejections++;
+      return new SwerveModulePosition(0.0, rawLast.angle);
+    }
     double deltaTheta = rawCurrent.angle.minus(rawLast.angle).getRadians();
     double dx;
     double dy;
@@ -255,27 +276,10 @@ public class Drive extends SubsystemBase {
       dy = r * (rawLast.angle.getCos() - rawCurrent.angle.getCos());
     }
     double dEff = Math.hypot(dx, dy);
-    Rotation2d thetaEff = (dEff < 1.0e-9) ? rawCurrent.angle : new Rotation2d(dx, dy);
+    // Threshold matches WPILib's Rotation2d(x, y) constructor (Math.hypot < 1e-6 → reportError).
+    // Any sub-µm displacement just retains the last good angle.
+    Rotation2d thetaEff = (dEff < 1.0e-6) ? rawCurrent.angle : new Rotation2d(dx, dy);
     return new SwerveModulePosition(dEff, thetaEff);
-  }
-
-  /**
-   * Skid metrics. Uses gyro-measured omega when available — kinematics-derived omega is itself
-   * corrupted by skid, so feeding it back here would mask exactly what we want to detect.
-   */
-  private void logSkidMetrics() {
-    double omega =
-        gyroInputs.connected
-            ? gyroInputs.yawVelocityRadPerSec
-            : cachedRobotSpeeds.omegaRadiansPerSecond;
-    SkidDetection.Result skid =
-        SkidDetection.compute(getModuleStates(), getModuleTranslations(), omega);
-    Logger.recordOutput("Drive/Skid/PerModuleTranslation", skid.perModuleTranslation());
-    Logger.recordOutput("Drive/Skid/MeanTranslation", skid.meanTranslation());
-    Logger.recordOutput("Drive/Skid/MaxMagnitude", skid.maxMagnitude());
-    Logger.recordOutput("Drive/Skid/MinMagnitude", skid.minMagnitude());
-    Logger.recordOutput("Drive/Skid/MaxOverMinRatio", skid.maxOverMinRatio());
-    Logger.recordOutput("Drive/Skid/MagnitudeStdDev", skid.magnitudeStdDev());
   }
 
   /** Logs the most recent setpoint from the main thread so AKit's logger stays single-threaded. */
@@ -296,6 +300,10 @@ public class Drive extends SubsystemBase {
     double dt = now - highRateLastTime;
     highRateLastTime = now;
     if (hook == null) return;
+    // Skip while the DS is disabled — otherwise a still-bound default command keeps issuing
+    // closed-loop setpoints on this thread while periodic() (main thread) is calling
+    // module.stop(), and the two race on every motor's setControl path.
+    if (DriverStation.isDisabled()) return;
     if (dt < 1e-9) dt = HIGH_RATE_PERIOD_S;
     try {
       hook.accept(dt);
@@ -307,16 +315,29 @@ public class Drive extends SubsystemBase {
   }
 
   /**
-   * Plugs in a 250 Hz callback. The callback gets elapsed seconds since the last tick. Replaces any
-   * previous callback.
+   * Install a {@link SwerveRequest} as the active controller. Its {@link SwerveRequest#apply} runs
+   * on the 250 Hz fast loop until {@link #clearControl()} is called or another {@code setControl}
+   * replaces it. Mutual exclusion across commands is provided by the subsystem requirement on
+   * {@link Drive}.
    */
-  public void setHighRateController(DoubleConsumer controller) {
-    highRateController = controller;
+  public void setControl(SwerveRequest request) {
+    if (request == activeRequest) return;
+    if (request != null) request.onActivate(this);
+    activeRequest = request;
+    highRateController = this::tickActiveRequest;
   }
 
-  /** Unplugs the fast-loop callback. Call from a command's {@code end()}. */
-  public void clearHighRateController() {
+  /** Clears the active {@link SwerveRequest}. Call from a command's {@code end()}. */
+  public void clearControl() {
+    activeRequest = null;
     highRateController = null;
+  }
+
+  private void tickActiveRequest(double dt) {
+    SwerveRequest req = activeRequest;
+    if (req != null) {
+      req.apply(this, dt);
+    }
   }
 
   /**
@@ -324,8 +345,18 @@ public class Drive extends SubsystemBase {
    * Hz fast loop.
    */
   public void runVelocity(ChassisSpeeds speeds) {
+    runVelocity(speeds, Translation2d.kZero);
+  }
+
+  /**
+   * Drive at the given robot-relative chassis speeds, pivoting around an offset center of rotation
+   * (in robot frame, meters). Useful when the robot's CoG is offset, or when you want to spin
+   * around a specific point (e.g. a corner module) rather than the geometric center.
+   */
+  public void runVelocity(ChassisSpeeds speeds, Translation2d centerOfRotation) {
     ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, Constants.LOOP_PERIOD_SECONDS);
-    SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
+    SwerveModuleState[] setpointStates =
+        kinematics.toSwerveModuleStates(discreteSpeeds, centerOfRotation);
     SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, TunerConstants.kSpeedAt12Volts);
 
     for (int i = 0; i < 4; i++) {
@@ -350,6 +381,17 @@ public class Drive extends SubsystemBase {
     }
     kinematics.resetHeadings(headings);
     stop();
+  }
+
+  /** Point all four module wheels at the given direction with zero drive velocity. */
+  public void pointWheelsAt(Rotation2d direction) {
+    SwerveModuleState[] states = new SwerveModuleState[4];
+    for (int i = 0; i < 4; i++) {
+      states[i] = new SwerveModuleState(0.0, direction);
+      modules[i].runSetpoint(states[i]);
+    }
+    latestSetpointStates = states;
+    latestSetpointSpeeds = new ChassisSpeeds();
   }
 
   @AutoLogOutput(key = "SwerveStates/Measured")
@@ -400,12 +442,13 @@ public class Drive extends SubsystemBase {
   }
 
   /**
-   * Register a hook that fires every time {@link #resetPose} is called. Used by sim to keep the
-   * physics chassis aligned with the estimator (otherwise auto routines that reset to a path start
-   * leave the sim chassis stranded and the controller diverges).
+   * Set a hook that fires after every {@link #resetPose} call. Used by sim to keep the physics
+   * chassis aligned with the estimator (otherwise auto routines that reset to a path start leave
+   * the sim chassis stranded and the controller diverges). Single-slot — calling this again
+   * overwrites the previous listener. Pass {@code null} to clear.
    */
   public void onPoseReset(Consumer<Pose2d> listener) {
-    poseResetListeners.add(listener);
+    poseResetListener = listener;
   }
 
   /** Resets the robot's estimated pose. */
@@ -420,8 +463,8 @@ public class Drive extends SubsystemBase {
       effectiveModulePositions[i] = new SwerveModulePosition(0.0, raw[i].angle);
     }
     poseEstimator.resetPosition(rawGyroRotation, effectiveModulePositions, pose);
-    for (var listener : poseResetListeners) {
-      listener.accept(pose);
+    if (poseResetListener != null) {
+      poseResetListener.accept(pose);
     }
   }
 

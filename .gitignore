@@ -198,3 +198,7 @@ sim-test.log
 
 # Local exploration / agent skills (track explicitly via .agent/ if desired)
 analysis/
+
+# Claude Code runtime state
+.claude/*.lock
+.claude/worktrees/
