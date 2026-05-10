@@ -41,35 +41,24 @@ public final class PathPlanningDemo {
   /** Just for the visualizer. */
   private static final double VISUAL_RADIUS = Drive.DRIVE_BASE_RADIUS + BUMPER_THICKNESS_M;
 
-  // Where to start and end.
-  private static final Pose2d START = new Pose2d(1.0, 4.0, Rotation2d.kZero);
-  private static final Pose2d GOAL = new Pose2d(16.0, 4.0, Rotation2d.fromDegrees(90));
-
   /** Thin walls around the field perimeter so the planner doesn't try to route off the field. */
   private static final double WALL_THICKNESS = 0.05;
 
-  // Obstacles to plan around. Edit the first three to test different scenarios.
-  private static final List<Obstacle> OBSTACLES =
+  // Default demo scenario: one big circle + one rectangle + one small circle.
+  private static final Pose2d DEFAULT_START = new Pose2d(1.0, 4.0, Rotation2d.kZero);
+  private static final Pose2d DEFAULT_GOAL = new Pose2d(16.0, 4.0, Rotation2d.fromDegrees(90));
+  private static final List<Obstacle> DEFAULT_OBSTACLES =
       List.of(
           new Obstacle.Circle(8.27, 4.03, 1.0), // big pillar in the middle
           new Obstacle.Rectangle(3.0, 1.0, 4.0, 5.0), // left-side wall
-          new Obstacle.Circle(13.0, 2.5, 0.6), // small post
-          // Field walls (south, north, west, east).
-          new Obstacle.Rectangle(
-              -WALL_THICKNESS, -WALL_THICKNESS, FieldInfo.lengthMeters() + WALL_THICKNESS, 0.0),
-          new Obstacle.Rectangle(
-              -WALL_THICKNESS,
-              FieldInfo.widthMeters(),
-              FieldInfo.lengthMeters() + WALL_THICKNESS,
-              FieldInfo.widthMeters() + WALL_THICKNESS),
-          new Obstacle.Rectangle(-WALL_THICKNESS, 0.0, 0.0, FieldInfo.widthMeters()),
-          new Obstacle.Rectangle(
-              FieldInfo.lengthMeters(),
-              0.0,
-              FieldInfo.lengthMeters() + WALL_THICKNESS,
-              FieldInfo.widthMeters()));
+          new Obstacle.Circle(13.0, 2.5, 0.6)); // small post
 
   private PathPlanningDemo() {}
+
+  /** Default demo scenario (one circle + one rectangle + one small circle). */
+  public static Command create(Drive drive) {
+    return create(drive, DEFAULT_START, DEFAULT_GOAL, DEFAULT_OBSTACLES);
+  }
 
   /**
    * Builds the demo command. When run, it:
@@ -81,12 +70,13 @@ public final class PathPlanningDemo {
    *   <li>Drives the path.
    * </ol>
    */
-  public static Command create(Drive drive) {
+  public static Command create(Drive drive, Pose2d start, Pose2d goal, List<Obstacle> obstacles) {
     ObstacleField field = new ObstacleField();
-    OBSTACLES.forEach(field::addStatic);
+    obstacles.forEach(field::addStatic);
+    fieldWalls().forEach(field::addStatic);
 
     Translation2d[] startGoalMarkers =
-        new Translation2d[] {START.getTranslation(), GOAL.getTranslation()};
+        new Translation2d[] {start.getTranslation(), goal.getTranslation()};
 
     Command logScene =
         Commands.runOnce(
@@ -95,9 +85,9 @@ public final class PathPlanningDemo {
               Logger.recordOutput("PathDemo/StartGoal", startGoalMarkers);
             });
 
-    Command resetPose = Commands.runOnce(() -> drive.resetPose(START), drive);
+    Command resetPose = Commands.runOnce(() -> drive.resetPose(start), drive);
 
-    PathGenerator.Request req = new PathGenerator.Request(START, GOAL, 0.0, 0.0);
+    PathGenerator.Request req = new PathGenerator.Request(start, goal, 0.0, 0.0);
     Optional<GeneratedPath> result =
         PathGenerator.generateOrientedWithFallback(
             field,
@@ -131,5 +121,23 @@ public final class PathPlanningDemo {
         resetPose,
         follow,
         Commands.print("[PathPlanningDemo] Reached goal."));
+  }
+
+  /** Field-perimeter walls so the planner can't route the robot off the field. */
+  private static List<Obstacle> fieldWalls() {
+    return List.of(
+        new Obstacle.Rectangle(
+            -WALL_THICKNESS, -WALL_THICKNESS, FieldInfo.lengthMeters() + WALL_THICKNESS, 0.0),
+        new Obstacle.Rectangle(
+            -WALL_THICKNESS,
+            FieldInfo.widthMeters(),
+            FieldInfo.lengthMeters() + WALL_THICKNESS,
+            FieldInfo.widthMeters() + WALL_THICKNESS),
+        new Obstacle.Rectangle(-WALL_THICKNESS, 0.0, 0.0, FieldInfo.widthMeters()),
+        new Obstacle.Rectangle(
+            FieldInfo.lengthMeters(),
+            0.0,
+            FieldInfo.lengthMeters() + WALL_THICKNESS,
+            FieldInfo.widthMeters()));
   }
 }
