@@ -118,6 +118,24 @@ public class SimulatedArena {
     this.driveTrainSimulations.add(driveTrainSimulation);
   }
 
+  /**
+   * Adds a static (immovable) collision body to the physics world. Use this for field perimeter
+   * walls and interior obstacles so the rigid-body sim resists driving through them. The caller is
+   * responsible for setting the body's pose and fixtures; this method only registers it with the
+   * world.
+   */
+  public synchronized void addStaticBody(Body body) {
+    this.physicsWorld.addBody(body);
+  }
+
+  /**
+   * Removes a body previously registered with {@link #addStaticBody} (or any other body in the
+   * world). No-op if the body isn't present.
+   */
+  public synchronized void removeBody(Body body) {
+    this.physicsWorld.removeBody(body);
+  }
+
   /** Removes all bodies from the physics world. */
   public synchronized void shutDown() {
     this.physicsWorld.removeAllBodies();

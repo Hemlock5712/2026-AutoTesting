@@ -5,76 +5,42 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.generated.TunerConstants;
+import frc.robot.Field2026Obstacles;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.path.GeneratedPath;
-import frc.robot.utils.path.Obstacle;
 import frc.robot.utils.path.ObstacleField;
 import frc.robot.utils.path.ObstacleVisualizer;
 import frc.robot.utils.path.PathGenerator;
-import java.util.List;
 import java.util.Optional;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Demo auto routine for the runtime path generator.
- *
- * <p>Drops three obstacles on the field, plans a path from one side to the other, and drives it.
- * Obstacles are logged to AdvantageScope so you can see the path avoiding them.
+ * Demo auto routine for the runtime path generator. Plans a diagonal across the 2026 field, going
+ * around the Hubs and floor bumps, and drives it. Reuses the same {@link ObstacleField} the teleop
+ * avoidance clamp consumes so what the planner avoids and what the clamp avoids stay in sync.
  */
 public final class PathPlanningDemo {
 
-  // Path planner cell size.
   private static final double CELL_SIZE = 0.1;
+  private static final double VISUAL_RADIUS = Drive.DRIVE_BASE_RADIUS + Drive.BUMPER_THICKNESS_M;
 
-  /** Standard FRC bumper thickness (3.25 inches). */
-  private static final double BUMPER_THICKNESS_M = 0.0826;
-
-  /** Half the robot's length and width, including bumpers. */
-  private static final double ROBOT_HALF_X =
-      Math.abs(TunerConstants.FrontLeft.LocationX) + BUMPER_THICKNESS_M;
-
-  private static final double ROBOT_HALF_Y =
-      Math.abs(TunerConstants.FrontLeft.LocationY) + BUMPER_THICKNESS_M;
-
-  /** Just for the visualizer. */
-  private static final double VISUAL_RADIUS = Drive.DRIVE_BASE_RADIUS + BUMPER_THICKNESS_M;
-
-  /** Thin walls around the field perimeter so the planner doesn't try to route off the field. */
-  private static final double WALL_THICKNESS = 0.05;
-
-  // Default demo scenario: one big circle + one rectangle + one small circle.
-  private static final Pose2d DEFAULT_START = new Pose2d(1.0, 4.0, Rotation2d.kZero);
-  private static final Pose2d DEFAULT_GOAL = new Pose2d(16.0, 4.0, Rotation2d.fromDegrees(90));
-  private static final List<Obstacle> DEFAULT_OBSTACLES =
-      List.of(
-          new Obstacle.Circle(8.27, 4.03, 1.0), // big pillar in the middle
-          new Obstacle.Rectangle(3.0, 1.0, 4.0, 5.0), // left-side wall
-          new Obstacle.Circle(13.0, 2.5, 0.6)); // small post
+  // Diagonal across the 2026 field: bottom-left clear of Blue structures, top-right clear of Red.
+  private static final Pose2d DEFAULT_START = new Pose2d(2.5, 1.5, Rotation2d.kZero);
+  private static final Pose2d DEFAULT_GOAL = new Pose2d(14.5, 6.5, Rotation2d.fromDegrees(90));
 
   private PathPlanningDemo() {}
 
-  /** Default demo scenario (one circle + one rectangle + one small circle). */
+  /** Default demo using the live {@link Field2026Obstacles}. */
   public static Command create(Drive drive) {
-    return create(drive, DEFAULT_START, DEFAULT_GOAL, DEFAULT_OBSTACLES);
+    return create(drive, DEFAULT_START, DEFAULT_GOAL, Field2026Obstacles.build());
   }
 
   /**
-   * Builds the demo command. When run, it:
-   *
-   * <ol>
-   *   <li>Logs obstacles to AdvantageScope.
-   *   <li>Resets the robot to the start pose.
-   *   <li>Plans a path that goes around the obstacles.
-   *   <li>Drives the path.
-   * </ol>
+   * Plans a path from {@code start} to {@code goal} around the given obstacles, then drives it. The
+   * obstacle field is expected to include perimeter walls already (Field2026Obstacles does).
    */
-  public static Command create(Drive drive, Pose2d start, Pose2d goal, List<Obstacle> obstacles) {
-    ObstacleField field = new ObstacleField();
-    obstacles.forEach(field::addStatic);
-    fieldWalls().forEach(field::addStatic);
-
+  public static Command create(Drive drive, Pose2d start, Pose2d goal, ObstacleField field) {
     Translation2d[] startGoalMarkers =
         new Translation2d[] {start.getTranslation(), goal.getTranslation()};
 
@@ -98,8 +64,8 @@ public final class PathPlanningDemo {
             CELL_SIZE,
             CELL_SIZE,
             req,
-            ROBOT_HALF_X,
-            ROBOT_HALF_Y,
+            Drive.ROBOT_HALF_X,
+            Drive.ROBOT_HALF_Y,
             PathGenerator.Config.defaults());
 
     if (result.isEmpty()) {
@@ -121,23 +87,5 @@ public final class PathPlanningDemo {
         resetPose,
         follow,
         Commands.print("[PathPlanningDemo] Reached goal."));
-  }
-
-  /** Field-perimeter walls so the planner can't route the robot off the field. */
-  private static List<Obstacle> fieldWalls() {
-    return List.of(
-        new Obstacle.Rectangle(
-            -WALL_THICKNESS, -WALL_THICKNESS, FieldInfo.lengthMeters() + WALL_THICKNESS, 0.0),
-        new Obstacle.Rectangle(
-            -WALL_THICKNESS,
-            FieldInfo.widthMeters(),
-            FieldInfo.lengthMeters() + WALL_THICKNESS,
-            FieldInfo.widthMeters() + WALL_THICKNESS),
-        new Obstacle.Rectangle(-WALL_THICKNESS, 0.0, 0.0, FieldInfo.widthMeters()),
-        new Obstacle.Rectangle(
-            FieldInfo.lengthMeters(),
-            0.0,
-            FieldInfo.lengthMeters() + WALL_THICKNESS,
-            FieldInfo.widthMeters()));
   }
 }

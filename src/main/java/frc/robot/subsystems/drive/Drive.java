@@ -39,7 +39,6 @@ import frc.robot.generated.TunerConstants;
 import frc.robot.simlib.drivesims.COTS;
 import frc.robot.simlib.drivesims.configs.DriveTrainSimulationConfig;
 import frc.robot.simlib.drivesims.configs.SwerveModuleSimulationConfig;
-import frc.robot.utils.FieldInfo;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -58,6 +57,35 @@ public class Drive extends SubsystemBase {
           Math.max(
               Math.hypot(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
               Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
+
+  /** Standard FRC bumper thickness (3.25 in). */
+  public static final double BUMPER_THICKNESS_M = 0.0826;
+
+  /**
+   * Half robot length / width including bumpers. Shared by avoidance and path-planning inflation.
+   */
+  public static final double ROBOT_HALF_X =
+      Math.abs(TunerConstants.FrontLeft.LocationX) + BUMPER_THICKNESS_M;
+
+  public static final double ROBOT_HALF_Y =
+      Math.abs(TunerConstants.FrontLeft.LocationY) + BUMPER_THICKNESS_M;
+
+  /**
+   * Deceleration budget the avoidance clamp's brake curve plans against. Held below {@link
+   * AccelerationLimiter#MAX_FRICTION_ACCEL} so the chassis controller still has headroom to
+   * actually decelerate in time — the clamp commits to 60% of the friction limit so the remaining
+   * 40% covers controller lag, weight transfer, and modeling error.
+   */
+  public static final double AVOIDANCE_DECEL_BUDGET = 0.6 * AccelerationLimiter.MAX_FRICTION_ACCEL;
+
+  /**
+   * Buffer kept between the robot's bounding box and any obstacle edge. Sized to cover the
+   * cachedPose staleness budget: pose is published from periodic() at 50 Hz but read on the 250 Hz
+   * fast loop, so the clamp can act on a pose up to one 50 Hz cycle (20 ms) stale. At
+   * kSpeedAt12Volts (~4.7 m/s) that's ~0.094 m of unobserved motion — 0.10 m gives ~6 mm of slack
+   * over the worst case. Don't reduce without re-deriving from the staleness × max-speed product.
+   */
+  public static final double AVOIDANCE_SAFETY_MARGIN_M = 0.10;
 
   // MapleSim physics shares constants with the limiter — one source of truth.
   private static final double ROBOT_MASS_KG = AccelerationLimiter.ROBOT_MASS;
@@ -126,13 +154,6 @@ public class Drive extends SubsystemBase {
   private volatile ChassisSpeeds cachedRobotSpeeds = new ChassisSpeeds();
   private volatile SwerveModuleState[] latestSetpointStates = new SwerveModuleState[0];
   private volatile ChassisSpeeds latestSetpointSpeeds = new ChassisSpeeds();
-
-  // --- Field-escape diagnostic ---
-  // Counts periodic ticks where the estimator pose has crossed any field wall. We tried
-  // clamping the output here as a safety net, but it bit legitimate near-wall overshoots
-  // during path following and introduced cm-scale pose error. Diagnostic only.
-  private static final double FIELD_ESCAPE_MARGIN_M = 0.0;
-  private long fieldEscapeHits = 0;
 
   // Tracks DS-disable transitions so we stop the modules once on the rising edge instead of
   // every periodic tick (avoiding a 50 Hz storm of stop() calls racing the 250 Hz hook).
@@ -203,7 +224,6 @@ public class Drive extends SubsystemBase {
     updateOdometry();
 
     cachedPose = poseEstimator.getEstimatedPosition();
-    if (isOutsideField(cachedPose)) fieldEscapeHits++;
     cachedRobotSpeeds = kinematics.toChassisSpeeds(getModuleStates());
 
     logState();
@@ -230,7 +250,6 @@ public class Drive extends SubsystemBase {
     Logger.recordOutput("Drive/ModuleTargets", latestSetpointStates);
     Logger.recordOutput("Drive/SetpointSpeeds", latestSetpointSpeeds);
 
-    Logger.recordOutput("Drive/Diagnostics/FieldEscapeHits", fieldEscapeHits);
     Logger.recordOutput("Drive/Diagnostics/ArcIntegrateRejections", arcIntegrateRejections);
     Logger.recordOutput(
         "Drive/Diagnostics/FrictionRatios", AccelerationLimiter.getLastModuleFrictionRatios());
@@ -488,6 +507,11 @@ public class Drive extends SubsystemBase {
       effectiveModulePositions[i] = new SwerveModulePosition(0.0, raw[i].angle);
     }
     poseEstimator.resetPosition(rawGyroRotation, effectiveModulePositions, pose);
+    // Publish synchronously so the 250 Hz fast loop sees the reset pose before the next
+    // periodic() tick. Without this, a fast-loop reader between resetPose() and the next
+    // periodic() would see the previous estimator pose (or Pose2d.kZero at boot — which sits on
+    // a perimeter obstacle and would cause the avoidance clamp to fire spuriously).
+    cachedPose = pose;
     if (poseResetListener != null) {
       poseResetListener.accept(pose);
     }
@@ -513,14 +537,6 @@ public class Drive extends SubsystemBase {
 
   public double getMaxAngularSpeedRadPerSec() {
     return getMaxLinearSpeedMetersPerSec() / DRIVE_BASE_RADIUS;
-  }
-
-  /** True when the pose has crossed any field wall (no margin). Diagnostic only. */
-  private static boolean isOutsideField(Pose2d pose) {
-    return pose.getX() < FIELD_ESCAPE_MARGIN_M
-        || pose.getX() > FieldInfo.lengthMeters() - FIELD_ESCAPE_MARGIN_M
-        || pose.getY() < FIELD_ESCAPE_MARGIN_M
-        || pose.getY() > FieldInfo.widthMeters() - FIELD_ESCAPE_MARGIN_M;
   }
 
   private static SwerveModulePosition[] newZeroedPositions() {

@@ -10,11 +10,21 @@ import java.util.List;
  * <p>Static obstacles (reef, processor, etc.) are added once at startup. Dynamic obstacles (other
  * robots) get added/cleared each frame before replanning. Use {@link Costmap#build} to turn this
  * into a planning grid.
+ *
+ * <p>Calling the {@link #staticObstacles()} / {@link #dynamicObstacles()} accessors is safe from
+ * any thread, including the 250 Hz drive fast loop. Dynamic obstacles use copy-on-write so
+ * iterating the returned list is safe even during concurrent {@link #addDynamic} / {@link
+ * #clearDynamic} calls. Static obstacles are intended to be built once at startup and not mutated
+ * thereafter — the returned unmodifiable view does NOT protect concurrent iteration against late
+ * {@link #addStatic} calls. If you ever need runtime-mutable static obstacles, switch the static
+ * list to the same copy-on-write pattern.
  */
 public final class ObstacleField {
 
   private final List<Obstacle> staticObstacles = new ArrayList<>();
-  private final List<Obstacle> dynamicObstacles = new ArrayList<>();
+  private final List<Obstacle> staticObstaclesView = Collections.unmodifiableList(staticObstacles);
+  // Replaced wholesale on each mutation so concurrent readers see an immutable snapshot.
+  private volatile List<Obstacle> dynamicSnapshot = List.of();
 
   /** Adds a static obstacle. Returns this for chaining. */
   public ObstacleField addStatic(Obstacle o) {
@@ -24,23 +34,26 @@ public final class ObstacleField {
 
   /** Adds a dynamic obstacle (cleared by {@link #clearDynamic}). Returns this for chaining. */
   public ObstacleField addDynamic(Obstacle o) {
-    dynamicObstacles.add(o);
+    List<Obstacle> next = new ArrayList<>(dynamicSnapshot.size() + 1);
+    next.addAll(dynamicSnapshot);
+    next.add(o);
+    dynamicSnapshot = Collections.unmodifiableList(next);
     return this;
   }
 
   /** Removes all dynamic obstacles. Static obstacles are unaffected. */
   public void clearDynamic() {
-    dynamicObstacles.clear();
+    dynamicSnapshot = List.of();
   }
 
-  /** Read-only view of static obstacles. */
+  /** Read-only view of static obstacles. Cached — no allocation per call. */
   public List<Obstacle> staticObstacles() {
-    return Collections.unmodifiableList(staticObstacles);
+    return staticObstaclesView;
   }
 
-  /** Read-only view of dynamic obstacles. */
+  /** Immutable snapshot of dynamic obstacles. Safe to iterate concurrently with mutations. */
   public List<Obstacle> dynamicObstacles() {
-    return Collections.unmodifiableList(dynamicObstacles);
+    return dynamicSnapshot;
   }
 
   /**
@@ -53,8 +66,9 @@ public final class ObstacleField {
       double d = staticObstacles.get(i).signedDistance(x, y);
       if (d < best) best = d;
     }
-    for (int i = 0, n = dynamicObstacles.size(); i < n; i++) {
-      double d = dynamicObstacles.get(i).signedDistance(x, y);
+    List<Obstacle> dyn = dynamicSnapshot;
+    for (int i = 0, n = dyn.size(); i < n; i++) {
+      double d = dyn.get(i).signedDistance(x, y);
       if (d < best) best = d;
     }
     return best;
@@ -66,8 +80,9 @@ public final class ObstacleField {
     for (int i = 0, n = staticObstacles.size(); i < n; i++) {
       if (staticObstacles.get(i).intersectsObb(cx, cy, cosT, sinT, halfX, halfY)) return true;
     }
-    for (int i = 0, n = dynamicObstacles.size(); i < n; i++) {
-      if (dynamicObstacles.get(i).intersectsObb(cx, cy, cosT, sinT, halfX, halfY)) return true;
+    List<Obstacle> dyn = dynamicSnapshot;
+    for (int i = 0, n = dyn.size(); i < n; i++) {
+      if (dyn.get(i).intersectsObb(cx, cy, cosT, sinT, halfX, halfY)) return true;
     }
     return false;
   }

@@ -147,6 +147,18 @@ public final class AccelerationLimiter {
   }
 
   /**
+   * Overrides the most recent acceleration record. Use this when post-processing (e.g. an
+   * obstacle-avoidance velocity clamp) modifies the integrator's output and the recorded
+   * acceleration must reflect what the chassis is actually doing, not the unclamped delta.
+   * Otherwise the next call's weight-transfer estimate drifts whenever the clamp is active.
+   */
+  public static void setLastAcceleration(double accelVx, double accelVy, double accelOmega) {
+    lastAccelVx = accelVx;
+    lastAccelVy = accelVy;
+    lastAccelOmega = accelOmega;
+  }
+
+  /**
    * Applies motor and friction limits to a desired acceleration. Output is written into result as
    * [accelX, accelY, accelOmega].
    *

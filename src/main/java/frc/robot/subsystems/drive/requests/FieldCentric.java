@@ -7,6 +7,8 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.commands.AccelerationLimiter;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.SwerveRequest;
+import frc.robot.utils.path.ObstacleAvoidance;
+import java.util.function.BooleanSupplier;
 
 /**
  * Field-relative velocity request. The driver supplies vx/vy in field frame and a rotational rate;
@@ -41,6 +43,8 @@ public class FieldCentric implements SwerveRequest {
   private volatile double deadband = 0.0;
   private volatile double rotationalDeadband = 0.0;
   private volatile Translation2d centerOfRotation = Translation2d.kZero;
+  private volatile ObstacleAvoidance obstacleAvoidance = null;
+  private volatile BooleanSupplier avoidanceOverride = null;
 
   // Persistent acceleration-limiter state. Written and read only by the fast loop, so plain
   // fields are fine — but the ChassisSpeeds object is mutated in place, so it must outlive a
@@ -87,6 +91,18 @@ public class FieldCentric implements SwerveRequest {
     return this;
   }
 
+  /** Pose-based avoidance clamp applied after the acceleration limiter. Null disables. */
+  public FieldCentric withObstacleAvoidance(ObstacleAvoidance avoidance) {
+    this.obstacleAvoidance = avoidance;
+    return this;
+  }
+
+  /** Hold-to-bypass gate for the clamp. Null disables. */
+  public FieldCentric withAvoidanceOverride(BooleanSupplier override) {
+    this.avoidanceOverride = override;
+    return this;
+  }
+
   @Override
   public void onActivate(Drive drive) {
     // Seed the limiter from the current robot motion so the first tick doesn't try to ramp from
@@ -103,9 +119,42 @@ public class FieldCentric implements SwerveRequest {
     double targetVy = MathUtil.applyDeadband(velocityY, deadband);
     double targetOmega = MathUtil.applyDeadband(rotationalRate, rotationalDeadband);
 
+    // Captured BEFORE the integrator mutates limitedFieldSpeeds. If the clamp fires, we re-derive
+    // the actual acceleration from (post-clamp − pre-integrator) so the limiter's static
+    // last-accel record matches what the chassis is doing rather than the unclamped target.
+    double preVx = limitedFieldSpeeds.vxMetersPerSecond;
+    double preVy = limitedFieldSpeeds.vyMetersPerSecond;
+    double preOmega = limitedFieldSpeeds.omegaRadiansPerSecond;
+
     Rotation2d heading = drive.getRotation();
     AccelerationLimiter.integrateVelocityInPlace(
         limitedFieldSpeeds, targetVx, targetVy, targetOmega, dt, heading.getRadians());
+
+    // Pose-based clamp persists into limitedFieldSpeeds so the next tick ramps from the actual
+    // commanded speed instead of fighting back up to the unclamped target.
+    ObstacleAvoidance avoidance = obstacleAvoidance;
+    BooleanSupplier override = avoidanceOverride;
+    if (avoidance != null && (override == null || !override.getAsBoolean())) {
+      Translation2d clamped =
+          avoidance.clamp(
+              drive.getPose(),
+              limitedFieldSpeeds.vxMetersPerSecond,
+              limitedFieldSpeeds.vyMetersPerSecond);
+      double clampedVx = clamped.getX();
+      double clampedVy = clamped.getY();
+      if (clampedVx != limitedFieldSpeeds.vxMetersPerSecond
+          || clampedVy != limitedFieldSpeeds.vyMetersPerSecond) {
+        limitedFieldSpeeds.vxMetersPerSecond = clampedVx;
+        limitedFieldSpeeds.vyMetersPerSecond = clampedVy;
+        if (dt > 1.0e-9) {
+          AccelerationLimiter.setLastAcceleration(
+              (clampedVx - preVx) / dt,
+              (clampedVy - preVy) / dt,
+              (limitedFieldSpeeds.omegaRadiansPerSecond - preOmega) / dt);
+        }
+      }
+    }
+
     drive.runVelocity(
         ChassisSpeeds.fromFieldRelativeSpeeds(limitedFieldSpeeds, heading), centerOfRotation);
   }

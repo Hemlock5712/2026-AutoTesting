@@ -11,7 +11,6 @@ public final class Constants {
   }
 
   public static Mode getMode() {
-    // Use REPLAY mode if a log file was passed in via -Dfrc.replay.input=...
     if (!RobotBase.isReal() && System.getProperty("frc.replay.input") != null) {
       return Mode.REPLAY;
     }

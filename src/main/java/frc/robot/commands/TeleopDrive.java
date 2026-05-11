@@ -4,6 +4,8 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.requests.FieldCentric;
+import frc.robot.utils.path.ObstacleAvoidance;
+import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -33,6 +35,18 @@ public class TeleopDrive extends Command {
     this.velocityYSupplier = velocityY;
     this.rotationalRateSupplier = rotationalRate;
     addRequirements(drive);
+  }
+
+  /** Install the pose-based avoidance clamp. Null disables. */
+  public TeleopDrive withObstacleAvoidance(ObstacleAvoidance avoidance) {
+    request.withObstacleAvoidance(avoidance);
+    return this;
+  }
+
+  /** Hold-to-bypass gate for the clamp (climb / defense / contact scoring). */
+  public TeleopDrive withAvoidanceOverride(BooleanSupplier override) {
+    request.withAvoidanceOverride(override);
+    return this;
   }
 
   @Override

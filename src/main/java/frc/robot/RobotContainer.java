@@ -4,21 +4,16 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
-import frc.robot.commands.PathPlanningDemo;
+import frc.robot.autonomous.AutoSelector;
 import frc.robot.commands.TeleopDrive;
 import frc.robot.generated.TunerConstants;
+import frc.robot.simlib.SimWorldSetup;
 import frc.robot.simlib.SimulatedArena;
 import frc.robot.simlib.drivesims.SwerveDriveSimulation;
 import frc.robot.simlib.motorsims.SimulatedBattery;
@@ -30,85 +25,74 @@ import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
+import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
 import frc.robot.subsystems.vision.VisionIONoop;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
-import frc.robot.utils.path.AutoPath;
-import java.util.Map;
-import java.util.function.Supplier;
+import frc.robot.utils.DriverInput;
+import frc.robot.utils.FieldInfo;
+import frc.robot.utils.path.Footprint;
+import frc.robot.utils.path.ObstacleAvoidance;
+import frc.robot.utils.path.ObstacleField;
+import frc.robot.utils.path.ObstacleVisualizer;
 
 public class RobotContainer {
-  private static final double JOYSTICK_DEADBAND = 0.05;
 
-  // Real-robot Limelights. Names must match each camera's NetworkTables name (set in the LL web
-  // UI).
-  private static final String[] LIMELIGHT_NAMES = {
-    "limelight-br", "limelight-bl", "limelight-fl", "limelight-fr", "limelight-mm"
-  };
+  // ==================== Constants ====================
 
-  // PhotonVision camera names used by the sim. Different from LIMELIGHT_NAMES on purpose — sim
-  // and real publish under distinct log keys, so a single replay log only ever has one set.
-  private static final String[] PHOTON_CAMERA_NAMES = {
-    "photon-fl", "photon-fr", "photon-bl", "photon-br"
-  };
+  // Mid-field spawn on the y-centerline, ~2.6 m from either Hub edge.
+  private static final Pose2d SIM_SPAWN_POSE = new Pose2d(8.27, 4.0, Rotation2d.kZero);
 
-  // Robot-to-camera transforms for the PhotonVision sim cameras. Placeholder corner mounts: 10 in
-  // from center, 9 in up, pitched 15° up, yawed toward the matching corner. Tune against your CAD
-  // before trusting trig-solve distances.
-  private static final Transform3d[] PHOTON_CAMERA_TRANSFORMS = {
-    new Transform3d(
-        new Translation3d(0.254, 0.254, 0.229),
-        new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(30.0))),
-    new Transform3d(
-        new Translation3d(0.254, -0.254, 0.229),
-        new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(-30.0))),
-    new Transform3d(
-        new Translation3d(-0.254, 0.254, 0.229),
-        new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(150.0))),
-    new Transform3d(
-        new Translation3d(-0.254, -0.254, 0.229),
-        new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(-150.0)))
-  };
+  private static final double MAX_SPEED = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
+  private static final double MAX_ANGULAR_RATE = RotationsPerSecond.of(1).in(RadiansPerSecond);
 
-  private double maxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
-  private double maxAngularRate = RotationsPerSecond.of(1).in(RadiansPerSecond);
-
-  private final CommandXboxController joystick = new CommandXboxController(0);
-
-  // MapleSim spawn pose — clear of the field perimeter so the rigid-body sim doesn't start
-  // wedged against a wall. The estimator is reset to match in the constructor.
-  private static final Pose2d SIM_SPAWN_POSE = new Pose2d(8.0, 4.0, Rotation2d.kZero);
+  // -------------------- Subsystems --------------------
 
   public final Drive drivetrain;
   public final Vision vision;
   public final AutoCommands autoCommands;
 
-  // Non-null only in SIM. Held so Robot.simulationPeriodic can tick the arena and so vision can
-  // read ground truth.
-  private final SwerveDriveSimulation driveSimulation;
+  // -------------------- Driver controls --------------------
 
-  private final SendableChooser<Supplier<Command>> autoChooser = new SendableChooser<>();
+  private final CommandXboxController driver = new CommandXboxController(0);
+
+  // -------------------- SIM-only state --------------------
+
+  private final SwerveDriveSimulation driveSimulation;
+  private final ObstacleField simObstacleField;
+
+  // -------------------- Autonomous --------------------
+
+  private final AutoSelector autoSelector;
+
+  // ==================== Construction ====================
 
   public RobotContainer() {
     driveSimulation = createDriveSimulation();
     drivetrain = createDrive(driveSimulation);
-    vision = createVision(drivetrain);
+    vision = createVision();
     autoCommands = new AutoCommands(drivetrain);
-
-    if (driveSimulation != null) {
-      // Keep the sim chassis aligned with any future estimator resets (e.g. auto routines that
-      // reset to a path-start pose) — otherwise the sim chassis stays stranded and the
-      // controller diverges. Then align the estimator with the spawn pose.
-      drivetrain.onPoseReset(driveSimulation::setSimulationWorldPose);
-      drivetrain.resetPose(SIM_SPAWN_POSE);
-    }
-
-    autoChooser.setDefaultOption("NewPath (PD)", this::newPathAutoPD);
-    autoChooser.addOption("PathPlanningDemo", () -> PathPlanningDemo.create(drivetrain));
-    SmartDashboard.putData("Auto Mode", autoChooser);
+    simObstacleField = setupSimWorld(driveSimulation);
+    autoSelector = new AutoSelector(drivetrain, autoCommands);
 
     configureBindings();
+  }
+
+  // ==================== Button Bindings ====================
+
+  private void configureBindings() {
+    drivetrain.setDefaultCommand(buildTeleopDrive());
+
+    // Add new bindings below. Examples:
+    //   driver.a().onTrue(...);
+    //   driver.b().whileTrue(...);
+  }
+
+  // ==================== Public hooks called from Robot.java ====================
+
+  public Command getAutonomousCommand() {
+    return autoSelector.getSelected();
   }
 
   /** Tick MapleSim physics. Called from {@link Robot#simulationPeriodic}. No-op outside SIM. */
@@ -117,20 +101,53 @@ public class RobotContainer {
     SimulatedArena.getInstance().simulationPeriodic();
     Pose2d truthPose = driveSimulation.getSimulatedDriveTrainPose();
     drivetrain.updateSimulationGroundTruth(truthPose);
-    // Drive the PhotonVision sim from the same ground-truth pose so all cameras observe a
-    // consistent world. One update per loop — calling per-camera would generate duplicate frames.
+    // One sim-world update per loop drives all PhotonVision cameras from a consistent pose.
     VisionIOPhotonVisionSim.update(truthPose);
   }
+
+  // ==================== Teleop drive (default command) ====================
+
+  private TeleopDrive buildTeleopDrive() {
+    double[] vel = {0, 0};
+    TeleopDrive teleop =
+        new TeleopDrive(
+            drivetrain,
+            () -> {
+              Translation2d t =
+                  DriverInput.rescaleTranslation(driver.getLeftY(), driver.getLeftX());
+              double sign = FieldInfo.shouldFlip() ? 1.0 : -1.0;
+              vel[0] = sign * t.getX() * MAX_SPEED;
+              vel[1] = sign * t.getY() * MAX_SPEED;
+              return vel[0];
+            },
+            () -> vel[1],
+            () -> -DriverInput.deadband(driver.getRightX()) * MAX_ANGULAR_RATE);
+
+    // Pose-based safety clamp + right-bumper bypass. SIM-only until the real-robot path supplies
+    // an obstacle field.
+    if (simObstacleField != null) {
+      teleop.withObstacleAvoidance(
+          new ObstacleAvoidance(
+              simObstacleField,
+              Footprint.fixed(Drive.ROBOT_HALF_X, Drive.ROBOT_HALF_Y),
+              Drive.AVOIDANCE_DECEL_BUDGET,
+              Drive.AVOIDANCE_SAFETY_MARGIN_M,
+              "Drive/Sim/Avoidance"));
+      teleop.withAvoidanceOverride(driver.getHID()::getRightBumperButton);
+    }
+    return teleop;
+  }
+
+  // ==================== Subsystem factories (REAL / SIM / REPLAY) ====================
 
   private static SwerveDriveSimulation createDriveSimulation() {
     if (Constants.getMode() != Constants.Mode.SIM) return null;
     SwerveDriveSimulation sim =
         new SwerveDriveSimulation(Drive.getMapleSimConfig(), SIM_SPAWN_POSE);
     SimulatedArena.getInstance().addDriveTrainSimulation(sim);
-    // After all module sims have registered as electrical appliances, neutralize MapleSim's
-    // battery sim. Its LinearFilter gets poisoned by NaN under heavy current draw and produces
-    // a brownout/Rotation2d-zero cascade that corrupts the chassis state. YAGSL's vendored
-    // ironmaple snapshot exposes this as a public API.
+    // After module sims register as electrical appliances, neutralize MapleSim's battery sim —
+    // its LinearFilter gets poisoned by NaN under heavy current draw and produces a brownout /
+    // Rotation2d-zero cascade that corrupts the chassis state.
     SimulatedBattery.disableBatterySim();
     return sim;
   }
@@ -161,82 +178,56 @@ public class RobotContainer {
     };
   }
 
-  private static Vision createVision(Drive drive) {
+  private Vision createVision() {
     return switch (Constants.getMode()) {
       case REAL -> {
-        VisionIO[] ios = new VisionIO[LIMELIGHT_NAMES.length];
-        for (int i = 0; i < LIMELIGHT_NAMES.length; i++) {
-          ios[i] = new VisionIOLimelight(LIMELIGHT_NAMES[i]);
+        VisionIO[] ios = new VisionIO[VisionConstants.LIMELIGHT_NAMES.length];
+        for (int i = 0; i < ios.length; i++) {
+          ios[i] = new VisionIOLimelight(VisionConstants.LIMELIGHT_NAMES[i]);
         }
-        yield new Vision(drive, ios);
+        yield new Vision(drivetrain, ios);
       }
       case SIM -> {
-        VisionIO[] ios = new VisionIO[PHOTON_CAMERA_NAMES.length];
-        for (int i = 0; i < PHOTON_CAMERA_NAMES.length; i++) {
-          ios[i] = new VisionIOPhotonVisionSim(PHOTON_CAMERA_NAMES[i], PHOTON_CAMERA_TRANSFORMS[i]);
+        // To disable simulated vision (expose pure-odometry drift), swap the inner constructor
+        // for `new VisionIONoop(name)`.
+        VisionIO[] ios = new VisionIO[VisionConstants.PHOTON_CAMERA_NAMES.length];
+        for (int i = 0; i < ios.length; i++) {
+          ios[i] =
+              new VisionIOPhotonVisionSim(
+                  VisionConstants.PHOTON_CAMERA_NAMES[i],
+                  VisionConstants.PHOTON_CAMERA_TRANSFORMS[i]);
         }
-        yield new Vision(drive, ios);
+        yield new Vision(drivetrain, ios);
       }
       case REPLAY -> {
-        // Register both name sets as no-op so logs from either source replay correctly. Names
-        // not in the log produce empty inputs (no observation) and contribute nothing.
-        VisionIO[] ios = new VisionIO[LIMELIGHT_NAMES.length + PHOTON_CAMERA_NAMES.length];
+        // Both name sets registered as no-ops so logs from either source replay correctly.
+        VisionIO[] ios =
+            new VisionIO
+                [VisionConstants.LIMELIGHT_NAMES.length
+                    + VisionConstants.PHOTON_CAMERA_NAMES.length];
         int idx = 0;
-        for (String n : LIMELIGHT_NAMES) ios[idx++] = new VisionIONoop(n);
-        for (String n : PHOTON_CAMERA_NAMES) ios[idx++] = new VisionIONoop(n);
-        yield new Vision(drive, ios);
+        for (String n : VisionConstants.LIMELIGHT_NAMES) ios[idx++] = new VisionIONoop(n);
+        for (String n : VisionConstants.PHOTON_CAMERA_NAMES) ios[idx++] = new VisionIONoop(n);
+        yield new Vision(drivetrain, ios);
       }
     };
   }
 
-  private void configureBindings() {
-    double[] translationVel = {0, 0};
-
-    drivetrain.setDefaultCommand(
-        new TeleopDrive(
-            drivetrain,
-            () -> {
-              double[] scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
-              translationVel[0] = -scaled[0] * maxSpeed;
-              translationVel[1] = -scaled[1] * maxSpeed;
-              return translationVel[0];
-            },
-            () -> translationVel[1],
-            () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
-  }
-
-  public Command getAutonomousCommand() {
-    Supplier<Command> selected = autoChooser.getSelected();
-    return (selected != null) ? selected.get() : Commands.none();
-  }
-
-  public double rescaleInputs(double input) {
-    return MathUtil.applyDeadband(input, JOYSTICK_DEADBAND);
-  }
-
-  private final double[] scaledTranslation = new double[2];
-
-  public double[] rescaleTranslation(double x, double y) {
-    double mag = Math.hypot(x, y);
-    if (mag < JOYSTICK_DEADBAND) {
-      scaledTranslation[0] = 0;
-      scaledTranslation[1] = 0;
-      return scaledTranslation;
-    }
-    double deadbanded = (mag - JOYSTICK_DEADBAND) / (1.0 - JOYSTICK_DEADBAND);
-    if (deadbanded > 1.0) deadbanded = 1.0;
-    double factor = deadbanded * deadbanded / mag;
-    scaledTranslation[0] = x * factor;
-    scaledTranslation[1] = y * factor;
-    return scaledTranslation;
-  }
-
-  private Command newPathAutoPD() {
-    return Commands.sequence(
-        autoCommands.resetPose(AutoPath.NEW_PATH),
-        autoCommands.followPathWithActions(
-            AutoPath.NEW_PATH.get(),
-            autoCommands.actionsFromChoreoEvents(
-                AutoPath.NEW_PATH, Map.of("Marker", () -> Commands.print("Marker triggered!")))));
+  /**
+   * SIM only: builds the field obstacle set, registers it with the dyn4j sim, logs it for
+   * AdvantageScope, and aligns the sim chassis with the spawn pose. Returns the field for the
+   * teleop avoidance clamp; {@code null} outside SIM.
+   */
+  private ObstacleField setupSimWorld(SwerveDriveSimulation sim) {
+    if (sim == null) return null;
+    ObstacleField field = Field2026Obstacles.build();
+    SimWorldSetup.addObstacles(SimulatedArena.getInstance(), field);
+    ObstacleVisualizer.log(
+        "SimWorld/Obstacles", field, Math.hypot(Drive.ROBOT_HALF_X, Drive.ROBOT_HALF_Y));
+    // Keep the sim chassis aligned with any future estimator resets (e.g. auto routines that
+    // reset to a path-start pose), then align the estimator with the spawn pose.
+    drivetrain.onPoseReset(sim::setSimulationWorldPose);
+    drivetrain.resetPose(SIM_SPAWN_POSE);
+    return field;
   }
 }

@@ -1,5 +1,7 @@
 package frc.robot.utils.path;
 
+import edu.wpi.first.math.geometry.Translation2d;
+
 /**
  * A field obstacle. Right now we support circles and axis-aligned rectangles - that's enough for
  * almost every FRC obstacle (posts as circles, walls/zones as rectangles, alliance robots as fat
@@ -12,6 +14,14 @@ public sealed interface Obstacle permits Obstacle.Circle, Obstacle.Rectangle {
    * obstacle, positive if outside.
    */
   double signedDistance(double x, double y);
+
+  /**
+   * Closest point on this obstacle's boundary to (x, y). For points outside the obstacle, this is
+   * the projection onto the nearest edge. For points inside, it's the nearest edge point too — the
+   * vector from (x, y) to this point still gives the "into-obstacle" direction (with zero length if
+   * the query is exactly on the boundary).
+   */
+  Translation2d nearestPoint(double x, double y);
 
   /**
    * True if a rectangle (the robot, rotated to some heading) overlaps this obstacle.
@@ -32,6 +42,18 @@ public sealed interface Obstacle permits Obstacle.Circle, Obstacle.Rectangle {
       double dx = x - cx;
       double dy = y - cy;
       return Math.hypot(dx, dy) - radius;
+    }
+
+    @Override
+    public Translation2d nearestPoint(double x, double y) {
+      double dx = x - cx;
+      double dy = y - cy;
+      double dist = Math.hypot(dx, dy);
+      if (dist < 1.0e-9) {
+        return new Translation2d(cx + radius, cy);
+      }
+      double scale = radius / dist;
+      return new Translation2d(cx + dx * scale, cy + dy * scale);
     }
 
     @Override
@@ -69,6 +91,27 @@ public sealed interface Obstacle permits Obstacle.Circle, Obstacle.Rectangle {
       }
       double inside = Math.min(Math.min(x - minX, maxX - x), Math.min(y - minY, maxY - y));
       return -inside;
+    }
+
+    @Override
+    public Translation2d nearestPoint(double x, double y) {
+      // Clamp the query into the rectangle. If the query is outside, the clamped point is the
+      // closest boundary point. If it's inside, the clamp returns the query itself, so fall back
+      // to the nearest edge.
+      double cx = Math.max(minX, Math.min(maxX, x));
+      double cy = Math.max(minY, Math.min(maxY, y));
+      if (cx != x || cy != y) {
+        return new Translation2d(cx, cy);
+      }
+      double dxL = x - minX;
+      double dxR = maxX - x;
+      double dyB = y - minY;
+      double dyT = maxY - y;
+      double m = Math.min(Math.min(dxL, dxR), Math.min(dyB, dyT));
+      if (m == dxL) return new Translation2d(minX, y);
+      if (m == dxR) return new Translation2d(maxX, y);
+      if (m == dyB) return new Translation2d(x, minY);
+      return new Translation2d(x, maxY);
     }
 
     @Override
