@@ -31,8 +31,8 @@ import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
+import frc.robot.subsystems.vision.VisionIOLimelight;
 import frc.robot.subsystems.vision.VisionIONoop;
-import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.utils.path.AutoPath;
 import java.util.Map;
@@ -41,14 +41,22 @@ import java.util.function.Supplier;
 public class RobotContainer {
   private static final double JOYSTICK_DEADBAND = 0.05;
 
-  // PhotonVision camera names. Each maps to a coprocessor pipeline configured in the PhotonVision
-  // web UI. Order corresponds to CAMERA_TRANSFORMS below.
-  private static final String[] CAMERA_NAMES = {"photon-fl", "photon-fr", "photon-bl", "photon-br"};
+  // Real-robot Limelights. Names must match each camera's NetworkTables name (set in the LL web
+  // UI).
+  private static final String[] LIMELIGHT_NAMES = {
+    "limelight-br", "limelight-bl", "limelight-fl", "limelight-fr", "limelight-mm"
+  };
 
-  // Robot-to-camera transforms. Placeholder coprocessor mounts: ~10 in forward of center,
-  // ~10 in to the side, ~9 in up, pitched 15° up, yawed toward the corresponding corner. Tune
-  // these against your real robot CAD before trusting trig-solve distances.
-  private static final Transform3d[] CAMERA_TRANSFORMS = {
+  // PhotonVision camera names used by the sim. Different from LIMELIGHT_NAMES on purpose — sim
+  // and real publish under distinct log keys, so a single replay log only ever has one set.
+  private static final String[] PHOTON_CAMERA_NAMES = {
+    "photon-fl", "photon-fr", "photon-bl", "photon-br"
+  };
+
+  // Robot-to-camera transforms for the PhotonVision sim cameras. Placeholder corner mounts: 10 in
+  // from center, 9 in up, pitched 15° up, yawed toward the matching corner. Tune against your CAD
+  // before trusting trig-solve distances.
+  private static final Transform3d[] PHOTON_CAMERA_TRANSFORMS = {
     new Transform3d(
         new Translation3d(0.254, 0.254, 0.229),
         new Rotation3d(0.0, Math.toRadians(-15.0), Math.toRadians(30.0))),
@@ -154,26 +162,31 @@ public class RobotContainer {
   }
 
   private static Vision createVision(Drive drive) {
-    VisionIO[] ios = new VisionIO[CAMERA_NAMES.length];
-    switch (Constants.getMode()) {
+    return switch (Constants.getMode()) {
       case REAL -> {
-        for (int i = 0; i < CAMERA_NAMES.length; i++) {
-          ios[i] = new VisionIOPhotonVision(CAMERA_NAMES[i], CAMERA_TRANSFORMS[i]);
+        VisionIO[] ios = new VisionIO[LIMELIGHT_NAMES.length];
+        for (int i = 0; i < LIMELIGHT_NAMES.length; i++) {
+          ios[i] = new VisionIOLimelight(LIMELIGHT_NAMES[i]);
         }
+        yield new Vision(drive, ios);
       }
       case SIM -> {
-        for (int i = 0; i < CAMERA_NAMES.length; i++) {
-          ios[i] = new VisionIOPhotonVisionSim(CAMERA_NAMES[i], CAMERA_TRANSFORMS[i]);
+        VisionIO[] ios = new VisionIO[PHOTON_CAMERA_NAMES.length];
+        for (int i = 0; i < PHOTON_CAMERA_NAMES.length; i++) {
+          ios[i] = new VisionIOPhotonVisionSim(PHOTON_CAMERA_NAMES[i], PHOTON_CAMERA_TRANSFORMS[i]);
         }
+        yield new Vision(drive, ios);
       }
       case REPLAY -> {
-        // No IO work in replay — Logger.processInputs feeds the inputs from the log file.
-        for (int i = 0; i < CAMERA_NAMES.length; i++) {
-          ios[i] = new VisionIONoop(CAMERA_NAMES[i]);
-        }
+        // Register both name sets as no-op so logs from either source replay correctly. Names
+        // not in the log produce empty inputs (no observation) and contribute nothing.
+        VisionIO[] ios = new VisionIO[LIMELIGHT_NAMES.length + PHOTON_CAMERA_NAMES.length];
+        int idx = 0;
+        for (String n : LIMELIGHT_NAMES) ios[idx++] = new VisionIONoop(n);
+        for (String n : PHOTON_CAMERA_NAMES) ios[idx++] = new VisionIONoop(n);
+        yield new Vision(drive, ios);
       }
-    }
-    return new Vision(drive, ios);
+    };
   }
 
   private void configureBindings() {
