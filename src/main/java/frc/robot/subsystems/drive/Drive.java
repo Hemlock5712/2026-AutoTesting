@@ -152,8 +152,15 @@ public class Drive extends SubsystemBase {
   // --- Cached snapshots read by the 250 Hz fast loop without locks ---
   private volatile Pose2d cachedPose = Pose2d.kZero;
   private volatile ChassisSpeeds cachedRobotSpeeds = new ChassisSpeeds();
-  private volatile SwerveModuleState[] latestSetpointStates = new SwerveModuleState[0];
+  private volatile SwerveModuleState[] latestSetpointStates =
+      new SwerveModuleState[] {
+        new SwerveModuleState(),
+        new SwerveModuleState(),
+        new SwerveModuleState(),
+        new SwerveModuleState()
+      };
   private volatile ChassisSpeeds latestSetpointSpeeds = new ChassisSpeeds();
+  private volatile double lastRunVelocityTime = -1.0;
 
   // --- Measured-acceleration tracking (drives AccelerationLimiter weight-transfer) ---
   // With per-module Motion Magic profiling, the chassis-level integrator that previously updated
@@ -431,24 +438,47 @@ public class Drive extends SubsystemBase {
    * around a specific point (e.g. a corner module) rather than the geometric center.
    */
   public void runVelocity(ChassisSpeeds speeds, Translation2d centerOfRotation) {
-    // ChassisSpeeds.discretize used to compensate for the one-loop holdover gap between setpoint
-    // writes; with MotionMagicVelocityVoltage on the Talons the internal profiler closes the loop
-    // continuously, so no discretization is needed. desaturateWheelSpeeds stays — it's the
-    // kinematic-feasibility floor for when commanded ChassisSpeeds exceeds module max.
-    SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(speeds, centerOfRotation);
+    double now = Timer.getFPGATimestamp();
+    double dt = (lastRunVelocityTime < 0) ? 0.02 : (now - lastRunVelocityTime);
+    lastRunVelocityTime = now;
+    if (dt < 1e-6) dt = 0.02;
+
+    // 1. Chassis-Level Slip Limiting (Prevent macro-slip)
+    // Scale the entire vector back if it exceeds the friction circle, keeping kinematics perfectly
+    // locked.
+    ChassisSpeeds limitedSpeeds = new ChassisSpeeds();
+    AccelerationLimiter.integrateVelocity(
+        limitedSpeeds,
+        latestSetpointSpeeds.vxMetersPerSecond,
+        latestSetpointSpeeds.vyMetersPerSecond,
+        latestSetpointSpeeds.omegaRadiansPerSecond,
+        speeds.vxMetersPerSecond,
+        speeds.vyMetersPerSecond,
+        speeds.omegaRadiansPerSecond,
+        dt);
+
+    SwerveModuleState[] setpointStates =
+        kinematics.toSwerveModuleStates(limitedSpeeds, centerOfRotation);
     SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, TunerConstants.kSpeedAt12Volts);
 
-    // Per-module slip budget (m/s²). This replaces the chassis-level setpoint-generator/limiter
-    // path — each module's Talon now profiles its own velocity ramp under its own friction limit.
-    double[] accelCapsMps2 = AccelerationLimiter.perModuleAccelCaps(getRotation().getRadians());
-
+    // 2. Motion Magic Interpolation (Smooth out 50Hz/250Hz steps)
     for (int i = 0; i < 4; i++) {
-      modules[i].runSetpoint(setpointStates[i], accelCapsMps2[i]);
+      double deltaV =
+          Math.abs(
+              setpointStates[i].speedMetersPerSecond
+                  - latestSetpointStates[i].speedMetersPerSecond);
+
+      // Compute exact acceleration required to reach the target in dt seconds.
+      // We clamp to a minimum of 1.0 m/s^2 so the profiler doesn't freeze on very tiny adjustments,
+      // but otherwise it acts perfectly as a linear interpolator bridging the discrete loops!
+      double accelCap = Math.max(deltaV / dt, 1.0);
+
+      modules[i].runSetpoint(setpointStates[i], accelCap);
     }
 
-    // Save the latest setpoint so periodic() can log it from the main thread.
+    // Save the latest setpoints for the next loop's interpolation delta, and for logging.
     latestSetpointStates = setpointStates;
-    latestSetpointSpeeds = speeds;
+    latestSetpointSpeeds = limitedSpeeds;
   }
 
   /** Stop driving but keep wheels pointing where they were. */
