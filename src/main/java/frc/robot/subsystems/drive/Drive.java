@@ -463,20 +463,10 @@ public class Drive extends SubsystemBase {
 
     // 2. Motion Magic Interpolation (Smooth out 50Hz/250Hz steps)
     for (int i = 0; i < 4; i++) {
-      double deltaV =
-          Math.abs(
-              setpointStates[i].speedMetersPerSecond
-                  - latestSetpointStates[i].speedMetersPerSecond);
-
-      // Compute exact acceleration required to reach the target in dt seconds.
-      // We clamp to a minimum of 1.0 m/s^2 so the profiler doesn't freeze on very tiny adjustments,
-      // but otherwise it acts perfectly as a linear interpolator bridging the discrete loops!
-      double accelCap = Math.max(deltaV / dt, 1.0);
-
-      modules[i].runSetpoint(setpointStates[i], accelCap);
+      modules[i].runSetpoint(setpointStates[i], dt);
     }
 
-    // Save the latest setpoints for the next loop's interpolation delta, and for logging.
+    // Save the latest setpoints for the next loop's logging
     latestSetpointStates = setpointStates;
     latestSetpointSpeeds = limitedSpeeds;
   }

@@ -30,6 +30,7 @@ public class Module {
   private final Alert driveDisconnectedAlert;
   private final Alert turnDisconnectedAlert;
   private final Alert turnEncoderDisconnectedAlert;
+  private double lastTargetSpeed = 0.0;
   private SwerveModulePosition[] odometryPositions = new SwerveModulePosition[] {};
 
   public Module(
@@ -77,13 +78,17 @@ public class Module {
 
   /**
    * Tells the module to drive at the given speed/angle. Optimizes the state in place. The {@code
-   * accelLimitMetersPerSecSq} is the per-module slip budget — it's forwarded to the drive Talon's
-   * MotionMagicVelocityVoltage as its per-call Acceleration so the velocity loop ramps smoothly
-   * under friction. Pass {@link Double#POSITIVE_INFINITY} to disable profiling.
+   * dt} is the loop time — used to dynamically compute the exact acceleration needed to interpolate
+   * to the new velocity smoothly using MotionMagicVelocityVoltage.
    */
-  public void runSetpoint(SwerveModuleState state, double accelLimitMetersPerSecSq) {
+  public void runSetpoint(SwerveModuleState state, double dt) {
     state.optimize(getAngle());
     state.cosineScale(inputs.turnPosition);
+
+    double deltaV = Math.abs(state.speedMetersPerSecond - lastTargetSpeed);
+    double accelLimitMetersPerSecSq = Math.max(deltaV / dt, 1.0);
+    lastTargetSpeed = state.speedMetersPerSecond;
+
     double velocityRadPerSec = state.speedMetersPerSecond / constants.WheelRadius;
     double accelLimitRadPerSecSq = accelLimitMetersPerSecSq / constants.WheelRadius;
     io.setDriveVelocity(velocityRadPerSec, accelLimitRadPerSecSq);
