@@ -43,8 +43,13 @@ public interface ModuleIO {
   /** Run the turn motor at the specified open loop value. */
   public default void setTurnOpenLoop(double output) {}
 
-  /** Run the drive motor at the specified velocity. */
-  public default void setDriveVelocity(double velocityRadPerSec) {}
+  /**
+   * Run the drive motor at the specified velocity, with a per-call acceleration limit that is
+   * applied by the motor controller's internal profiler (Phoenix 6 MotionMagicVelocityVoltage on
+   * hardware, equivalent rate limit in sim). The acceleration limit is the per-module slip budget —
+   * see {@link frc.robot.commands.AccelerationLimiter#perModuleAccelCaps}.
+   */
+  public default void setDriveVelocity(double velocityRadPerSec, double accelLimitRadPerSecSq) {}
 
   /** Run the turn motor to the specified rotation. */
   public default void setTurnPosition(Rotation2d rotation) {}

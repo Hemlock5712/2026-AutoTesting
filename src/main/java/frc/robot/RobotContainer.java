@@ -7,6 +7,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
@@ -29,6 +30,7 @@ import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
 import frc.robot.subsystems.vision.VisionIONoop;
+import frc.robot.subsystems.vision.VisionIOPhotonVisionJSON;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.utils.DriverInput;
 import frc.robot.utils.FieldInfo;
@@ -36,6 +38,8 @@ import frc.robot.utils.path.Footprint;
 import frc.robot.utils.path.ObstacleAvoidance;
 import frc.robot.utils.path.ObstacleField;
 import frc.robot.utils.path.ObstacleVisualizer;
+import java.io.IOException;
+import java.nio.file.Path;
 
 public class RobotContainer {
 
@@ -200,15 +204,48 @@ public class RobotContainer {
         yield new Vision(drivetrain, ios);
       }
       case REPLAY -> {
-        // Both name sets registered as no-ops so logs from either source replay correctly.
-        VisionIO[] ios =
-            new VisionIO
-                [VisionConstants.LIMELIGHT_NAMES.length
-                    + VisionConstants.PHOTON_CAMERA_NAMES.length];
-        int idx = 0;
-        for (String n : VisionConstants.LIMELIGHT_NAMES) ios[idx++] = new VisionIONoop(n);
-        for (String n : VisionConstants.PHOTON_CAMERA_NAMES) ios[idx++] = new VisionIONoop(n);
-        yield new Vision(drivetrain, ios);
+        // Each original camera maps to a VisionIONoop so AKit can faithfully replay its wpilog
+        // entries. When -Dreplay.vision.json.<name>=<path> is set we ALSO append a parallel IO
+        // under "<name>-jsonreplay": its inputs land at /Vision/<name>-jsonreplay/* (a path the
+        // wpilog doesn't contain, so AKit can't override our values), and the drive's pose
+        // estimator absorbs both streams so AdvantageScope shows them side-by-side for tuning
+        // comparison.
+        var iosList = new java.util.ArrayList<VisionIO>();
+        for (String n : VisionConstants.LIMELIGHT_NAMES) iosList.add(new VisionIONoop(n));
+        for (int i = 0; i < VisionConstants.PHOTON_CAMERA_NAMES.length; i++) {
+          String name = VisionConstants.PHOTON_CAMERA_NAMES[i];
+          iosList.add(new VisionIONoop(name));
+          // Accept both -Dreplay.vision.json.<cam>=<path> (single tuning) and
+          // -Dreplay.vision.json.<cam>.<tuning>=<path> (one channel per suffix). Each maps to its
+          // own IO under name "<cam>-jsonreplay[-<tuning>]" so AdvantageScope renders the streams
+          // side-by-side and the drive's pose estimator absorbs each independently.
+          String basePrefix = "replay.vision.json." + name;
+          for (String propName : System.getProperties().stringPropertyNames()) {
+            if (!propName.equals(basePrefix) && !propName.startsWith(basePrefix + ".")) continue;
+            String jsonProp = System.getProperty(propName);
+            if (jsonProp == null || jsonProp.isBlank()) continue;
+            String suffix =
+                propName.equals(basePrefix)
+                    ? ""
+                    : "-" + propName.substring(basePrefix.length() + 1);
+            String channel = name + "-jsonreplay" + suffix;
+            try {
+              iosList.add(
+                  new VisionIOPhotonVisionJSON(
+                      channel, VisionConstants.PHOTON_CAMERA_TRANSFORMS[i], Path.of(jsonProp)));
+            } catch (IOException e) {
+              DriverStation.reportError(
+                  "Replay JSON load failed for "
+                      + channel
+                      + " ("
+                      + jsonProp
+                      + "): "
+                      + e.getMessage(),
+                  false);
+            }
+          }
+        }
+        yield new Vision(drivetrain, iosList.toArray(new VisionIO[0]));
       }
     };
   }

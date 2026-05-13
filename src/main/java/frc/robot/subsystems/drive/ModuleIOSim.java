@@ -13,6 +13,7 @@ import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.Timer;
 import frc.robot.generated.TunerConstants;
 import frc.robot.simlib.drivesims.SwerveModuleSimulation;
 import frc.robot.simlib.motorsims.SimulatedMotorController;
@@ -57,6 +58,16 @@ public class ModuleIOSim implements ModuleIO {
   private double driveAppliedVolts = 0.0;
   private double turnAppliedVolts = 0.0;
 
+  // The current rate-limited velocity setpoint, used to mimic the Talon's internal
+  // MotionMagicVelocityVoltage profiler. Stored in wheel rad/s.
+  private double drivePartialSetpointRadPerSec = 0.0;
+  // Per-call slip budget passed in via setDriveVelocity. Stored in wheel rad/s².
+  private double driveAccelLimitRadPerSecSq = Double.POSITIVE_INFINITY;
+  // Target velocity from the caller, before profiling. Stored in wheel rad/s.
+  private double driveTargetVelRadPerSec = 0.0;
+  // Last-loop timestamp for the internal rate limiter.
+  private double lastProfileTime = -1.0;
+
   public ModuleIOSim(SwerveModuleSimulation moduleSimulation) {
     this.moduleSimulation = moduleSimulation;
     this.driveMotor =
@@ -70,12 +81,32 @@ public class ModuleIOSim implements ModuleIO {
   @Override
   public void updateInputs(ModuleIOInputs inputs) {
     if (driveClosedLoop) {
+      // Mimic the Talon's MotionMagicVelocityVoltage internal profiler: rate-limit the partial
+      // setpoint toward the target by driveAccelLimitRadPerSecSq, then close the loop on that
+      // limited setpoint. Without this, sim ignores the slip budget entirely.
+      double now = Timer.getFPGATimestamp();
+      double dt = (lastProfileTime < 0) ? 0.0 : Math.max(0.0, now - lastProfileTime);
+      lastProfileTime = now;
+      double maxStep = driveAccelLimitRadPerSecSq * dt;
+      double error = driveTargetVelRadPerSec - drivePartialSetpointRadPerSec;
+      if (Double.isFinite(maxStep) && Math.abs(error) > maxStep) {
+        drivePartialSetpointRadPerSec += Math.copySign(maxStep, error);
+      } else {
+        drivePartialSetpointRadPerSec = driveTargetVelRadPerSec;
+      }
+      driveFFVolts =
+          DRIVE_KS * Math.signum(drivePartialSetpointRadPerSec)
+              + DRIVE_KV * drivePartialSetpointRadPerSec;
+      driveController.setSetpoint(drivePartialSetpointRadPerSec);
       driveAppliedVolts =
           driveFFVolts
               + driveController.calculate(
                   moduleSimulation.getDriveWheelFinalSpeed().in(RadiansPerSecond));
     } else {
       driveController.reset();
+      lastProfileTime = -1.0;
+      drivePartialSetpointRadPerSec =
+          moduleSimulation.getDriveWheelFinalSpeed().in(RadiansPerSecond);
     }
     if (turnClosedLoop) {
       turnAppliedVolts =
@@ -123,10 +154,17 @@ public class ModuleIOSim implements ModuleIO {
   }
 
   @Override
-  public void setDriveVelocity(double velocityRadPerSec) {
+  public void setDriveVelocity(double velocityRadPerSec, double accelLimitRadPerSecSq) {
+    if (!driveClosedLoop) {
+      // Seed the profile from the actual wheel speed on the closed-loop edge so we don't jump
+      // through a stale setpoint.
+      drivePartialSetpointRadPerSec =
+          moduleSimulation.getDriveWheelFinalSpeed().in(RadiansPerSecond);
+      lastProfileTime = -1.0;
+    }
     driveClosedLoop = true;
-    driveFFVolts = DRIVE_KS * Math.signum(velocityRadPerSec) + DRIVE_KV * velocityRadPerSec;
-    driveController.setSetpoint(velocityRadPerSec);
+    driveTargetVelRadPerSec = velocityRadPerSec;
+    driveAccelLimitRadPerSecSq = accelLimitRadPerSecSq;
   }
 
   @Override

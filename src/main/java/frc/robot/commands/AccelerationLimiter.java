@@ -305,6 +305,55 @@ public final class AccelerationLimiter {
     }
   }
 
+  /**
+   * Per-module acceleration caps (m/s²), one per wheel, for use as the per-call Acceleration
+   * argument to Phoenix 6 MotionMagicVelocityVoltage. Each cap is the friction-circle limit that
+   * the corresponding wheel can produce given its current normal force, including weight transfer
+   * estimated from {@link #getLastAcceleration()}.
+   *
+   * <p>The cap is in chassis-frame units (m/s²) because that's what the wheel's tangential
+   * acceleration is: {@code mu * N_i * 4 / m}. The factor of 4 is the dimensional bridge from "one
+   * wheel's normal force out of four" to "chassis accel that wheel can deliver if it were the only
+   * one pushing." With all four wheels pushing the chassis can do roughly the sum, but each one's
+   * *individual* slip threshold is what we want as the per-module rate cap.
+   *
+   * <p>Pass the robot-frame chassis velocity so {@code lastAccel} can be rotated correctly if it
+   * was logged in a different frame. Currently {@code lastAccel} is field-frame for all callers, so
+   * {@code headingRadians} should be the current heading.
+   *
+   * @param headingRadians robot heading, used to rotate field-frame {@code lastAccel} into the
+   *     robot frame for the weight-transfer estimate.
+   * @param out length-4 array (FL, FR, BL, BR) written in place with per-module caps in m/s².
+   */
+  public static void perModuleAccelCaps(double headingRadians, double[] out) {
+    double cosH = Math.cos(headingRadians);
+    double sinH = Math.sin(headingRadians);
+    double prevAxR = lastAccelVx * cosH + lastAccelVy * sinH;
+    double prevAyR = -lastAccelVx * sinH + lastAccelVy * cosH;
+
+    double[] normals = NORMALS_SCRATCH.get();
+    normalForcesWithTransfer(prevAxR, prevAyR, normals);
+
+    double[] ratios = new double[MODULE_RX.length];
+    for (int i = 0; i < MODULE_RX.length; i++) {
+      double limit = MU_FRICTION * 4.0 * normals[i] / ROBOT_MASS;
+      out[i] = limit;
+
+      double aix = prevAxR - lastAccelOmega * MODULE_RY[i];
+      double aiy = prevAyR + lastAccelOmega * MODULE_RX[i];
+      double mag = Math.hypot(aix, aiy);
+      ratios[i] = limit > 1e-9 ? mag / limit : Double.POSITIVE_INFINITY;
+    }
+    lastModuleFrictionRatios = ratios;
+  }
+
+  /** Allocating convenience wrapper around {@link #perModuleAccelCaps(double, double[])}. */
+  public static double[] perModuleAccelCaps(double headingRadians) {
+    double[] out = new double[MODULE_RX.length];
+    perModuleAccelCaps(headingRadians, out);
+    return out;
+  }
+
   /** Per-module normal force = static distribution + dynamic load shift from accel. */
   static void normalForcesWithTransfer(double axRobot, double ayRobot, double[] out) {
     double cz = COG_Z;

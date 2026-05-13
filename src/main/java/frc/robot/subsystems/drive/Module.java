@@ -75,11 +75,18 @@ public class Module {
     turnEncoderDisconnectedAlert.set(!inputs.turnEncoderConnected);
   }
 
-  /** Tells the module to drive at the given speed/angle. Optimizes the state in place. */
-  public void runSetpoint(SwerveModuleState state) {
+  /**
+   * Tells the module to drive at the given speed/angle. Optimizes the state in place. The {@code
+   * accelLimitMetersPerSecSq} is the per-module slip budget — it's forwarded to the drive Talon's
+   * MotionMagicVelocityVoltage as its per-call Acceleration so the velocity loop ramps smoothly
+   * under friction. Pass {@link Double#POSITIVE_INFINITY} to disable profiling.
+   */
+  public void runSetpoint(SwerveModuleState state, double accelLimitMetersPerSecSq) {
     state.optimize(getAngle());
     state.cosineScale(inputs.turnPosition);
-    io.setDriveVelocity(state.speedMetersPerSecond / constants.WheelRadius);
+    double velocityRadPerSec = state.speedMetersPerSecond / constants.WheelRadius;
+    double accelLimitRadPerSecSq = accelLimitMetersPerSecSq / constants.WheelRadius;
+    io.setDriveVelocity(velocityRadPerSec, accelLimitRadPerSecSq);
     io.setTurnPosition(state.angle);
   }
 

@@ -155,6 +155,14 @@ public class Drive extends SubsystemBase {
   private volatile SwerveModuleState[] latestSetpointStates = new SwerveModuleState[0];
   private volatile ChassisSpeeds latestSetpointSpeeds = new ChassisSpeeds();
 
+  // --- Measured-acceleration tracking (drives AccelerationLimiter weight-transfer) ---
+  // With per-module Motion Magic profiling, the chassis-level integrator that previously updated
+  // AccelerationLimiter.lastAccel isn't always on the active path (Choreo follower calls
+  // runVelocity directly). Estimate field-frame acceleration from the measured chassis-speed
+  // delta and feed it back so perModuleAccelCaps's weight-transfer term stays honest.
+  private ChassisSpeeds lastMeasuredFieldSpeeds = new ChassisSpeeds();
+  private double lastMeasuredFieldSpeedsTime = -1.0;
+
   // Tracks DS-disable transitions so we stop the modules once on the rising edge instead of
   // every periodic tick (avoiding a 50 Hz storm of stop() calls racing the 250 Hz hook).
   private boolean lastSeenDisabled = false;
@@ -225,6 +233,28 @@ public class Drive extends SubsystemBase {
 
     cachedPose = poseEstimator.getEstimatedPosition();
     cachedRobotSpeeds = kinematics.toChassisSpeeds(getModuleStates());
+
+    // Feed AccelerationLimiter with a measured field-frame acceleration estimate so its
+    // weight-transfer term tracks reality even when no caller is running the chassis-level
+    // integrator (e.g. Choreo follower calls runVelocity directly).
+    ChassisSpeeds measuredFieldSpeeds =
+        ChassisSpeeds.fromRobotRelativeSpeeds(cachedRobotSpeeds, getRotation());
+    double now = Timer.getFPGATimestamp();
+    if (lastMeasuredFieldSpeedsTime > 0) {
+      double dt = now - lastMeasuredFieldSpeedsTime;
+      if (dt > 1e-6) {
+        AccelerationLimiter.setLastAcceleration(
+            (measuredFieldSpeeds.vxMetersPerSecond - lastMeasuredFieldSpeeds.vxMetersPerSecond)
+                / dt,
+            (measuredFieldSpeeds.vyMetersPerSecond - lastMeasuredFieldSpeeds.vyMetersPerSecond)
+                / dt,
+            (measuredFieldSpeeds.omegaRadiansPerSecond
+                    - lastMeasuredFieldSpeeds.omegaRadiansPerSecond)
+                / dt);
+      }
+    }
+    lastMeasuredFieldSpeeds = measuredFieldSpeeds;
+    lastMeasuredFieldSpeedsTime = now;
 
     logState();
 
@@ -401,18 +431,24 @@ public class Drive extends SubsystemBase {
    * around a specific point (e.g. a corner module) rather than the geometric center.
    */
   public void runVelocity(ChassisSpeeds speeds, Translation2d centerOfRotation) {
-    ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, Constants.LOOP_PERIOD_SECONDS);
-    SwerveModuleState[] setpointStates =
-        kinematics.toSwerveModuleStates(discreteSpeeds, centerOfRotation);
+    // ChassisSpeeds.discretize used to compensate for the one-loop holdover gap between setpoint
+    // writes; with MotionMagicVelocityVoltage on the Talons the internal profiler closes the loop
+    // continuously, so no discretization is needed. desaturateWheelSpeeds stays — it's the
+    // kinematic-feasibility floor for when commanded ChassisSpeeds exceeds module max.
+    SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(speeds, centerOfRotation);
     SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, TunerConstants.kSpeedAt12Volts);
 
+    // Per-module slip budget (m/s²). This replaces the chassis-level setpoint-generator/limiter
+    // path — each module's Talon now profiles its own velocity ramp under its own friction limit.
+    double[] accelCapsMps2 = AccelerationLimiter.perModuleAccelCaps(getRotation().getRadians());
+
     for (int i = 0; i < 4; i++) {
-      modules[i].runSetpoint(setpointStates[i]);
+      modules[i].runSetpoint(setpointStates[i], accelCapsMps2[i]);
     }
 
     // Save the latest setpoint so periodic() can log it from the main thread.
     latestSetpointStates = setpointStates;
-    latestSetpointSpeeds = discreteSpeeds;
+    latestSetpointSpeeds = speeds;
   }
 
   /** Stop driving but keep wheels pointing where they were. */
@@ -435,7 +471,8 @@ public class Drive extends SubsystemBase {
     SwerveModuleState[] states = new SwerveModuleState[4];
     for (int i = 0; i < 4; i++) {
       states[i] = new SwerveModuleState(0.0, direction);
-      modules[i].runSetpoint(states[i]);
+      // Drive setpoint is zero — no slip budget needed; pass infinity to bypass profiling.
+      modules[i].runSetpoint(states[i], Double.POSITIVE_INFINITY);
     }
     latestSetpointStates = states;
     latestSetpointSpeeds = new ChassisSpeeds();

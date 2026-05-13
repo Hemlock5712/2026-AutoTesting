@@ -15,11 +15,11 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
-import com.ctre.phoenix6.controls.PositionVoltage;
+import com.ctre.phoenix6.controls.MotionMagicExpoTorqueCurrentFOC;
+import com.ctre.phoenix6.controls.MotionMagicExpoVoltage;
+import com.ctre.phoenix6.controls.MotionMagicVelocityTorqueCurrentFOC;
+import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
 import com.ctre.phoenix6.controls.TorqueCurrentFOC;
-import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
-import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.ParentDevice;
@@ -55,17 +55,20 @@ public class ModuleIOTalonFX implements ModuleIO {
   private final TalonFX turnTalon;
   private final CANcoder cancoder;
 
-  // Voltage control requests
+  // Voltage control requests. Steer uses MotionMagicExpo (kV/kA shape is baked into the config
+  // at construction). Drive uses MotionMagicVelocityVoltage with a per-call Acceleration that
+  // doubles as the per-module slip budget — see AccelerationLimiter.perModuleAccelCaps.
   private final VoltageOut voltageRequest = new VoltageOut(0);
-  private final PositionVoltage positionVoltageRequest = new PositionVoltage(0.0);
-  private final VelocityVoltage velocityVoltageRequest = new VelocityVoltage(0.0);
+  private final MotionMagicExpoVoltage positionVoltageRequest = new MotionMagicExpoVoltage(0.0);
+  private final MotionMagicVelocityVoltage velocityVoltageRequest =
+      new MotionMagicVelocityVoltage(0.0);
 
   // Torque-current control requests
   private final TorqueCurrentFOC torqueCurrentRequest = new TorqueCurrentFOC(0);
-  private final PositionTorqueCurrentFOC positionTorqueCurrentRequest =
-      new PositionTorqueCurrentFOC(0.0);
-  private final VelocityTorqueCurrentFOC velocityTorqueCurrentRequest =
-      new VelocityTorqueCurrentFOC(0.0);
+  private final MotionMagicExpoTorqueCurrentFOC positionTorqueCurrentRequest =
+      new MotionMagicExpoTorqueCurrentFOC(0.0);
+  private final MotionMagicVelocityTorqueCurrentFOC velocityTorqueCurrentRequest =
+      new MotionMagicVelocityTorqueCurrentFOC(0.0);
 
   // Timestamp inputs from Phoenix thread
   private final Queue<Double> timestampQueue;
@@ -283,12 +286,19 @@ public class ModuleIOTalonFX implements ModuleIO {
   }
 
   @Override
-  public void setDriveVelocity(double velocityRadPerSec) {
+  public void setDriveVelocity(double velocityRadPerSec, double accelLimitRadPerSecSq) {
     double velocityRotPerSec = Units.radiansToRotations(velocityRadPerSec);
+    double accelRotPerSecSq = Units.radiansToRotations(accelLimitRadPerSecSq);
     driveTalon.setControl(
         switch (constants.DriveMotorClosedLoopOutput) {
-          case Voltage -> velocityVoltageRequest.withVelocity(velocityRotPerSec);
-          case TorqueCurrentFOC -> velocityTorqueCurrentRequest.withVelocity(velocityRotPerSec);
+          case Voltage ->
+              velocityVoltageRequest
+                  .withVelocity(velocityRotPerSec)
+                  .withAcceleration(accelRotPerSecSq);
+          case TorqueCurrentFOC ->
+              velocityTorqueCurrentRequest
+                  .withVelocity(velocityRotPerSec)
+                  .withAcceleration(accelRotPerSecSq);
         });
   }
 
