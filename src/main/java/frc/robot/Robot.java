@@ -4,16 +4,11 @@
 
 package frc.robot;
 
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.IterativeRobotBase;
 import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.Watchdog;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.SimStartup;
-import frc.robot.utils.Tunables;
-import java.lang.reflect.Field;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
@@ -22,11 +17,17 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 
 public class Robot extends LoggedRobot {
 
+  /**
+   * Brownout-shutdown floor in volts. WPILib's default (6.75 V) trips early under heavy transient
+   * draws like shooter spin-up or simultaneous swerve acceleration on multiple modules. Lowering to
+   * 6.0 V keeps motor outputs alive through those sags. Raise if the chassis browns out and resets
+   * during a match; lower further (5.5 V or so) only if you've measured the battery and confirmed
+   * the FPGA stays up.
+   */
+  private static final double BROWNOUT_VOLTAGE = 6.0;
+
   private Command m_autonomousCommand;
   private final RobotContainer m_robotContainer;
-
-  private static final double MIN_OCV = 6.0;
-  private static final double loopOverrunWarning = 0.2;
 
   public Robot() {
     Logger.recordMetadata("ProjectName", "FRC-Robot-Template");
@@ -52,32 +53,13 @@ public class Robot extends LoggedRobot {
     Logger.start();
 
     m_robotContainer = new RobotContainer();
-    RobotController.setBrownoutVoltage(MIN_OCV);
-
-    try {
-      Field watchdogField = IterativeRobotBase.class.getDeclaredField("m_watchdog");
-      watchdogField.setAccessible(true);
-      Watchdog watchdog = (Watchdog) watchdogField.get(this);
-      watchdog.setTimeout(loopOverrunWarning);
-    } catch (Exception e) {
-      DriverStation.reportWarning("Failed to disable loop overrun warnings", false);
-    }
-    CommandScheduler.getInstance().setPeriod(loopOverrunWarning);
-
+    RobotController.setBrownoutVoltage(BROWNOUT_VOLTAGE);
     SimStartup.arm();
   }
 
   @Override
   public void robotPeriodic() {
-    long start = System.nanoTime();
-
     CommandScheduler.getInstance().run();
-    long afterScheduler = System.nanoTime();
-
-    Tunables.update();
-
-    Logger.recordOutput("Timing/CommandSchedulerMs", (afterScheduler - start) / 1e6);
-    Logger.recordOutput("Timing/TotalMs", (System.nanoTime() - start) / 1e6);
   }
 
   @Override

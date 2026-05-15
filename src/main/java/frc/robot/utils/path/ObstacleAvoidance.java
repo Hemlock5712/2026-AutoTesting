@@ -105,9 +105,13 @@ public final class ObstacleAvoidance {
     double dy = np.getY() - bcy;
     double dist = Math.hypot(dx, dy);
     if (dist < 1.0e-9) {
-      // Numerically on the boundary; the approach direction is undefined. One tick of
-      // pass-through is bounded — the next tick will be clearly inside or outside and handled by
-      // the branches below.
+      // Numerically on the boundary. If the center is outside, one tick of pass-through is bounded
+      // — next tick will be clearly outside and handled normally. If the center is inside (sd<0,
+      // typically from a misplaced SIM_SPAWN_POSE), pass-through would let the robot drift further
+      // in and never recover, so force a stop instead.
+      if (sd < 0.0) {
+        return new double[] {0.0, 0.0, sd};
+      }
       return new double[] {vx, vy, sd};
     }
 

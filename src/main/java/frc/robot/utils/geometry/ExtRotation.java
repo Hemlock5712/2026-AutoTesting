@@ -1,12 +1,10 @@
 package frc.robot.utils.geometry;
 
 import edu.wpi.first.math.geometry.Rotation2d;
-import frc.robot.utils.TunableTable;
 
 /**
- * A container for {@link Rotation2d} objects that enables live tuning via NetworkTables, and
- * dynamically returns flipped variants of the original rotation based on the robot's current
- * alliance via {@link ExtRotation#get()}.
+ * A container for {@link Rotation2d} objects that dynamically returns flipped variants of the
+ * original rotation based on the robot's current alliance via {@link ExtRotation#get()}.
  */
 public final class ExtRotation extends ExtGeometry<Rotation2d> {
 
@@ -71,10 +69,5 @@ public final class ExtRotation extends ExtGeometry<Rotation2d> {
     overWidth = Flips.overWidth(newValue);
     overLength = Flips.overLength(newValue);
     overDiagonal = Flips.overDiagonal(newValue);
-  }
-
-  @Override
-  public void initTunable(TunableTable table) {
-    table.value("degrees", original.getDegrees(), v -> set(Rotation2d.fromDegrees(v)));
   }
 }

@@ -1,7 +1,7 @@
 package frc.robot.utils;
 
 import edu.wpi.first.math.geometry.Translation2d;
-import frc.robot.commands.AccelerationLimiter;
+import frc.robot.lib.dynamics.AccelerationLimiter;
 
 /**
  * Math helpers for "drive to a target" commands. Calculates target rotation speed and how fast to
@@ -97,17 +97,16 @@ public final class DriveToPointUtils {
   }
 
   /**
-   * Picks a target velocity that will brake the robot toward the goal, ending at endTargetSpeed.
-   * Calculates each axis (x, y) independently and shares the friction budget between them based on
-   * which axis needs more.
+   * Picks a target velocity that will brake the robot to a stop at the goal. Calculates each axis
+   * (x, y) independently and shares the friction budget between them based on which axis needs
+   * more.
    */
   public static Translation2d calculatePerAxisBrakingVelocity(
       Translation2d toGoal,
       Translation2d currentVelocity,
       double brakingReactionTime,
       double targetOmega,
-      double angleError,
-      double endTargetSpeed) {
+      double angleError) {
 
     double distance = toGoal.getNorm();
     if (distance < EPSILON) {
@@ -121,12 +120,8 @@ public final class DriveToPointUtils {
     double toGoalY = toGoal.getY();
     double distanceX = Math.abs(toGoalX);
     double distanceY = Math.abs(toGoalY);
-
-    // Split the end speed across x and y based on direction to the goal.
     double dirX = toGoalX / distance;
     double dirY = toGoalY / distance;
-    double effectiveEndSpeedX = endTargetSpeed * Math.abs(dirX);
-    double effectiveEndSpeedY = endTargetSpeed * Math.abs(dirY);
 
     double currentSpeedX = Math.abs(currentVelocity.getX());
     double currentSpeedY = Math.abs(currentVelocity.getY());
@@ -135,19 +130,9 @@ public final class DriveToPointUtils {
 
     // Step 1: optimistic targets assuming the full budget on each axis.
     double optTargetX =
-        calculateAxisBrakingSpeed(
-            distanceX,
-            currentSpeedX,
-            brakingReactionTime,
-            availableLinearAccel,
-            effectiveEndSpeedX);
+        calculateAxisBrakingSpeed(distanceX, currentSpeedX, brakingReactionTime, availableLinearAccel);
     double optTargetY =
-        calculateAxisBrakingSpeed(
-            distanceY,
-            currentSpeedY,
-            brakingReactionTime,
-            availableLinearAccel,
-            effectiveEndSpeedY);
+        calculateAxisBrakingSpeed(distanceY, currentSpeedY, brakingReactionTime, availableLinearAccel);
 
     // Step 2: measure how much velocity each axis needs to change.
     double demandX = Math.abs(optTargetX - currentSpeedX);
@@ -155,7 +140,8 @@ public final class DriveToPointUtils {
     double totalDemand = Math.hypot(demandX, demandY);
 
     // Step 3: split the friction budget by demand.
-    double accelX, accelY;
+    double accelX;
+    double accelY;
     if (totalDemand < EPSILON) {
       // No demand - just split by direction to the goal.
       accelX = availableLinearAccel * Math.abs(dirX);
@@ -167,11 +153,9 @@ public final class DriveToPointUtils {
 
     // Step 4: redo the target speeds with the split budget.
     double targetSpeedX =
-        calculateAxisBrakingSpeed(
-            distanceX, currentSpeedX, brakingReactionTime, accelX, effectiveEndSpeedX);
+        calculateAxisBrakingSpeed(distanceX, currentSpeedX, brakingReactionTime, accelX);
     double targetSpeedY =
-        calculateAxisBrakingSpeed(
-            distanceY, currentSpeedY, brakingReactionTime, accelY, effectiveEndSpeedY);
+        calculateAxisBrakingSpeed(distanceY, currentSpeedY, brakingReactionTime, accelY);
 
     // Final velocity vector pointing toward the goal.
     return new Translation2d(
@@ -179,7 +163,7 @@ public final class DriveToPointUtils {
   }
 
   /**
-   * How fast we can go right now and still slow to {@code targetEndSpeed} by the time we get there.
+   * How fast we can go right now and still brake to a stop by the time we reach the target.
    * Accounts for the friction budget shared with rotation, plus a small lag time before braking
    * actually starts.
    */
@@ -188,36 +172,29 @@ public final class DriveToPointUtils {
       double currentSpeed,
       double brakingReactionTime,
       double targetOmega,
-      double angleError,
-      double targetEndSpeed) {
+      double angleError) {
 
     double availableLinearAccel = calculateAvailableLinearAccel(targetOmega, angleError);
     return calculateAxisBrakingSpeed(
-        distance, currentSpeed, brakingReactionTime, availableLinearAccel, targetEndSpeed);
+        distance, currentSpeed, brakingReactionTime, availableLinearAccel);
   }
 
   /**
-   * Braking math for one axis. Uses {@code v² = v_end² + 2*a*d} to find the max speed that lets us
-   * reach endSpeed after traveling distance.
+   * Braking math for one axis. Uses {@code v² = 2*a*d} to find the max speed that lets us stop
+   * after traveling distance.
    */
   private static double calculateAxisBrakingSpeed(
-      double distance,
-      double currentSpeed,
-      double reactionTime,
-      double availableAccel,
-      double endSpeed) {
+      double distance, double currentSpeed, double reactionTime, double availableAccel) {
 
     double bufferedDistance = Math.max(0, distance - currentSpeed * reactionTime);
-    double endSpeedSq = endSpeed * endSpeed;
-    double bufferedTargetSpeed = Math.sqrt(endSpeedSq + 2.0 * availableAccel * bufferedDistance);
+    double bufferedTargetSpeed = Math.sqrt(2.0 * availableAccel * bufferedDistance);
 
     // If we're slowing down, use the buffered distance. If speeding up, use full distance.
     if (bufferedTargetSpeed < currentSpeed) {
       return Math.min(bufferedTargetSpeed, AccelerationLimiter.MAX_VELOCITY);
     } else {
       return Math.min(
-          Math.sqrt(endSpeedSq + 2.0 * availableAccel * distance),
-          AccelerationLimiter.MAX_VELOCITY);
+          Math.sqrt(2.0 * availableAccel * distance), AccelerationLimiter.MAX_VELOCITY);
     }
   }
 

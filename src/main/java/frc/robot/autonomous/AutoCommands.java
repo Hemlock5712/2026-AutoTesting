@@ -4,7 +4,6 @@ import choreo.trajectory.EventMarker;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.commands.DriveToPoint;
 import frc.robot.commands.FollowPath;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.utils.path.ArcLengthTrajectory;
@@ -29,10 +28,6 @@ public class AutoCommands {
     this.drivetrain = drivetrain;
   }
 
-  public DriveToPoint driveTo(Supplier<Pose2d> pose) {
-    return new DriveToPoint(drivetrain, pose);
-  }
-
   public Command resetPose(Supplier<Pose2d> pose) {
     return Commands.runOnce(() -> drivetrain.resetPose(pose.get()), drivetrain);
   }
@@ -49,22 +44,17 @@ public class AutoCommands {
   // ==================== Path Actions ====================
 
   /**
-   * A command that fires at a certain distance along a path.
+   * A command that fires at a specific distance along a path.
    *
    * @param triggerS Where on the path the action fires (meters from start)
-   * @param triggerDistance Fire this many meters early (lead time before triggerS)
    * @param command The command to run
    */
-  public record PathAction(double triggerS, double triggerDistance, Supplier<Command> command) {
+  public record PathAction(double triggerS, Supplier<Command> command) {
 
     /** Creates a PathAction from a Choreo event marker, using the marker's timestamp. */
     public static PathAction fromMarker(
-        ArcLengthTrajectory trajectory,
-        double markerTimestamp,
-        double triggerDistance,
-        Supplier<Command> command) {
-      return new PathAction(
-          trajectory.getArcLengthAtTimestamp(markerTimestamp), triggerDistance, command);
+        ArcLengthTrajectory trajectory, double markerTimestamp, Supplier<Command> command) {
+      return new PathAction(trajectory.getArcLengthAtTimestamp(markerTimestamp), command);
     }
   }
 
@@ -78,7 +68,7 @@ public class AutoCommands {
     List<PathAction> actions = new ArrayList<>();
     for (var entry : eventMap.entrySet()) {
       for (EventMarker marker : path.trajectory().getEvents(entry.getKey())) {
-        actions.add(PathAction.fromMarker(traj, marker.timestamp, 0.0, entry.getValue()));
+        actions.add(PathAction.fromMarker(traj, marker.timestamp, entry.getValue()));
       }
     }
     return actions;
@@ -190,8 +180,7 @@ public class AutoCommands {
     // Sort actions by where they trigger so we fire them in order.
     List<ScheduledPathAction> scheduled = new ArrayList<>(actions.size());
     for (PathAction action : actions) {
-      double triggerS = Math.max(0.0, action.triggerS() - action.triggerDistance());
-      scheduled.add(new ScheduledPathAction(triggerS, action.command()));
+      scheduled.add(new ScheduledPathAction(Math.max(0.0, action.triggerS()), action.command()));
     }
     scheduled.sort((a, b) -> Double.compare(a.triggerS(), b.triggerS()));
     scheduled = groupScheduledActions(scheduled);

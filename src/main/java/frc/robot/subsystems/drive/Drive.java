@@ -34,7 +34,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
-import frc.robot.commands.AccelerationLimiter;
+import frc.robot.lib.dynamics.AccelerationLimiter;
 import frc.robot.generated.TunerConstants;
 import frc.robot.simlib.drivesims.COTS;
 import frc.robot.simlib.drivesims.configs.DriveTrainSimulationConfig;
@@ -163,10 +163,9 @@ public class Drive extends SubsystemBase {
   private volatile double lastRunVelocityTime = -1.0;
 
   // --- Measured-acceleration tracking (drives AccelerationLimiter weight-transfer) ---
-  // With per-module Motion Magic profiling, the chassis-level integrator that previously updated
-  // AccelerationLimiter.lastAccel isn't always on the active path (Choreo follower calls
-  // runVelocity directly). Estimate field-frame acceleration from the measured chassis-speed
-  // delta and feed it back so perModuleAccelCaps's weight-transfer term stays honest.
+  // Estimate field-frame acceleration from the measured chassis-speed delta and feed it back to
+  // AccelerationLimiter.lastAccel so applyPerModuleFrictionLimit's weight-transfer term tracks
+  // reality even on paths that bypass the chassis-level integrator (e.g. Choreo follower).
   private ChassisSpeeds lastMeasuredFieldSpeeds = new ChassisSpeeds();
   private double lastMeasuredFieldSpeedsTime = -1.0;
 
@@ -344,10 +343,9 @@ public class Drive extends SubsystemBase {
    * </pre>
    *
    * Falls back to a straight chord when delta_theta is below numerical noise. Returns the chord
-   * magnitude as the distance and atan2(dy, dx) as the direction. Rejects samples whose inputs are
-   * non-finite (which happens in sim when MapleSim's brownout/LinearFilter feedback poisons the
-   * steer angle with NaN — see Issue B in the May 2026 audit) by emitting a zero-displacement
-   * sample anchored to the last good angle and bumping the rejection counter.
+   * magnitude as the distance and atan2(dy, dx) as the direction. Non-finite inputs (rare; can
+   * appear in sim if a battery/brownout filter poisons the steer angle with NaN) emit a
+   * zero-displacement sample anchored to the last good angle and bump the rejection counter.
    */
   private SwerveModulePosition arcIntegrate(
       SwerveModulePosition rawCurrent, SwerveModulePosition rawLast) {
@@ -393,7 +391,12 @@ public class Drive extends SubsystemBase {
       hook.accept(dt);
     } catch (Throwable t) {
       // A crash in the hook would kill the timer thread silently. Log it and disable instead.
-      DriverStation.reportError("DriveHighRate hook threw: " + t.getMessage(), t.getStackTrace());
+      DriverStation.reportError(
+          "Drive 250 Hz hook threw — high-rate controller disabled until next setControl(). The"
+              + " active SwerveRequest's apply() crashed; check it for NaN inputs, null fields, or"
+              + " off-by-one indexing. Exception: "
+              + t.getMessage(),
+          t.getStackTrace());
       highRateController = null;
     }
   }
@@ -491,8 +494,10 @@ public class Drive extends SubsystemBase {
     SwerveModuleState[] states = new SwerveModuleState[4];
     for (int i = 0; i < 4; i++) {
       states[i] = new SwerveModuleState(0.0, direction);
-      // Drive setpoint is zero — no slip budget needed; pass infinity to bypass profiling.
-      modules[i].runSetpoint(states[i], Double.POSITIVE_INFINITY);
+      // Pass nominal loop period so the per-module profiler computes a sane brake accel from any
+      // currently-spinning wheel (deltaV / LOOP_PERIOD), instead of being clamped to the 1 m/s²
+      // floor that an infinite-dt would produce.
+      modules[i].runSetpoint(states[i], Constants.LOOP_PERIOD_SECONDS);
     }
     latestSetpointStates = states;
     latestSetpointSpeeds = new ChassisSpeeds();

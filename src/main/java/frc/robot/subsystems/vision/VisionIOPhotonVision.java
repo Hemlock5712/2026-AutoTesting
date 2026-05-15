@@ -1,6 +1,5 @@
 package frc.robot.subsystems.vision;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
@@ -16,28 +15,22 @@ import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
 /**
- * Reads pose estimates from a PhotonVision coprocessor camera. Same filtering and selection logic
- * as {@link VisionIOLimelight}:
+ * Dumb passthrough for a PhotonVision coprocessor camera. Picks the right estimator method
+ * (multi-tag PNP, single-tag trig-solve, or lowest-ambiguity fallback while disabled) and
+ * surfaces raw metadata. {@link Vision} owns all quality filtering.
  *
- * <ul>
- *   <li>Multi-tag observations use coprocessor PNP (analogous to MegaTag1).
- *   <li>Single-tag observations use PNP_DISTANCE_TRIG_SOLVE from PhotonVision PR #1767, which is
- *       the single-tag analog of MegaTag2: it fuses our gyro heading with the tag's distance so the
- *       rotation comes from the gyro and only translation is solved visually.
- * </ul>
+ * <p>PNP = Perspective-N-Point, the geometric algorithm that recovers a camera's pose from N
+ * known 3D points seen as 2D image coordinates. "Multi-tag PNP" pools points from several
+ * AprilTags for a strong solve; "trig-solve" uses a single tag plus our gyro heading (the
+ * MegaTag2 analog: rotation comes from the gyro, only translation is solved visually).
+ *
+ * <p>{@code isMegaTag2 = true} signals "rotation came from our gyro" — the trig-solve case.
  */
 public class VisionIOPhotonVision implements VisionIO {
-
-  private static final double MAX_AMBIGUITY = 0.3;
-  private static final double FIELD_BORDER_MARGIN_METERS = 0.5;
-  private static final double MAX_TAG_DISTANCE_METERS = 5.5;
-  private static final double MAX_ANGULAR_VELOCITY_MULTITAG_DEG_PER_SEC = 360;
-  private static final double MAX_YAW_RATE_FOR_TRIG_SOLVE_DEG_PER_SEC = 200;
 
   private final String name;
   private final PhotonCamera camera;
   private final PhotonPoseEstimator poseEstimator;
-  private double cachedYawRateDegPerSec = 0.0;
 
   public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
     this.name = name;
@@ -57,7 +50,6 @@ public class VisionIOPhotonVision implements VisionIO {
 
   @Override
   public void setRobotOrientation(double yawDegrees, double yawRateDegPerSec) {
-    cachedYawRateDegPerSec = yawRateDegPerSec;
     // PNP_DISTANCE_TRIG_SOLVE consumes this for single-tag pose solving.
     poseEstimator.addHeadingData(Timer.getFPGATimestamp(), Rotation2d.fromDegrees(yawDegrees));
   }
@@ -70,8 +62,6 @@ public class VisionIOPhotonVision implements VisionIO {
 
     EstimatedRobotPose bestEstimate = null;
     boolean bestIsTrigSolve = false;
-    double bestAvgDistance = 0.0;
-    double bestMaxAmbiguity = 0.0;
 
     for (PhotonPipelineResult result : results) {
       if (!result.hasTargets()) continue;
@@ -82,36 +72,19 @@ public class VisionIOPhotonVision implements VisionIO {
         estimateOpt = poseEstimator.estimateCoprocMultiTagPose(result);
         isTrigSolve = false;
       } else if (!DriverStation.isDisabled()) {
-        // Single-tag: use trig-solve (MT2 analog) — needs gyro heading + reasonable yaw rate.
-        if (Math.abs(cachedYawRateDegPerSec) > MAX_YAW_RATE_FOR_TRIG_SOLVE_DEG_PER_SEC) continue;
+        // Single-tag: use trig-solve (MT2 analog) — needs gyro heading data buffered.
         estimateOpt = poseEstimator.estimatePnpDistanceTrigSolvePose(result);
         isTrigSolve = true;
       } else {
-        // Disabled: fall back to lowest-ambiguity single-tag solve so the estimator stays usable
-        // before match start (no gyro heading data has been pushed yet).
+        // Disabled: no gyro heading has been buffered yet, so trig-solve has nothing to fuse.
         estimateOpt = poseEstimator.estimateLowestAmbiguityPose(result);
         isTrigSolve = false;
       }
 
       if (estimateOpt.isEmpty()) continue;
-      EstimatedRobotPose estimate = estimateOpt.get();
-
-      double avgDistance = averageTagDistance(estimate);
-      if (avgDistance > MAX_TAG_DISTANCE_METERS) continue;
-
-      double maxAmbiguity = maxAmbiguity(estimate.targetsUsed);
-      if (maxAmbiguity > MAX_AMBIGUITY) continue;
-
-      if (!isTrigSolve
-          && Math.abs(cachedYawRateDegPerSec) > MAX_ANGULAR_VELOCITY_MULTITAG_DEG_PER_SEC) continue;
-
-      if (!isPoseOnField(estimate.estimatedPose.toPose2d())) continue;
-
       // Keep the latest valid frame in the batch (results are time-ordered oldest→newest).
-      bestEstimate = estimate;
+      bestEstimate = estimateOpt.get();
       bestIsTrigSolve = isTrigSolve;
-      bestAvgDistance = avgDistance;
-      bestMaxAmbiguity = maxAmbiguity;
     }
 
     if (bestEstimate == null) return;
@@ -120,11 +93,16 @@ public class VisionIOPhotonVision implements VisionIO {
     inputs.latestPose = bestEstimate.estimatedPose.toPose2d();
     inputs.latestTimestampSeconds = bestEstimate.timestampSeconds;
     inputs.tagCount = bestEstimate.targetsUsed.size();
-    inputs.avgTagDistance = bestAvgDistance;
-    inputs.maxAmbiguity = bestMaxAmbiguity;
-    // Reuse the existing flag — same semantic: rotation came from our gyro, so the estimator
-    // should treat its theta component as untrustworthy.
+    inputs.tagIds = tagIds(bestEstimate.targetsUsed);
+    inputs.avgTagDistance = averageTagDistance(bestEstimate);
+    inputs.maxAmbiguity = maxAmbiguity(bestEstimate.targetsUsed);
     inputs.isMegaTag2 = bestIsTrigSolve;
+  }
+
+  private static int[] tagIds(List<PhotonTrackedTarget> targets) {
+    int[] ids = new int[targets.size()];
+    for (int i = 0; i < ids.length; i++) ids[i] = targets.get(i).getFiducialId();
+    return ids;
   }
 
   private static double maxAmbiguity(List<PhotonTrackedTarget> targets) {
@@ -147,12 +125,5 @@ public class VisionIOPhotonVision implements VisionIO {
       counted++;
     }
     return counted == 0 ? 0.0 : sum / counted;
-  }
-
-  private static boolean isPoseOnField(Pose2d pose) {
-    return pose.getX() >= -FIELD_BORDER_MARGIN_METERS
-        && pose.getX() <= FieldInfo.lengthMeters() + FIELD_BORDER_MARGIN_METERS
-        && pose.getY() >= -FIELD_BORDER_MARGIN_METERS
-        && pose.getY() <= FieldInfo.widthMeters() + FIELD_BORDER_MARGIN_METERS;
   }
 }

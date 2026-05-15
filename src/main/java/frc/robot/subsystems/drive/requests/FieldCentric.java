@@ -4,7 +4,7 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import frc.robot.commands.AccelerationLimiter;
+import frc.robot.lib.dynamics.AccelerationLimiter;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.SwerveRequest;
 import frc.robot.utils.path.ObstacleAvoidance;

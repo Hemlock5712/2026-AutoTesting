@@ -46,7 +46,7 @@ public class Field2026ObstaclesTest {
     ObstacleField f = Field2026Obstacles.build();
     double L = FieldInfo.lengthMeters();
     double W = FieldInfo.widthMeters();
-    double blueHubCx = FieldInfo.Hub.nearLeftCorner.getX() + FieldInfo.Hub.width / 2.0;
+    double blueHubCx = Field2026Constants.Hub.nearLeftCorner.getX() + Field2026Constants.Hub.width / 2.0;
     double redHubCx = L - blueHubCx;
     double centerY = W / 2.0;
     assertTrue(
@@ -168,23 +168,7 @@ public class Field2026ObstaclesTest {
     ObstacleField f = new ObstacleField();
     f.addStatic(new Obstacle.Rectangle(2.0, -5.0, 5.0, 5.0));
     double half = 0.1;
-    Footprint shifted =
-        new Footprint() {
-          @Override
-          public double halfX() {
-            return half;
-          }
-
-          @Override
-          public double halfY() {
-            return half;
-          }
-
-          @Override
-          public double offsetX() {
-            return 0.5;
-          }
-        };
+    Footprint shifted = new Footprint(half, half, 0.5, 0.0);
     ObstacleAvoidance noOffset =
         new ObstacleAvoidance(f, Footprint.fixed(half, half), 6.0, 0.0, null);
     ObstacleAvoidance withOffset = new ObstacleAvoidance(f, shifted, 6.0, 0.0, null);

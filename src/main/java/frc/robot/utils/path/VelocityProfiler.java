@@ -1,8 +1,6 @@
 package frc.robot.utils.path;
 
-import frc.robot.commands.AccelerationLimiter;
-import frc.robot.generated.TunerConstants;
-import frc.robot.utils.Motor;
+import frc.robot.lib.dynamics.AccelerationLimiter;
 import java.util.function.DoubleUnaryOperator;
 
 /**
@@ -42,20 +40,9 @@ public final class VelocityProfiler {
       return new Constraints(
           AccelerationLimiter.MAX_VELOCITY,
           AccelerationLimiter.MAX_FRICTION_ACCEL,
-          v ->
-              Motor.KRAKEN_X60_FOC.getMaxAcceleration(
-                  v,
-                  TunerConstants.FrontLeft.DriveMotorGearRatio,
-                  TunerConstants.FrontLeft.WheelRadius,
-                  60.0,
-                  4,
-                  150.0));
+          AccelerationLimiter::maxAccelerationAtSpeed);
     }
 
-    /** Like defaults() but ignores motor limits (only friction limits speed). */
-    public Constraints withoutMotorLimit() {
-      return new Constraints(maxVelocity, maxFrictionAccel, null);
-    }
   }
 
   private VelocityProfiler() {}

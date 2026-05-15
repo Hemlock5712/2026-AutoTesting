@@ -1,5 +1,8 @@
 package frc.robot.simlib;
 
+import edu.wpi.first.math.geometry.Ellipse2d;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rectangle2d;
 import frc.robot.utils.path.Obstacle;
 import frc.robot.utils.path.ObstacleField;
 import java.util.ArrayList;
@@ -45,13 +48,17 @@ public final class SimWorldSetup {
   private static Body toBody(Obstacle o) {
     Body body = new Body();
     if (o instanceof Obstacle.Circle c) {
-      body.addFixture(Geometry.createCircle(c.radius()));
-      body.translate(c.cx(), c.cy());
+      Ellipse2d e = c.shape();
+      // dyn4j has no native ellipse fixture for static bodies; circles use semi-axis as radius.
+      body.addFixture(Geometry.createCircle(e.getXSemiAxis()));
+      body.translate(e.getCenter().getX(), e.getCenter().getY());
     } else if (o instanceof Obstacle.Rectangle r) {
-      double width = r.maxX() - r.minX();
-      double height = r.maxY() - r.minY();
-      body.addFixture(Geometry.createRectangle(width, height));
-      body.translate(r.minX() + width / 2.0, r.minY() + height / 2.0);
+      Rectangle2d rect = r.shape();
+      body.addFixture(Geometry.createRectangle(rect.getXWidth(), rect.getYWidth()));
+      Pose2d c = rect.getCenter();
+      body.translate(c.getX(), c.getY());
+      double rad = c.getRotation().getRadians();
+      if (rad != 0.0) body.rotate(rad);
     } else {
       throw new IllegalArgumentException("Unknown obstacle type: " + o.getClass());
     }

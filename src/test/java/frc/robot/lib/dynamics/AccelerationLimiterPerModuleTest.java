@@ -1,4 +1,4 @@
-package frc.robot.commands;
+package frc.robot.lib.dynamics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

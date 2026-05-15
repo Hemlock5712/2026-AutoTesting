@@ -5,12 +5,10 @@ import static edu.wpi.first.units.Units.Meters;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
-import frc.robot.utils.TunableTable;
 
 /**
- * A container for {@link Translation2d} objects that enables live tuning via NetworkTables, and
- * dynamically returns flipped variants of the original translation based on the robot's current
- * alliance via {@link ExtTranslation#get()}.
+ * A container for {@link Translation2d} objects that dynamically returns flipped variants of the
+ * original translation based on the robot's current alliance via {@link ExtTranslation#get()}.
  */
 public final class ExtTranslation extends ExtGeometry<Translation2d> {
 
@@ -69,11 +67,5 @@ public final class ExtTranslation extends ExtGeometry<Translation2d> {
     overWidth = Flips.overWidth(newValue);
     overLength = Flips.overLength(newValue);
     overDiagonal = Flips.overDiagonal(newValue);
-  }
-
-  @Override
-  public void initTunable(TunableTable table) {
-    table.value("x", original.getX(), v -> set(new Translation2d(v, original.getY())));
-    table.value("y", original.getY(), v -> set(new Translation2d(original.getX(), v)));
   }
 }

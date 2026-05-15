@@ -134,7 +134,7 @@ public class AxisLockDrive extends Command {
 
     double targetSpeed =
         DriveToPointUtils.calculateBrakingTargetSpeed(
-            distance, Math.abs(currentAxisVelocity), BRAKING_REACTION_TIME, currentOmega, 0.0, 0.0);
+            distance, Math.abs(currentAxisVelocity), BRAKING_REACTION_TIME, currentOmega, 0.0);
     return Math.copySign(targetSpeed, targetPosition - currentPosition);
   }
 

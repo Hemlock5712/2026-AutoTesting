@@ -23,12 +23,11 @@ The Drive constructor takes one `GyroIO` and four `ModuleIO`s. [RobotContainer](
 
 **250 Hz odometry on real hardware.** [PhoenixOdometryThread](src/main/java/frc/robot/subsystems/drive/PhoenixOdometryThread.java) is a singleton thread that does `BaseStatusSignal.waitForAll(...)` (CAN-FD) or sleeps + `refreshAll(...)` (CAN 2.0) at `Drive.ODOMETRY_FREQUENCY` (250 Hz on FD, 100 Hz else). It samples each registered position signal into a per-signal queue. `Drive.periodic()` acquires `Drive.odometryLock`, the IOs drain their queues into `@AutoLog` arrays, and the pose estimator is updated once per logged sample (so all 250 sub-cycles are walked through). Vision adds measurements via `drive.addVisionMeasurement(pose, fpgaTs, stdDevs)`.
 
-**SIM uses [maple-sim](https://github.com/Shenzhen-Robotics-Alliance/maple-sim)** (vendored under [simlib/](src/main/java/frc/robot/simlib/)). The chassis spawn pose lives in [RobotContainer.SIM_SPAWN_POSE](src/main/java/frc/robot/RobotContainer.java) (default `(8.0, 4.0)`); the estimator is reset to match at construction, and `Drive.onPoseReset` wires future estimator resets through to `SwerveDriveSimulation.setSimulationWorldPose` so auto-routine resets don't strand the sim chassis. `Robot.simulationPeriodic` ticks the arena via `RobotContainer.updateSimulation`, which calls `Drive.updateSimulationGroundTruth(truth)` — that logs `Drive/Sim/GroundTruthPose`, `Drive/Sim/PoseErrorMeters`, and `Drive/Sim/HeadingErrorRad` (the answer to "what does the estimator think vs. what's actually happening"). [VisionIOSim](src/main/java/frc/robot/subsystems/vision/VisionIOSim.java) feeds the simulated truth pose back into the estimator. Maple-sim uses 5 sub-ticks per 20 ms cycle (≈250 Hz effective); each `ModuleIO.updateInputs` writes one odometry sample per sub-tick.
+**SIM uses [maple-sim](https://github.com/Shenzhen-Robotics-Alliance/maple-sim)** (vendored under [simlib/](src/main/java/frc/robot/simlib/)). The chassis spawn pose lives in [RobotContainer.SIM_SPAWN_POSE](src/main/java/frc/robot/RobotContainer.java) (default `(8.27, 4.0)`); the estimator is reset to match at construction (unconditionally — runs in REAL/SIM/REPLAY, so replay reproduces absolute poses, not just trajectory shape), and `Drive.onPoseReset` wires future estimator resets through to `SwerveDriveSimulation.setSimulationWorldPose` so auto-routine resets don't strand the sim chassis. `Robot.simulationPeriodic` ticks the arena via `RobotContainer.updateSimulation`, which calls `Drive.updateSimulationGroundTruth(truth)` — that logs `Drive/Sim/GroundTruthPose`, `Drive/Sim/PoseErrorMeters`, and `Drive/Sim/HeadingErrorRad` (the answer to "what does the estimator think vs. what's actually happening"). [VisionIOPhotonVisionSim](src/main/java/frc/robot/subsystems/vision/VisionIOPhotonVisionSim.java) feeds simulated AprilTag observations into the estimator via PhotonVision's `VisionSystemSim`. Maple-sim uses 5 sub-ticks per 20 ms cycle (≈250 Hz effective); each `ModuleIO.updateInputs` writes one odometry sample per sub-tick.
 
 **Drive odometry refinements (vs. the upstream AKit template):**
 - **Arc-integrated module deltas.** [Drive.arcIntegrate](src/main/java/frc/robot/subsystems/drive/Drive.java) replaces straight-line per-sample integration with arc integration assuming constant module ω during the sample, then re-encodes the arc displacement as an effective `(distance, angle)` so WPILib's straight-chord kinematics produces the arc-correct twist.
 - **Azimuth coupling compensation.** [ModuleIOTalonFX](src/main/java/frc/robot/subsystems/drive/ModuleIOTalonFX.java) subtracts the phantom drive motion induced by steer rotation (`steer_mech_rad * CouplingGearRatio / DriveMotorGearRatio`) from raw drive position and velocity. CTRE's `SwerveDrivetrain` does this internally; we don't use that class so we do it ourselves. SIM is untouched (maple-sim has independent shafts, no coupling to subtract).
-- **Field-escape diagnostic.** `Drive/Diagnostics/FieldEscapeHits` counts periodic ticks where the estimator pose has crossed any field wall. Diagnostic only — we tried clamping the cached pose to the field but it bit legitimate near-wall path overshoots and was reverted.
 - **Arc-integration rejection counter.** `Drive/Diagnostics/ArcIntegrateRejections` counts odometry samples thrown out because an input was non-finite (e.g. MapleSim brownout poisoning a steer angle with NaN).
 - **Per-module friction utilization.** `Drive/Diagnostics/FrictionRatios` exposes each wheel's `a_i / (mu*g)` for tuning the friction limiter.
 
@@ -48,8 +47,10 @@ Multi-camera AprilTag pose fusion behind an AKit IO layer.
 
 - [VisionIO](src/main/java/frc/robot/subsystems/vision/VisionIO.java) — interface; one impl per camera type.
 - [VisionIOLimelight](src/main/java/frc/robot/subsystems/vision/VisionIOLimelight.java) — real Limelight impl. Pulls `botpose_*` from NT, applies rejection rules (ambiguity, distance, field bounds, angular-velocity gating), and emits a single best pose per cycle into [VisionInputsAutoLogged](src/main/java/frc/robot/subsystems/vision/VisionInputs.java). Filtering happens here so the inputs replay deterministically.
-- [Vision](src/main/java/frc/robot/subsystems/vision/Vision.java) — subsystem that pushes orientation back to the cameras (for MegaTag2), computes std-devs from logged tag distance / tag count, and either fuses time-synced poses across cameras or pushes them through individually. The std-dev coefficients live at the top of this file — they are the **vision tuning surface** for replay-based iteration.
-- Five Limelights: `limelight-br/bl/fl/fr/mm`. Std-dev formula: `coefficient * avgTagDist^1.2 / tagCount^2`, capped at `MAX_EFFECTIVE_TAG_COUNT = 2.5` because tags on the same wall correlate.
+- [VisionIOPhotonVision](src/main/java/frc/robot/subsystems/vision/VisionIOPhotonVision.java) and [VisionIOPhotonVisionSim](src/main/java/frc/robot/subsystems/vision/VisionIOPhotonVisionSim.java) — base + sim subclass for PhotonVision coprocessor cameras. Only used in SIM by default (Limelight has no Java sim, so PhotonVision sim stands in); the real-PV class is available if a team switches hardware.
+- [Vision](src/main/java/frc/robot/subsystems/vision/Vision.java) — subsystem that pushes orientation back to the cameras (for MegaTag2 / trig-solve), computes std-devs from logged tag distance / tag count, and either fuses time-synced poses across cameras or pushes them through individually. The std-dev coefficients live at the top of this file — they are the **vision tuning surface** for replay-based iteration.
+- Camera names come from [VisionConstants](src/main/java/frc/robot/subsystems/vision/VisionConstants.java): default is one `limelight` on real and one `photon-front` in sim. Add entries to the arrays for more cameras.
+- Std-dev formula: `coefficient * avgTagDist^1.2 / tagCount^2`, capped at `MAX_EFFECTIVE_TAG_COUNT = 2.5` because tags on the same wall correlate.
 - Rejection: `MAX_AMBIGUITY = 0.3`, field-border margin 0.5 m, angular-velocity gating (`MT1: 360 deg/s`, `MT2: 200 deg/s`).
 - Tunings borrow from 6328 Mechanical Advantage's published trust ratios, scaled to WPILib defaults.
 
@@ -77,8 +78,10 @@ Alliance flipping is handled inside `AutoPath.get()` — pre-computed at load ti
 
 ### Other movement commands
 
-- **`TeleopDrive`** — default teleop command. Translation from left stick (rescaled with deadband + squared magnitude), rotation from right stick.
-- **`DriveToPoint`** — closed-loop drive to a target `Pose2d`. Used for non-path-based moves (alignment, station approach).
+- **`TeleopDrive`** — default teleop command. Translation from left stick (rescaled with deadband + squared magnitude), rotation from right stick. Wires the pose-based [ObstacleAvoidance](src/main/java/frc/robot/utils/path/ObstacleAvoidance.java) clamp; right-bumper bypass for emergencies.
+- **`DriveToPoint`** — closed-loop drive to a target `Pose2d` with profiled braking (no planner, straight-line). Used for short alignment moves where the path is known clear.
+- **`DriveToWithAvoidance`** — at trigger time, plans a path from the current pose to a goal around the static obstacle field via [PathGenerator](src/main/java/frc/robot/utils/path/PathGenerator.java) (Theta* + spline smoothing + velocity profile), then drives it with `FollowPath`. Bound to driver A in [RobotContainer](src/main/java/frc/robot/RobotContainer.java) and exposed as an auto routine in [AutoSelector](src/main/java/frc/robot/autonomous/AutoSelector.java).
+- **`AxisLockDrive`** — teleop assist that locks one axis (X, Y, or rotation) for precision alignment. Available as a teaching surface, no default binding.
 
 ## Logging
 
@@ -88,29 +91,27 @@ Alliance flipping is handled inside `AutoPath.get()` — pre-computed at load ti
 - **REPLAY:** `setUseTiming(false)`, `Logger.setReplaySource(WPILOGReader(System.getProperty("frc.replay.input")))`, output to a sibling `_replay.wpilog`. No NT publisher, no sim extensions (they're disabled in [build.gradle](build.gradle) when `-Preplay=...` is set).
 
 Other knobs:
-- `loopOverrunWarning = 0.2 s`, period overridden to that value (intentional — warnings only fire on truly bad cycles).
-- Watchdog timeout reached via reflection (`IterativeRobotBase.m_watchdog`).
-- Per-cycle timing logged to `Timing/CommandSchedulerMs`, `Timing/TotalMs`, `Timing/VisionMs`.
+- Default WPILib loop period and watchdog timeout (no reflection hacks; the previous version's reflective `IterativeRobotBase.m_watchdog` override was removed).
+- Per-cycle vision timing logged to `Timing/VisionMs`. No other `Timing/*` keys.
 
-To activate REPLAY: `./gradlew simulateJava -Preplay=logs/<file>.wpilog -Pheadless`. See [Replay Testing](.agent/skills/replay-testing.md) for the full workflow.
-
-## Tunables
-
-[TunableTable](src/main/java/frc/robot/utils/TunableTable.java) + [Tunables](src/main/java/frc/robot/utils/Tunables.java) provide live-editable doubles published under `/Tunables/...`. `Tunables.update()` runs every `robotPeriodic`. To iterate on gains without rebuilding, write to those NT keys from any NT4 client (Glass, AdvantageScope's NT publisher, Shuffleboard, or a small `pyntcore` script).
+To activate REPLAY: `./gradlew simulateJava -Preplay=logs/<file>.wpilog`. `build.gradle` disables sim GUI + Driver Station + WebSocket extensions automatically when `-Preplay` is set, and `Robot.java` flips `setUseTiming(false)` so replay runs as fast as the CPU allows. The replay output is written to a sibling `_replay.wpilog`.
 
 ## Autonomous selection
 
-Single chooser entry today: `"NewPath (PD)"` → `newPathAutoPD()` in [RobotContainer.java](src/main/java/frc/robot/RobotContainer.java). The routine:
-1. Reset pose to the path's start pose (alliance-flipped).
-2. Follow `AutoPath.NEW_PATH` with Choreo event markers wired through `actionsFromChoreoEvents`.
+The chooser in [AutoSelector](src/main/java/frc/robot/autonomous/AutoSelector.java) registers two routines plus a no-op default:
+- `"None"` — explicit `Commands.none()`. Safe default so a competition where no routine is selected doesn't accidentally execute path-following.
+- `"NewPath (PD)"` — resets pose to the path's start (alliance-flipped) then runs `FollowPath` over `AutoPath.NEW_PATH` with Choreo event markers wired through `actionsFromChoreoEvents`.
+- `"Drive-to-Point Planner Demo"` — resets to a demo start pose and runs `DriveToWithAvoidance` to a demo goal, exercising the runtime planner end-to-end.
 
-When adding new autos: add an `AutoPath` enum entry, a `Choreo.chor` path, and a `chooser.addOption` call in `RobotContainer`.
+Both demo poses live in `AutoSelector` as `ExtPose` constants (`DEMO_START`, `DEMO_GOAL`) — blue-origin, auto-flipped via `.get()` at routine-build time. `DEMO_GOAL` is reused by the driver-A button binding in `RobotContainer` so both demos point at the same spot.
+
+When adding new autos: add an `AutoPath` enum entry referencing a `ChoreoTraj` constant, save the `.traj` file in Choreo, and add a `chooser.addOption` call in `AutoSelector`.
 
 ## Hardware target
 
 - **roboRIO 1 / 2** — JVM args in [build.gradle](build.gradle) pin a 100 MB heap with `+AlwaysPreTouch`, `UseSerialGC`, `GCTimeRatio=5`, `MaxGCPauseMillis=50`. Following the 254 / 6328 recipe.
 - **CAN FD** for swerve modules + Pigeon2.
-- **Brownout floor** 6.0 V (`MIN_OCV` in `Robot.java`).
+- **Brownout floor** is overridden to 6.0 V (`BROWNOUT_VOLTAGE` in [Robot.java](src/main/java/frc/robot/Robot.java)) — below WPILib's default of 6.75 V. Keeps motor outputs alive through transient battery sags during shooter spin-up / simultaneous module accel; raise if the chassis resets mid-match.
 
 ## What lives where (cheat sheet)
 
@@ -123,14 +124,16 @@ When adding new autos: add an `AutoPath` enum entry, a `Choreo.chor` path, and a
 | Module / Gyro IOs              | [subsystems/drive/ModuleIO.java](src/main/java/frc/robot/subsystems/drive/ModuleIO.java) (+ TalonFX, Sim impls), [GyroIO.java](src/main/java/frc/robot/subsystems/drive/GyroIO.java) (+ Pigeon2, Sim impls) |
 | Maple-sim physics + spawn      | [simlib/](src/main/java/frc/robot/simlib/) (vendored), `Drive.getMapleSimConfig()`, `RobotContainer.SIM_SPAWN_POSE` |
 | Sim vs estimator comparison    | `Drive/Sim/{GroundTruthPose, PoseErrorMeters, HeadingErrorRad}` from `Drive.updateSimulationGroundTruth` |
-| Drive diagnostics              | `Drive/Diagnostics/{FieldEscapeHits, ArcIntegrateRejections, FrictionRatios}` |
+| Drive diagnostics              | `Drive/Diagnostics/{ArcIntegrateRejections, FrictionRatios}` |
 | 250 Hz odometry collector      | [subsystems/drive/PhoenixOdometryThread.java](src/main/java/frc/robot/subsystems/drive/PhoenixOdometryThread.java) |
 | Phoenix retry helper           | [utils/PhoenixUtil.java](src/main/java/frc/robot/utils/PhoenixUtil.java) |
 | Swerve hardware constants      | [generated/TunerConstants.java](src/main/java/frc/robot/generated/TunerConstants.java) |
+| Friction / motor-curve math    | [lib/dynamics/AccelerationLimiter.java](src/main/java/frc/robot/lib/dynamics/AccelerationLimiter.java) (uses WPILib `DCMotor`) |
 | Path math                      | [utils/path/](src/main/java/frc/robot/utils/path/)                     |
 | Path-following controller      | [commands/FollowPath.java](src/main/java/frc/robot/commands/FollowPath.java) |
-| Auto building blocks           | [autonomous/AutoCommands.java](src/main/java/frc/robot/autonomous/AutoCommands.java) |
+| Auto building blocks           | [autonomous/AutoCommands.java](src/main/java/frc/robot/autonomous/AutoCommands.java) + [AutoSelector.java](src/main/java/frc/robot/autonomous/AutoSelector.java) |
 | Vision IO + fusion             | [subsystems/vision/](src/main/java/frc/robot/subsystems/vision/)       |
-| Geometry helpers               | [utils/geometry/](src/main/java/frc/robot/utils/geometry/)             |
+| Geometry helpers               | [utils/geometry/](src/main/java/frc/robot/utils/geometry/) (`ExtPose`, `ExtTranslation`, `ExtRotation` for alliance-aware blue-origin constants) |
 | Sim startup hook (headless)    | [utils/SimStartup.java](src/main/java/frc/robot/utils/SimStartup.java) |
-| Pose comparison tool           | [scripts/compare_poses.py](scripts/compare_poses.py)                 |
+| Season-specific field geometry | [Field2026Constants.java](src/main/java/frc/robot/Field2026Constants.java) + [Field2026Obstacles.java](src/main/java/frc/robot/Field2026Obstacles.java) — replace these each season |
+| Reference subsystems (copy-and-rename) | [subsystems/examples/](src/main/java/frc/robot/subsystems/examples/) — `Flywheel` (velocity control) and `Arm` (profiled position control) |

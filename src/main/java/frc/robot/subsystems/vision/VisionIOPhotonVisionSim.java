@@ -3,39 +3,21 @@ package frc.robot.subsystems.vision;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
 import frc.robot.utils.FieldInfo;
 import org.photonvision.simulation.PhotonCameraSim;
 import org.photonvision.simulation.SimCameraProperties;
 import org.photonvision.simulation.VisionSystemSim;
 
 /**
- * Simulated PhotonVision camera. Same processing pipeline as {@link VisionIOPhotonVision} — the sim
- * renders AprilTag detections into a {@link PhotonCameraSim} which publishes through NetworkTables
- * to the parent class's {@link org.photonvision.PhotonCamera}, so the trig-solve / multi-tag
- * selection and filtering logic is shared verbatim.
+ * Simulated PhotonVision camera. Renders AprilTag detections into a {@link PhotonCameraSim} that
+ * publishes over NetworkTables, then reuses {@link VisionIOPhotonVision}'s processing pipeline.
  *
- * <p>The {@link VisionSystemSim} is a singleton because PhotonVision only needs one simulated world
- * regardless of how many cameras observe it. Call {@link #update(Pose2d)} once per loop from sim
- * code with the ground-truth chassis pose.
+ * <p>{@link VisionSystemSim} is a singleton — one simulated world serves all cameras. Call {@link
+ * #update(Pose2d)} once per loop from sim code with the ground-truth chassis pose.
  */
 public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
 
   private static final VisionSystemSim SYSTEM_SIM = createSystemSim();
-
-  // Loaded only when this class is referenced, which only happens in SIM (RobotContainer's
-  // REAL/REPLAY branches don't touch it). Keeps the placeholder-transform warning off the
-  // real-robot dashboard where it has no meaning.
-  private static final Alert PLACEHOLDER_TRANSFORMS_ALERT =
-      new Alert(
-          "VisionConstants.PHOTON_CAMERA_TRANSFORMS are placeholders; tune to CAD before "
-              + "trusting trig-solve distances, then set PHOTON_TRANSFORMS_TUNED = true.",
-          AlertType.kWarning);
-
-  static {
-    PLACEHOLDER_TRANSFORMS_ALERT.set(!VisionConstants.PHOTON_TRANSFORMS_TUNED);
-  }
 
   private static VisionSystemSim createSystemSim() {
     VisionSystemSim sim = new VisionSystemSim("main");

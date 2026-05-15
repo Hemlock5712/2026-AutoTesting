@@ -12,6 +12,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoSelector;
+import frc.robot.commands.DriveToWithAvoidance;
 import frc.robot.commands.TeleopDrive;
 import frc.robot.generated.TunerConstants;
 import frc.robot.simlib.SimWorldSetup;
@@ -30,7 +31,6 @@ import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
 import frc.robot.subsystems.vision.VisionIONoop;
-import frc.robot.subsystems.vision.VisionIOPhotonVisionJSON;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.utils.DriverInput;
 import frc.robot.utils.FieldInfo;
@@ -38,8 +38,6 @@ import frc.robot.utils.path.Footprint;
 import frc.robot.utils.path.ObstacleAvoidance;
 import frc.robot.utils.path.ObstacleField;
 import frc.robot.utils.path.ObstacleVisualizer;
-import java.io.IOException;
-import java.nio.file.Path;
 
 public class RobotContainer {
 
@@ -47,6 +45,7 @@ public class RobotContainer {
 
   // Mid-field spawn on the y-centerline, ~2.6 m from either Hub edge.
   private static final Pose2d SIM_SPAWN_POSE = new Pose2d(8.27, 4.0, Rotation2d.kZero);
+
 
   private static final double MAX_SPEED = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
   private static final double MAX_ANGULAR_RATE = RotationsPerSecond.of(1).in(RadiansPerSecond);
@@ -61,10 +60,13 @@ public class RobotContainer {
 
   private final CommandXboxController driver = new CommandXboxController(0);
 
-  // -------------------- SIM-only state --------------------
+  // -------------------- World state --------------------
 
+  /** Built once and shared by the avoidance clamp, the path planner, and the visualizer. */
+  private final ObstacleField obstacleField;
+
+  /** SIM only: dyn4j physics handle for ticking the simulated arena. */
   private final SwerveDriveSimulation driveSimulation;
-  private final ObstacleField simObstacleField;
 
   // -------------------- Autonomous --------------------
 
@@ -73,12 +75,22 @@ public class RobotContainer {
   // ==================== Construction ====================
 
   public RobotContainer() {
+    obstacleField = Field2026Obstacles.build();
     driveSimulation = createDriveSimulation();
     drivetrain = createDrive(driveSimulation);
     vision = createVision();
     autoCommands = new AutoCommands(drivetrain);
-    simObstacleField = setupSimWorld(driveSimulation);
-    autoSelector = new AutoSelector(drivetrain, autoCommands);
+    if (driveSimulation != null) {
+      setupSimWorld(driveSimulation, obstacleField);
+    }
+    // Seed the pose estimator unconditionally so REPLAY reproduces the original run's
+    // absolute poses, not just its trajectory shape. In REAL this gets overwritten by
+    // autonomousInit's path-start reset; in SIM the sim-world reset callback (registered
+    // above by setupSimWorld) snaps the chassis to match.
+    drivetrain.resetPose(SIM_SPAWN_POSE);
+    ObstacleVisualizer.log(
+        "World/Obstacles", obstacleField, Math.hypot(Drive.ROBOT_HALF_X, Drive.ROBOT_HALF_Y));
+    autoSelector = new AutoSelector(drivetrain, autoCommands, obstacleField);
 
     configureBindings();
   }
@@ -88,9 +100,12 @@ public class RobotContainer {
   private void configureBindings() {
     drivetrain.setDefaultCommand(buildTeleopDrive());
 
-    // Add new bindings below. Examples:
-    //   driver.a().onTrue(...);
-    //   driver.b().whileTrue(...);
+    // A button: plan a path from the current pose to AutoSelector.DEMO_GOAL (alliance-flipped at
+    // trigger time by ExtPose.get()) around the field obstacles, then drive it.
+    // STUDENT: replace AutoSelector.DEMO_GOAL with your scoring target (always blue-origin).
+    driver
+        .a()
+        .onTrue(DriveToWithAvoidance.create(drivetrain, AutoSelector.DEMO_GOAL::get, obstacleField));
   }
 
   // ==================== Public hooks called from Robot.java ====================
@@ -127,18 +142,16 @@ public class RobotContainer {
             () -> vel[1],
             () -> -DriverInput.deadband(driver.getRightX()) * MAX_ANGULAR_RATE);
 
-    // Pose-based safety clamp + right-bumper bypass. SIM-only until the real-robot path supplies
-    // an obstacle field.
-    if (simObstacleField != null) {
-      teleop.withObstacleAvoidance(
-          new ObstacleAvoidance(
-              simObstacleField,
-              Footprint.fixed(Drive.ROBOT_HALF_X, Drive.ROBOT_HALF_Y),
-              Drive.AVOIDANCE_DECEL_BUDGET,
-              Drive.AVOIDANCE_SAFETY_MARGIN_M,
-              "Drive/Sim/Avoidance"));
-      teleop.withAvoidanceOverride(driver.getHID()::getRightBumperButton);
-    }
+    // Pose-based safety clamp + right-bumper bypass. Active in every mode (the obstacle field is
+    // built unconditionally so the avoidance brake works on the real robot too).
+    teleop.withObstacleAvoidance(
+        new ObstacleAvoidance(
+            obstacleField,
+            Footprint.fixed(Drive.ROBOT_HALF_X, Drive.ROBOT_HALF_Y),
+            Drive.AVOIDANCE_DECEL_BUDGET,
+            Drive.AVOIDANCE_SAFETY_MARGIN_M,
+            "Drive/Avoidance"));
+    teleop.withAvoidanceOverride(driver.getHID()::getRightBumperButton);
     return teleop;
   }
 
@@ -204,67 +217,41 @@ public class RobotContainer {
         yield new Vision(drivetrain, ios);
       }
       case REPLAY -> {
-        // Each original camera maps to a VisionIONoop so AKit can faithfully replay its wpilog
-        // entries. When -Dreplay.vision.json.<name>=<path> is set we ALSO append a parallel IO
-        // under "<name>-jsonreplay": its inputs land at /Vision/<name>-jsonreplay/* (a path the
-        // wpilog doesn't contain, so AKit can't override our values), and the drive's pose
-        // estimator absorbs both streams so AdvantageScope shows them side-by-side for tuning
-        // comparison.
-        var iosList = new java.util.ArrayList<VisionIO>();
-        for (String n : VisionConstants.LIMELIGHT_NAMES) iosList.add(new VisionIONoop(n));
-        for (int i = 0; i < VisionConstants.PHOTON_CAMERA_NAMES.length; i++) {
-          String name = VisionConstants.PHOTON_CAMERA_NAMES[i];
-          iosList.add(new VisionIONoop(name));
-          // Accept both -Dreplay.vision.json.<cam>=<path> (single tuning) and
-          // -Dreplay.vision.json.<cam>.<tuning>=<path> (one channel per suffix). Each maps to its
-          // own IO under name "<cam>-jsonreplay[-<tuning>]" so AdvantageScope renders the streams
-          // side-by-side and the drive's pose estimator absorbs each independently.
-          String basePrefix = "replay.vision.json." + name;
-          for (String propName : System.getProperties().stringPropertyNames()) {
-            if (!propName.equals(basePrefix) && !propName.startsWith(basePrefix + ".")) continue;
-            String jsonProp = System.getProperty(propName);
-            if (jsonProp == null || jsonProp.isBlank()) continue;
-            String suffix =
-                propName.equals(basePrefix)
-                    ? ""
-                    : "-" + propName.substring(basePrefix.length() + 1);
-            String channel = name + "-jsonreplay" + suffix;
-            try {
-              iosList.add(
-                  new VisionIOPhotonVisionJSON(
-                      channel, VisionConstants.PHOTON_CAMERA_TRANSFORMS[i], Path.of(jsonProp)));
-            } catch (IOException e) {
-              DriverStation.reportError(
-                  "Replay JSON load failed for "
-                      + channel
-                      + " ("
-                      + jsonProp
-                      + "): "
-                      + e.getMessage(),
-                  false);
-            }
-          }
-        }
-        yield new Vision(drivetrain, iosList.toArray(new VisionIO[0]));
+        // Each camera name from REAL and SIM maps to a VisionIONoop so AKit replays the wpilog
+        // entries faithfully. Names not in the log produce no observation.
+        VisionIO[] ios =
+            new VisionIO
+                [VisionConstants.LIMELIGHT_NAMES.length
+                    + VisionConstants.PHOTON_CAMERA_NAMES.length];
+        int idx = 0;
+        for (String n : VisionConstants.LIMELIGHT_NAMES) ios[idx++] = new VisionIONoop(n);
+        for (String n : VisionConstants.PHOTON_CAMERA_NAMES) ios[idx++] = new VisionIONoop(n);
+        yield new Vision(drivetrain, ios);
       }
     };
   }
 
   /**
-   * SIM only: builds the field obstacle set, registers it with the dyn4j sim, logs it for
-   * AdvantageScope, and aligns the sim chassis with the spawn pose. Returns the field for the
-   * teleop avoidance clamp; {@code null} outside SIM.
+   * SIM only: registers the obstacle field with the dyn4j physics sim and wires up the sim
+   * chassis to track future estimator resets (including the one in the constructor immediately
+   * after this returns). Validates that {@link #SIM_SPAWN_POSE} is in free space — a spawn inside
+   * an obstacle would freeze the avoidance clamp and bewilder the student debugging it.
    */
-  private ObstacleField setupSimWorld(SwerveDriveSimulation sim) {
-    if (sim == null) return null;
-    ObstacleField field = Field2026Obstacles.build();
+  private void setupSimWorld(SwerveDriveSimulation sim, ObstacleField field) {
+    double spawnClearance = field.signedDistance(SIM_SPAWN_POSE.getX(), SIM_SPAWN_POSE.getY());
+    if (spawnClearance < Drive.AVOIDANCE_SAFETY_MARGIN_M) {
+      DriverStation.reportError(
+          "SIM_SPAWN_POSE ("
+              + SIM_SPAWN_POSE.getX()
+              + ", "
+              + SIM_SPAWN_POSE.getY()
+              + ") is inside or too close to an obstacle (signedDistance="
+              + spawnClearance
+              + " m). The avoidance clamp will zero teleop velocities until the robot is moved."
+              + " Edit SIM_SPAWN_POSE in RobotContainer.java to a clear area.",
+          false);
+    }
     SimWorldSetup.addObstacles(SimulatedArena.getInstance(), field);
-    ObstacleVisualizer.log(
-        "SimWorld/Obstacles", field, Math.hypot(Drive.ROBOT_HALF_X, Drive.ROBOT_HALF_Y));
-    // Keep the sim chassis aligned with any future estimator resets (e.g. auto routines that
-    // reset to a path-start pose), then align the estimator with the spawn pose.
     drivetrain.onPoseReset(sim::setSimulationWorldPose);
-    drivetrain.resetPose(SIM_SPAWN_POSE);
-    return field;
   }
 }

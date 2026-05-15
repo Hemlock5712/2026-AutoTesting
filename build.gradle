@@ -19,7 +19,8 @@ spotless {
     }
 }
 
-project.compileJava.dependsOn(spotlessApply)
+// Spotless formats on demand (`./gradlew spotlessApply`) rather than every compile, so student
+// edits don't get silently rewritten mid-build. CI can run `spotlessCheck` to enforce style.
 
 def ROBOT_MAIN_CLASS = "frc.robot.Main"
 
@@ -160,13 +161,6 @@ tasks.withType(JavaExec).configureEach { JavaExec t ->
         }
         if (!replayInputLog.isEmpty()) {
             t.systemProperty 'frc.replay.input', replayInputLog
-        }
-        // Propagate -Preplay.vision.json.<cam>=<path> through to the sim JVM so
-        // RobotContainer's REPLAY-mode wiring can swap VisionIONoop for the JSON-backed IO.
-        project.properties.each { String key, value ->
-            if (key.startsWith('replay.vision.json.') && value != null) {
-                t.systemProperty key, value.toString()
-            }
         }
     }
 }

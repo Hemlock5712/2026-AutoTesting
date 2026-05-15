@@ -46,8 +46,8 @@ public interface ModuleIO {
   /**
    * Run the drive motor at the specified velocity, with a per-call acceleration limit that is
    * applied by the motor controller's internal profiler (Phoenix 6 MotionMagicVelocityVoltage on
-   * hardware, equivalent rate limit in sim). The acceleration limit is the per-module slip budget —
-   * see {@link frc.robot.commands.AccelerationLimiter#perModuleAccelCaps}.
+   * hardware, equivalent rate limit in sim). The acceleration limit is supplied by {@code
+   * Module.runSetpoint} as the rate needed to interpolate to the new setpoint over one loop.
    */
   public default void setDriveVelocity(double velocityRadPerSec, double accelLimitRadPerSecSq) {}
 

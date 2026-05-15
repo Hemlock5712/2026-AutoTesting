@@ -6,6 +6,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.lib.dynamics.AccelerationLimiter;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.requests.FieldCentric;
 import frc.robot.utils.path.FollowablePath;
@@ -33,18 +34,43 @@ public class FollowPath extends Command {
   private double rotationTolerance = Double.POSITIVE_INFINITY;
   private double lastHeadingError;
 
+  /**
+   * Share of the friction circle reserved for heading correction. Lower → more accel headroom for
+   * translation but slower angle convergence; raise if the robot finishes paths pointing the wrong
+   * way.
+   */
   private double maxRotationBudgetFraction = 0.30;
 
+  /**
+   * Lookahead = clamp(lookaheadK * speed, lookaheadMin, lookaheadMax). Lower {@code lookaheadK} →
+   * tighter tracking but more steering chatter at high speeds; raise the min if the controller
+   * shimmies at low speeds.
+   */
   private double lookaheadK = 0.15;
+
   private double lookaheadMin = 0.15;
   private double lookaheadMax = 1.0;
+  /** Caps how far the lookahead can chord across a tight curve (30°). Prevents corner-cutting. */
   private double lookaheadMaxArcAngle = Math.PI / 6;
 
+  /**
+   * Cross-track PD pulls the robot back onto the path. Raise {@code kp} if it drifts on long
+   * straights; lower it (or raise {@code kd}) if it oscillates side-to-side on tight curves.
+   */
   private double crossTrackKp = 3.0;
+
   private double crossTrackKd = 0.5;
+
+  /**
+   * Curvature feedforward: small angular bias proportional to path curvature so the robot leads
+   * into turns. Raise if it lags behind in turns; lower if it overshoots.
+   */
   private double curvatureFfGain = 0.1;
 
+  /** Arc-length completion gate (m). The default of 5 cm assumes a 1 m/s end of path. */
   private double completionTolerance = 0.05;
+
+  /** Velocity gate at completion: robot must be moving slower than this along the end tangent. */
   private double completionVelocityTolerance = 0.1;
 
   private static final double PROJECTION_MAX_DELTA = 0.5;
@@ -61,7 +87,10 @@ public class FollowPath extends Command {
   // Reusable arrays for logging (avoids allocations).
   private final double[] logEditorTarget = new double[2];
   private final double[] logEditorClosest = new double[2];
-  private final double[] tangentAtEnd = new double[2];
+
+  // Cached so isFinished() can dot it with measured speed without recomputing.
+  private double tangentEndX;
+  private double tangentEndY;
 
   public FollowPath(Drive drive, FollowablePath path) {
     this(drive, path, 0.0);
@@ -120,8 +149,8 @@ public class FollowPath extends Command {
     referencePathLogged = false;
 
     Translation2d t = path.getTangent(path.getTotalLength());
-    tangentAtEnd[0] = t.getX();
-    tangentAtEnd[1] = t.getY();
+    tangentEndX = t.getX();
+    tangentEndY = t.getY();
 
     drive.setControl(request);
   }
@@ -248,7 +277,14 @@ public class FollowPath extends Command {
 
   private static final double MAX_ANGULAR_DECEL =
       AccelerationLimiter.MAX_FRICTION_ACCEL / AccelerationLimiter.DRIVE_BASE_RADIUS;
+
+  /**
+   * Fraction of the angular-decel budget the heading controller actually targets. Keeping it below
+   * 1.0 leaves headroom for translation-coupled accel without saturating the friction circle.
+   */
   private static final double DECEL_BUDGET_FACTOR = 0.25;
+
+  /** Linear P gain on heading error. Raise if heading lags; lower if it oscillates. */
   private static final double HEADING_KP = 8.0;
 
   private double angleErrorToOmega(double headingError) {
@@ -269,8 +305,7 @@ public class FollowPath extends Command {
     boolean nearEnd = lastProjectedS >= path.getTotalLength() - completionTolerance;
     if (endVelocity > 0) return nearEnd;
     ChassisSpeeds fs = drive.getFieldSpeeds();
-    double alongPath =
-        fs.vxMetersPerSecond * tangentAtEnd[0] + fs.vyMetersPerSecond * tangentAtEnd[1];
+    double alongPath = fs.vxMetersPerSecond * tangentEndX + fs.vyMetersPerSecond * tangentEndY;
     boolean headingOk = lastHeadingError <= rotationTolerance;
     return nearEnd && alongPath < completionVelocityTolerance && headingOk;
   }

@@ -1,12 +1,10 @@
 package frc.robot.utils.geometry;
 
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.TunableTable;
-import frc.robot.utils.Tunables.Tunable;
 import java.util.function.Supplier;
 
 /** Base class for geometry extensions. */
-abstract class ExtGeometry<T> implements Tunable, Supplier<T> {
+abstract class ExtGeometry<T> implements Supplier<T> {
 
   protected T original;
   protected T overWidth;
@@ -23,8 +21,8 @@ abstract class ExtGeometry<T> implements Tunable, Supplier<T> {
   }
 
   /**
-   * Saves a new value to the container, with all flipped variations. This method is invoked in the
-   * constructor, and can also be utilized by {@link #initTunable(TunableTable)}.
+   * Saves a new value to the container, with all flipped variations. Invoked from the constructor;
+   * subclasses can also call it to re-seed the precomputed variants.
    *
    * <p>This method should implement setting the values of {@link #original}, {@link #overWidth},
    * {@link #overLength}, and {@link #overDiagonal}.

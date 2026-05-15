@@ -1,10 +1,10 @@
-package frc.robot.commands;
+package frc.robot.lib.dynamics;
 
 import static edu.wpi.first.units.Units.MetersPerSecond;
 
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.system.plant.DCMotor;
 import frc.robot.generated.TunerConstants;
-import frc.robot.utils.Motor;
 
 /**
  * Limits how hard the swerve drive can accelerate, based on real motor data.
@@ -33,8 +33,9 @@ public final class AccelerationLimiter {
   public static final double MU_FRICTION = 1.1;
   public static final double MAX_FRICTION_ACCEL = MU_FRICTION * GRAVITY;
 
-  // Drivetrain parameters used to model motor torque.
-  static final Motor MOTOR = Motor.KRAKEN_X60_FOC;
+  // Drivetrain parameters used to model motor torque. The DCMotor here is a single-motor model;
+  // total drivetrain force is NUM_DRIVE_MOTORS × per-motor torque.
+  static final DCMotor DRIVE_MOTOR = DCMotor.getKrakenX60Foc(1);
   static final double GEAR_RATIO = TunerConstants.FrontLeft.DriveMotorGearRatio;
   static final double WHEEL_RADIUS = TunerConstants.FrontLeft.WheelRadius;
   public static final double ROBOT_MASS = 60; // kg, including bumpers and battery
@@ -122,6 +123,21 @@ public final class AccelerationLimiter {
   }
 
   private AccelerationLimiter() {}
+
+  /**
+   * Max chassis acceleration the drivetrain can produce at the given module speed, considering both
+   * the motor's torque curve (drops off near free speed) and the per-motor stator current limit.
+   * Used by the path-velocity profile and by the motor-limit branch of the per-module limiter.
+   */
+  public static double maxAccelerationAtSpeed(double wheelSpeedMps) {
+    double motorRadPerSec = (wheelSpeedMps / WHEEL_RADIUS) * GEAR_RATIO;
+    double currentAtSpeed =
+        DRIVE_MOTOR.getCurrent(motorRadPerSec, DRIVE_MOTOR.nominalVoltageVolts);
+    double effectiveCurrent = Math.min(currentAtSpeed, STATOR_CURRENT_LIMIT);
+    double torquePerMotor = DRIVE_MOTOR.getTorque(effectiveCurrent);
+    double totalForce = NUM_DRIVE_MOTORS * torquePerMotor * GEAR_RATIO / WHEEL_RADIUS;
+    return totalForce / ROBOT_MASS;
+  }
 
   /**
    * Returns the last computed acceleration. The fields are in m/s^2 and rad/s^2 (NOT velocity, even
@@ -218,14 +234,7 @@ public final class AccelerationLimiter {
     // Worst-case wheel speed (for looking up motor torque at that speed).
     double linearVelMag = Math.hypot(velX, velY);
     double moduleSpeed = linearVelMag + Math.abs(velOmega) * DRIVE_BASE_RADIUS;
-    double maxMotorAccel =
-        MOTOR.getMaxAcceleration(
-            moduleSpeed,
-            GEAR_RATIO,
-            WHEEL_RADIUS,
-            ROBOT_MASS,
-            NUM_DRIVE_MOTORS,
-            STATOR_CURRENT_LIMIT);
+    double maxMotorAccel = maxAccelerationAtSpeed(moduleSpeed);
 
     // Already within limits - pass through unchanged.
     if (combinedAccel <= maxMotorAccel) {
@@ -303,55 +312,6 @@ public final class AccelerationLimiter {
       result[1] = accelY;
       result[2] = accelOmega;
     }
-  }
-
-  /**
-   * Per-module acceleration caps (m/s²), one per wheel, for use as the per-call Acceleration
-   * argument to Phoenix 6 MotionMagicVelocityVoltage. Each cap is the friction-circle limit that
-   * the corresponding wheel can produce given its current normal force, including weight transfer
-   * estimated from {@link #getLastAcceleration()}.
-   *
-   * <p>The cap is in chassis-frame units (m/s²) because that's what the wheel's tangential
-   * acceleration is: {@code mu * N_i * 4 / m}. The factor of 4 is the dimensional bridge from "one
-   * wheel's normal force out of four" to "chassis accel that wheel can deliver if it were the only
-   * one pushing." With all four wheels pushing the chassis can do roughly the sum, but each one's
-   * *individual* slip threshold is what we want as the per-module rate cap.
-   *
-   * <p>Pass the robot-frame chassis velocity so {@code lastAccel} can be rotated correctly if it
-   * was logged in a different frame. Currently {@code lastAccel} is field-frame for all callers, so
-   * {@code headingRadians} should be the current heading.
-   *
-   * @param headingRadians robot heading, used to rotate field-frame {@code lastAccel} into the
-   *     robot frame for the weight-transfer estimate.
-   * @param out length-4 array (FL, FR, BL, BR) written in place with per-module caps in m/s².
-   */
-  public static void perModuleAccelCaps(double headingRadians, double[] out) {
-    double cosH = Math.cos(headingRadians);
-    double sinH = Math.sin(headingRadians);
-    double prevAxR = lastAccelVx * cosH + lastAccelVy * sinH;
-    double prevAyR = -lastAccelVx * sinH + lastAccelVy * cosH;
-
-    double[] normals = NORMALS_SCRATCH.get();
-    normalForcesWithTransfer(prevAxR, prevAyR, normals);
-
-    double[] ratios = new double[MODULE_RX.length];
-    for (int i = 0; i < MODULE_RX.length; i++) {
-      double limit = MU_FRICTION * 4.0 * normals[i] / ROBOT_MASS;
-      out[i] = limit;
-
-      double aix = prevAxR - lastAccelOmega * MODULE_RY[i];
-      double aiy = prevAyR + lastAccelOmega * MODULE_RX[i];
-      double mag = Math.hypot(aix, aiy);
-      ratios[i] = limit > 1e-9 ? mag / limit : Double.POSITIVE_INFINITY;
-    }
-    lastModuleFrictionRatios = ratios;
-  }
-
-  /** Allocating convenience wrapper around {@link #perModuleAccelCaps(double, double[])}. */
-  public static double[] perModuleAccelCaps(double headingRadians) {
-    double[] out = new double[MODULE_RX.length];
-    perModuleAccelCaps(headingRadians, out);
-    return out;
   }
 
   /** Per-module normal force = static distribution + dynamic load shift from accel. */

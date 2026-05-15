@@ -13,7 +13,7 @@ This skill covers reading the WPILOG files our robot produces — both from sim 
 | -------------- | ------------------------------------- |
 | Sim (any mode) | [logs/akit_YY-MM-DD_HH-MM-SS.wpilog](logs/) — newest is the most recent run. (AdvantageKit auto-renames its output from a hash to this date pattern shortly after startup.) |
 | Real robot     | `/home/lvuser/logs/` on the roboRIO; pulled via FRC Driver Station "Download Logs" |
-| Replay         | Same `logs/` directory; written as `<input>_replay.wpilog` next to the source log. See [Replay Testing](.agent/skills/replay-testing.md). |
+| Replay         | Same `logs/` directory; written as `<input>_replay.wpilog` next to the source log. Triggered via `./gradlew simulateJava -Preplay=logs/<file>.wpilog`. |
 
 ## Topic prefixes you'll actually see
 
@@ -48,9 +48,12 @@ All drive state lives under one `Drive/*` tree, modeled after CTRE's `SwerveDriv
 | `/RealOutputs/Drive/Sim/GroundTruthPose`                  | (sim only) physics pose — where the robot *actually* is |
 | `/RealOutputs/Drive/Sim/PoseErrorMeters`                  | (sim only) distance between estimator pose and physics pose |
 | `/RealOutputs/Drive/Sim/HeadingErrorRad`                  | (sim only) heading delta between estimator and physics |
-| `/RealOutputs/Drive/Diagnostics/FieldEscapeHits`          | Counter — ticks where the estimator left the field    |
 | `/RealOutputs/Drive/Diagnostics/ArcIntegrateRejections`   | Counter — odometry samples rejected for non-finite inputs |
 | `/RealOutputs/Drive/Diagnostics/FrictionRatios`           | Per-module friction utilization (a_i / mu*g)          |
+| `/RealOutputs/Drive/Avoidance/MinFreeDistance`            | Pose-clamped distance to the nearest obstacle (m). Drops to 0 when the brake engages. |
+| `/RealOutputs/World/Obstacles/Rectangles`                 | Field obstacles as `Rectangle2d[]` — AdvantageScope renders these natively |
+| `/RealOutputs/World/Obstacles/Ellipses`                   | Field obstacles as `Ellipse2d[]` |
+| `/RealOutputs/DriveToWithAvoidance/PlanFailed`            | True when the runtime planner couldn't find a route (paired with a yellow DS Alert) |
 | `/AdvantageKit/Drive/Module<0-3>/...`                     | Per-module AKit inputs: drive/steer position, applied volts, currents, plus 250 Hz odometry sample arrays |
 | `/AdvantageKit/Drive/Gyro/...`                            | Gyro AKit inputs: yaw, yaw rate, 250 Hz yaw sample arrays |
 | `/AdvantageKit/Vision/<camera>/...`                       | Per-camera Vision inputs: filtered pose, tag count, ambiguity, distance, MT2 flag |
@@ -159,4 +162,4 @@ There is **no `runLogDumper` Gradle task in this project** — that's a differen
 - **"Is the loop overrunning?"** → max `Timing/TotalMs`, count samples > 20ms.
 - **"Did vision agree with odometry?"** → compare `/RealOutputs/Drive/Pose` to per-camera vision pose estimates around vision update timestamps.
 - **"Did the right auto run?"** → `/SmartDashboard/Auto Mode/selected` at the moment auto enables.
-- **"Did the replay match the original sim?"** → run `python scripts/compare_poses.py logs/<file>.wpilog logs/<file>_replay.wpilog`. Translation error should be sub-millimeter for an unaltered run; meaningful divergence indicates a bug in the IO logging layer or that the std-dev coefficients changed between recording and replay.
+- **"Did the replay match the original sim?"** → open both logs in AdvantageScope and plot `/RealOutputs/Drive/Pose` from the input against `/ReplayOutputs/Drive/Pose` from the replay on the same 2D-field view. They should overlay exactly; meaningful divergence indicates a bug in the IO logging layer or that std-dev / tuning constants changed between recording and replay.

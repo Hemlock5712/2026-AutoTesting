@@ -14,24 +14,30 @@ import frc.robot.utils.DriveToPointUtils;
 import java.util.function.Supplier;
 
 /**
- * Drives the robot to a target pose, slowing down smoothly as it approaches.
+ * Drives the robot to a target {@link Pose2d}, slowing down smoothly as it approaches. Unlike
+ * {@link DriveToWithAvoidance}, this does no path planning — point-to-point only. Use it for
+ * alignment, station approach, or any short move where you trust the straight line is clear.
  *
  * <p>Plans the target velocity in {@link #execute()} (50 Hz) and writes it into a {@link
  * FieldCentric} request, which applies the acceleration limiter on the 250 Hz fast loop.
  */
 public class DriveToPoint extends Command {
 
+  /**
+   * Lead-time the brake curve assumes the chassis needs before commanded deceleration shows up at
+   * the wheels (~1-2 robot loops). Effective braking distance is offset by {@code currentSpeed *
+   * BRAKING_REACTION_TIME}, so the robot starts slowing this much earlier than the formula
+   * suggests. Raise if the chassis overshoots stationary targets.
+   */
   private static final double BRAKING_REACTION_TIME = 0.04;
-  private static final double WAYPOINT_TOLERANCE = 0.25;
 
   private final Drive drive;
-  private Supplier<Pose2d> goalPose;
+  private final Supplier<Pose2d> goalPose;
+
+  /** Heading must be within this many radians of the goal before {@link #isFinished} returns. */
+  private static final double ROTATION_TOLERANCE_RAD = Math.toRadians(2);
 
   private double positionTolerance = 0.02;
-  private double rotationTolerance = Math.toRadians(2);
-  private double maxSpeed = Double.POSITIVE_INFINITY;
-  private double endTargetSpeed = 0;
-  private boolean isWaypoint = false;
 
   private double cachedDistance;
   private double cachedAngleError;
@@ -69,7 +75,7 @@ public class DriveToPoint extends Command {
     double currentOmega = fieldSpeeds.omegaRadiansPerSecond;
 
     double omega = 0.0;
-    if (Math.abs(angleError) >= rotationTolerance) {
+    if (Math.abs(angleError) >= ROTATION_TOLERANCE_RAD) {
       omega =
           DriveToPointUtils.calculateTargetOmega(
               angleError, distance, currentSpeed, currentOmega, BRAKING_REACTION_TIME);
@@ -81,11 +87,7 @@ public class DriveToPoint extends Command {
           new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
       targetLinearVel =
           DriveToPointUtils.calculatePerAxisBrakingVelocity(
-              toGoal, currentVelocity, BRAKING_REACTION_TIME, omega, angleError, endTargetSpeed);
-      double targetSpeed = targetLinearVel.getNorm();
-      if (targetSpeed > maxSpeed) {
-        targetLinearVel = targetLinearVel.times(maxSpeed / targetSpeed);
-      }
+              toGoal, currentVelocity, BRAKING_REACTION_TIME, omega, angleError);
     }
 
     request
@@ -102,13 +104,7 @@ public class DriveToPoint extends Command {
 
   @Override
   public boolean isFinished() {
-    if (isWaypoint) return cachedDistance < positionTolerance;
-    return cachedDistance < positionTolerance && cachedAngleError < rotationTolerance;
-  }
-
-  public DriveToPoint withMaxSpeed(double maxSpeed) {
-    this.maxSpeed = maxSpeed;
-    return this;
+    return cachedDistance < positionTolerance && cachedAngleError < ROTATION_TOLERANCE_RAD;
   }
 
   public DriveToPoint withPositionTolerance(double tolerance) {
@@ -118,33 +114,6 @@ public class DriveToPoint extends Command {
 
   public DriveToPoint withPositionTolerance(Distance tolerance) {
     this.positionTolerance = tolerance.in(Meters);
-    return this;
-  }
-
-  public DriveToPoint withRotationTolerance(double tolerance) {
-    this.rotationTolerance = tolerance;
-    return this;
-  }
-
-  public DriveToPoint withEndTargetSpeed(double speed) {
-    this.endTargetSpeed = speed;
-    return this;
-  }
-
-  public DriveToPoint withTolerance(double tolerance) {
-    this.positionTolerance = tolerance;
-    return this;
-  }
-
-  public DriveToPoint withWaypointTolerance() {
-    this.positionTolerance = WAYPOINT_TOLERANCE;
-    return this;
-  }
-
-  public DriveToPoint withWaypoint(double targetSpeed) {
-    this.endTargetSpeed = targetSpeed;
-    this.positionTolerance = WAYPOINT_TOLERANCE;
-    this.isWaypoint = true;
     return this;
   }
 }

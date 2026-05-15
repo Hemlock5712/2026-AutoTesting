@@ -1,11 +1,11 @@
 package frc.robot;
 
 import edu.wpi.first.math.geometry.Translation2d;
+import frc.robot.Field2026Constants.Hub;
+import frc.robot.Field2026Constants.LeftBump;
+import frc.robot.Field2026Constants.RightBump;
+import frc.robot.Field2026Constants.Tower;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.FieldInfo.Hub;
-import frc.robot.utils.FieldInfo.LeftBump;
-import frc.robot.utils.FieldInfo.RightBump;
-import frc.robot.utils.FieldInfo.Tower;
 import frc.robot.utils.path.Obstacle;
 import frc.robot.utils.path.ObstacleField;
 import java.util.ArrayList;
@@ -96,7 +96,16 @@ public final class Field2026Obstacles {
 
   /** Reflects a rectangle through the field-center rotation point {@code (L/2, W/2)}. */
   private static Obstacle.Rectangle rotateMirror(Obstacle.Rectangle r, double L, double W) {
-    return new Obstacle.Rectangle(L - r.maxX(), W - r.maxY(), L - r.minX(), W - r.minY());
+    var shape = r.shape();
+    var center = shape.getCenter();
+    var mirrored =
+        new edu.wpi.first.math.geometry.Pose2d(
+            L - center.getX(),
+            W - center.getY(),
+            center.getRotation().rotateBy(edu.wpi.first.math.geometry.Rotation2d.k180deg));
+    return new Obstacle.Rectangle(
+        new edu.wpi.first.math.geometry.Rectangle2d(
+            mirrored, shape.getXWidth(), shape.getYWidth()));
   }
 
   private static Obstacle.Rectangle rect(double minX, double minY, double maxX, double maxY) {

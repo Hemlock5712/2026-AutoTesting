@@ -1,80 +1,96 @@
 package frc.robot.utils.path;
 
+import edu.wpi.first.math.geometry.Ellipse2d;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rectangle2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 
 /**
- * A field obstacle. Right now we support circles and axis-aligned rectangles - that's enough for
- * almost every FRC obstacle (posts as circles, walls/zones as rectangles, alliance robots as fat
- * circles).
+ * A field obstacle. Backed by WPILib's {@link Rectangle2d} and {@link Ellipse2d} so the same shape
+ * is shared between the planner, the avoidance clamp, the dyn4j sim, and AdvantageScope's native
+ * 2D-field rendering. Rectangles are full OBBs (the {@link Pose2d} center carries rotation), so the
+ * planner can reason about rotated walls — not just axis-aligned bumps.
  */
 public sealed interface Obstacle permits Obstacle.Circle, Obstacle.Rectangle {
 
-  /**
-   * Distance from (x, y) to this obstacle's edge, in meters. Negative if the point is inside the
-   * obstacle, positive if outside.
-   */
+  /** Negative if (x, y) is inside the obstacle, positive outside. */
   double signedDistance(double x, double y);
 
   /**
-   * Closest point on this obstacle's boundary to (x, y). For points outside the obstacle, this is
-   * the projection onto the nearest edge. For points inside, it's the nearest edge point too — the
-   * vector from (x, y) to this point still gives the "into-obstacle" direction (with zero length if
-   * the query is exactly on the boundary).
+   * Closest point on this obstacle's boundary to (x, y). For inside queries this is the nearest
+   * edge point — the vector from (x, y) to the result is the "into-obstacle escape" direction.
    */
   Translation2d nearestPoint(double x, double y);
 
   /**
-   * True if a rectangle (the robot, rotated to some heading) overlaps this obstacle.
-   *
-   * @param cx Robot center x (m)
-   * @param cy Robot center y (m)
-   * @param cosT cos of the robot's heading
-   * @param sinT sin of the robot's heading
-   * @param halfX Half the robot's length (m)
-   * @param halfY Half the robot's width (m)
+   * True if the robot's oriented bounding box (OBB — a rotated rectangle) at the given pose
+   * overlaps this obstacle.
    */
   boolean intersectsObb(double cx, double cy, double cosT, double sinT, double halfX, double halfY);
 
-  /** Circle - good for posts and other robots (use bumper radius). */
-  record Circle(double cx, double cy, double radius) implements Obstacle {
+  record Circle(Ellipse2d shape) implements Obstacle {
+
+    /** Convenience constructor for circles defined by center + radius. */
+    public Circle(double cx, double cy, double radius) {
+      this(new Ellipse2d(new Translation2d(cx, cy), radius));
+    }
+
+    private double cx() {
+      return shape.getCenter().getX();
+    }
+
+    private double cy() {
+      return shape.getCenter().getY();
+    }
+
+    private double radius() {
+      return shape.getXSemiAxis();
+    }
+
     @Override
     public double signedDistance(double x, double y) {
-      double dx = x - cx;
-      double dy = y - cy;
-      return Math.hypot(dx, dy) - radius;
+      return Math.hypot(x - cx(), y - cy()) - radius();
     }
 
     @Override
     public Translation2d nearestPoint(double x, double y) {
-      double dx = x - cx;
-      double dy = y - cy;
+      double dx = x - cx();
+      double dy = y - cy();
       double dist = Math.hypot(dx, dy);
       if (dist < 1.0e-9) {
-        return new Translation2d(cx + radius, cy);
+        return new Translation2d(cx() + radius(), cy());
       }
-      double scale = radius / dist;
-      return new Translation2d(cx + dx * scale, cy + dy * scale);
+      double scale = radius() / dist;
+      return new Translation2d(cx() + dx * scale, cy() + dy * scale);
     }
 
     @Override
     public boolean intersectsObb(
         double bcx, double bcy, double cosT, double sinT, double halfX, double halfY) {
-      // Rotate the circle into the rectangle's local frame, then check circle vs rectangle.
-      double dx = cx - bcx;
-      double dy = cy - bcy;
+      // Rotate the circle into the rectangle's local frame, then circle-vs-AABB.
+      double dx = cx() - bcx;
+      double dy = cy() - bcy;
       double localX = cosT * dx + sinT * dy;
       double localY = -sinT * dx + cosT * dy;
       double clampedX = Math.max(-halfX, Math.min(halfX, localX));
       double clampedY = Math.max(-halfY, Math.min(halfY, localY));
       double ddx = localX - clampedX;
       double ddy = localY - clampedY;
-      return ddx * ddx + ddy * ddy < radius * radius;
+      double r = radius();
+      return ddx * ddx + ddy * ddy < r * r;
     }
   }
 
-  /** Rectangle aligned with the field axes. */
-  record Rectangle(double minX, double minY, double maxX, double maxY) implements Obstacle {
-    public Rectangle {
+  record Rectangle(Rectangle2d shape) implements Obstacle {
+
+    /** Convenience constructor for axis-aligned rectangles defined by opposite corners. */
+    public Rectangle(double minX, double minY, double maxX, double maxY) {
+      this(
+          new Rectangle2d(
+              new Pose2d((minX + maxX) / 2.0, (minY + maxY) / 2.0, Rotation2d.kZero),
+              maxX - minX,
+              maxY - minY));
       if (minX >= maxX || minY >= maxY) {
         throw new IllegalArgumentException("Rectangle bounds must be ordered (min < max)");
       }
@@ -82,75 +98,128 @@ public sealed interface Obstacle permits Obstacle.Circle, Obstacle.Rectangle {
 
     @Override
     public double signedDistance(double x, double y) {
-      // Outside: distance to nearest edge. Inside: negative distance to nearest edge.
-      double dx = Math.max(Math.max(minX - x, x - maxX), 0.0);
-      double dy = Math.max(Math.max(minY - y, y - maxY), 0.0);
-      double outside = Math.hypot(dx, dy);
-      if (outside > 0.0) {
-        return outside;
-      }
-      double inside = Math.min(Math.min(x - minX, maxX - x), Math.min(y - minY, maxY - y));
-      return -inside;
+      // Inlined local-frame transform (no allocation; signedDistance is hot — called per
+      // costmap cell × obstacles during planning, and per obstacle on the 250 Hz avoidance tick).
+      Pose2d center = shape.getCenter();
+      double dx = x - center.getX();
+      double dy = y - center.getY();
+      double cos = center.getRotation().getCos();
+      double sin = center.getRotation().getSin();
+      double localX = cos * dx + sin * dy;
+      double localY = -sin * dx + cos * dy;
+      double halfX = shape.getXWidth() / 2.0;
+      double halfY = shape.getYWidth() / 2.0;
+      double outX = Math.max(Math.abs(localX) - halfX, 0.0);
+      double outY = Math.max(Math.abs(localY) - halfY, 0.0);
+      double outside = Math.hypot(outX, outY);
+      if (outside > 0.0) return outside;
+      return -Math.min(halfX - Math.abs(localX), halfY - Math.abs(localY));
     }
 
     @Override
     public Translation2d nearestPoint(double x, double y) {
-      // Clamp the query into the rectangle. If the query is outside, the clamped point is the
-      // closest boundary point. If it's inside, the clamp returns the query itself, so fall back
-      // to the nearest edge.
-      double cx = Math.max(minX, Math.min(maxX, x));
-      double cy = Math.max(minY, Math.min(maxY, y));
-      if (cx != x || cy != y) {
-        return new Translation2d(cx, cy);
+      // Inlined local-frame transform. The returned Translation2d is unavoidable allocation
+      // (matches the interface), but the intermediate local-frame coords are kept on the stack.
+      Pose2d center = shape.getCenter();
+      double dx = x - center.getX();
+      double dy = y - center.getY();
+      double cos = center.getRotation().getCos();
+      double sin = center.getRotation().getSin();
+      double lx = cos * dx + sin * dy;
+      double ly = -sin * dx + cos * dy;
+      double halfX = shape.getXWidth() / 2.0;
+      double halfY = shape.getYWidth() / 2.0;
+      double clampedX;
+      double clampedY;
+      if (Math.abs(lx) <= halfX && Math.abs(ly) <= halfY) {
+        // Inside: snap to the nearest edge.
+        double dxR = halfX - lx;
+        double dxL = halfX + lx;
+        double dyT = halfY - ly;
+        double dyB = halfY + ly;
+        double m = Math.min(Math.min(dxR, dxL), Math.min(dyT, dyB));
+        if (m == dxR) {
+          clampedX = halfX;
+          clampedY = ly;
+        } else if (m == dxL) {
+          clampedX = -halfX;
+          clampedY = ly;
+        } else if (m == dyT) {
+          clampedX = lx;
+          clampedY = halfY;
+        } else {
+          clampedX = lx;
+          clampedY = -halfY;
+        }
+      } else {
+        clampedX = Math.max(-halfX, Math.min(halfX, lx));
+        clampedY = Math.max(-halfY, Math.min(halfY, ly));
       }
-      double dxL = x - minX;
-      double dxR = maxX - x;
-      double dyB = y - minY;
-      double dyT = maxY - y;
-      double m = Math.min(Math.min(dxL, dxR), Math.min(dyB, dyT));
-      if (m == dxL) return new Translation2d(minX, y);
-      if (m == dxR) return new Translation2d(maxX, y);
-      if (m == dyB) return new Translation2d(x, minY);
-      return new Translation2d(x, maxY);
+      return new Translation2d(
+          center.getX() + cos * clampedX - sin * clampedY,
+          center.getY() + sin * clampedX + cos * clampedY);
     }
 
     @Override
     public boolean intersectsObb(
-        double cx, double cy, double cosT, double sinT, double halfX, double halfY) {
-      // Separating Axis Theorem: try to find an angle where the two rectangles don't overlap.
-      // We only need to check 4 directions - the sides of each rectangle.
-      double ux = cosT, uy = sinT;
-      double vx = -sinT, vy = cosT;
-      // Compute the 4 corners of the rotated robot rectangle.
-      double[] obbX = {
-        cx + halfX * ux + halfY * vx,
-        cx + halfX * ux - halfY * vx,
-        cx - halfX * ux - halfY * vx,
-        cx - halfX * ux + halfY * vx
-      };
-      double[] obbY = {
-        cy + halfX * uy + halfY * vy,
-        cy + halfX * uy - halfY * vy,
-        cy - halfX * uy - halfY * vy,
-        cy - halfX * uy + halfY * vy
-      };
-      double[] aabbX = {minX, maxX, maxX, minX};
-      double[] aabbY = {minY, minY, maxY, maxY};
-      double[][] axes = {{ux, uy}, {vx, vy}, {1, 0}, {0, 1}};
-      for (double[] axis : axes) {
-        double obbMin = Double.POSITIVE_INFINITY, obbMax = Double.NEGATIVE_INFINITY;
-        double aabbMin = Double.POSITIVE_INFINITY, aabbMax = Double.NEGATIVE_INFINITY;
-        for (int i = 0; i < 4; i++) {
-          double po = obbX[i] * axis[0] + obbY[i] * axis[1];
-          if (po < obbMin) obbMin = po;
-          if (po > obbMax) obbMax = po;
-          double pa = aabbX[i] * axis[0] + aabbY[i] * axis[1];
-          if (pa < aabbMin) aabbMin = pa;
-          if (pa > aabbMax) aabbMax = pa;
-        }
-        if (obbMax < aabbMin || aabbMax < obbMin) return false;
+        double rcx, double rcy, double rCos, double rSin, double rHalfX, double rHalfY) {
+      Pose2d center = shape.getCenter();
+      double ocx = center.getX();
+      double ocy = center.getY();
+      double oCos = center.getRotation().getCos();
+      double oSin = center.getRotation().getSin();
+      double oHalfX = shape.getXWidth() / 2.0;
+      double oHalfY = shape.getYWidth() / 2.0;
+
+      // 4 corners of each rectangle in world coordinates.
+      double[] oX = corners(ocx, oCos, oSin, oHalfX, oHalfY, true);
+      double[] oY = corners(ocy, oCos, oSin, oHalfX, oHalfY, false);
+      double[] rX = corners(rcx, rCos, rSin, rHalfX, rHalfY, true);
+      double[] rY = corners(rcy, rCos, rSin, rHalfX, rHalfY, false);
+
+      // Separating Axis Theorem: two convex shapes don't overlap iff there's at least one axis
+      // where their 1D projections don't overlap. For two rectangles, the only axes worth
+      // checking are the four edge-normals (each rectangle contributes two).
+      double[][] axes = {{oCos, oSin}, {-oSin, oCos}, {rCos, rSin}, {-rSin, rCos}};
+      for (double[] ax : axes) {
+        if (!projectionsOverlap(oX, oY, rX, rY, ax[0], ax[1])) return false;
       }
       return true;
+    }
+
+    private static double[] corners(
+        double c, double cos, double sin, double halfX, double halfY, boolean xComponent) {
+      // Local (±halfX, ±halfY), rotated by (cos, sin), translated by center. xComponent picks x
+      // vs y of the resulting world coordinate.
+      if (xComponent) {
+        return new double[] {
+          c + halfX * cos - halfY * sin,
+          c + halfX * cos + halfY * sin,
+          c - halfX * cos + halfY * sin,
+          c - halfX * cos - halfY * sin
+        };
+      }
+      return new double[] {
+        c + halfX * sin + halfY * cos,
+        c + halfX * sin - halfY * cos,
+        c - halfX * sin - halfY * cos,
+        c - halfX * sin + halfY * cos
+      };
+    }
+
+    private static boolean projectionsOverlap(
+        double[] aX, double[] aY, double[] bX, double[] bY, double axX, double axY) {
+      double aMin = Double.POSITIVE_INFINITY, aMax = Double.NEGATIVE_INFINITY;
+      double bMin = Double.POSITIVE_INFINITY, bMax = Double.NEGATIVE_INFINITY;
+      for (int i = 0; i < 4; i++) {
+        double pa = aX[i] * axX + aY[i] * axY;
+        if (pa < aMin) aMin = pa;
+        if (pa > aMax) aMax = pa;
+        double pb = bX[i] * axX + bY[i] * axY;
+        if (pb < bMin) bMin = pb;
+        if (pb > bMax) bMax = pb;
+      }
+      return aMax >= bMin && bMax >= aMin;
     }
   }
 }

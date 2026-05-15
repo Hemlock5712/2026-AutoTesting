@@ -4,12 +4,10 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
-import frc.robot.utils.TunableTable;
 
 /**
- * A container for {@link Pose2d} objects that enables live tuning via NetworkTables, and
- * dynamically returns flipped variants of the original pose based on the robot's current alliance
- * via {@link ExtPose#get()}.
+ * A container for {@link Pose2d} objects that dynamically returns flipped variants of the original
+ * pose based on the robot's current alliance via {@link ExtPose#get()}.
  */
 public final class ExtPose extends ExtGeometry<Pose2d> {
 
@@ -53,17 +51,5 @@ public final class ExtPose extends ExtGeometry<Pose2d> {
     overWidth = Flips.overWidth(newValue);
     overLength = Flips.overLength(newValue);
     overDiagonal = Flips.overDiagonal(newValue);
-  }
-
-  @Override
-  public void initTunable(TunableTable table) {
-    table.value(
-        "x", original.getX(), v -> set(new Pose2d(v, original.getY(), original.getRotation())));
-    table.value(
-        "y", original.getY(), v -> set(new Pose2d(original.getX(), v, original.getRotation())));
-    table.value(
-        "degrees",
-        original.getRotation().getDegrees(),
-        v -> set(new Pose2d(original.getX(), original.getY(), Rotation2d.fromDegrees(v))));
   }
 }

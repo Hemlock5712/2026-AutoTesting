@@ -83,7 +83,13 @@ The typical agent loop:
 3. Stop the gradle process (Ctrl+Break / SIGINT — flushes the WPILOG)
 4. Pass the most recent `logs/FRC_*.wpilog` to the **[Log Reading](.agent/skills/log-reading.md)** skill for analysis
 
-For after-the-fact validation of a code change against an existing log, see **[Replay Testing](.agent/skills/replay-testing.md)** — it doesn't need a live sim at all. Replay is wired via `-Preplay=logs/<file>.wpilog` on the same `simulateJava` task; the build.gradle disables sim extensions automatically when that flag is set.
+For after-the-fact validation of a code change against an existing log, use replay mode — it doesn't need a live sim at all:
+
+```
+./gradlew simulateJava -Preplay=logs/<file>.wpilog
+```
+
+The code re-runs against the saved sensor data and writes a new `_replay.wpilog` next to the input. `build.gradle` disables sim GUI / Driver Station / WebSocket extensions automatically when `-Preplay=…` is set, and `Robot.java` flips `setUseTiming(false)` so replay runs as fast as the CPU allows. Open both logs in AdvantageScope and overlay `Drive/Pose` on the 2D field view to verify the replay matches the original run.
 
 ## When NOT to use this skill
 

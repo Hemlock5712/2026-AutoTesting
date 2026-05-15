@@ -16,6 +16,9 @@ public class VisionInputs {
   public Pose2d latestPose = Pose2d.kZero;
   public double latestTimestampSeconds = 0.0;
   public int tagCount = 0;
+  /** Fiducial IDs of the tags used in this observation. Drives per-tag deweight in Vision. */
+  public int[] tagIds = new int[0];
+
   public double avgTagDistance = 0.0;
   public double maxAmbiguity = 0.0;
   public boolean isMegaTag2 = false;

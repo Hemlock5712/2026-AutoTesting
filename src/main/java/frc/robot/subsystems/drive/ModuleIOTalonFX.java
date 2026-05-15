@@ -57,7 +57,7 @@ public class ModuleIOTalonFX implements ModuleIO {
 
   // Voltage control requests. Steer uses MotionMagicExpo (kV/kA shape is baked into the config
   // at construction). Drive uses MotionMagicVelocityVoltage with a per-call Acceleration that
-  // doubles as the per-module slip budget — see AccelerationLimiter.perModuleAccelCaps.
+  // smoothly interpolates between consecutive setpoints (computed in Module.runSetpoint).
   private final VoltageOut voltageRequest = new VoltageOut(0);
   private final MotionMagicExpoVoltage positionVoltageRequest = new MotionMagicExpoVoltage(0.0);
   private final MotionMagicVelocityVoltage velocityVoltageRequest =

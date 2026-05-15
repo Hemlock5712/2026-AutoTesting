@@ -98,6 +98,9 @@ public class Module {
   public void stop() {
     io.setDriveOpenLoop(0.0);
     io.setTurnOpenLoop(0.0);
+    // Reset the interpolator's reference so a future runSetpoint after re-engagement starts from
+    // zero, not from the pre-stop commanded speed.
+    lastTargetSpeed = 0.0;
   }
 
   public Rotation2d getAngle() {
