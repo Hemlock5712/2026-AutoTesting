@@ -17,7 +17,9 @@
             "/Vision",
             "/Vision/photon-front",
             "/Drive",
-            "/RealOutputs/Drive/Pose"
+            "/RealOutputs/Drive/Pose",
+            "/RealOutputs/Vision/photon-front/Rejected",
+            "/RealOutputs/Vision/photon-front/LastObservationRobotPose"
           ]
         },
         "tabs": {
@@ -84,6 +86,16 @@
                       "model": "2026 Robot",
                       "color": "#ff0000"
                     }
+                  },
+                  {
+                    "type": "ghost",
+                    "logKey": "/RealOutputs/Vision/photon-front/LastObservationRobotPose",
+                    "logType": "Pose2d",
+                    "visible": true,
+                    "options": {
+                      "model": "2026 Robot",
+                      "color": "#0000ff"
+                    }
                   }
                 ],
                 "game": "FRC:2026 Field"
@@ -93,9 +105,9 @@
                 "cameraIndex": -1,
                 "orbitFov": 50,
                 "cameraPosition": [
-                  1.6007349314943329e-15,
-                  6.490871632912545,
-                  -13.070992653627371
+                  -0.996705844225262,
+                  6.414234001629145,
+                  -13.067892160072253
                 ],
                 "cameraTarget": [
                   0,
