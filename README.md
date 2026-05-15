@@ -295,6 +295,23 @@ All drive-state logs live under one `Drive/*` tree, modeled after CTRE's `Swerve
 
 To compare estimator vs. ground truth in sim, plot `Drive/Pose` and `Drive/Sim/GroundTruthPose` together in AdvantageScope's 2D field view, or watch `Drive/Sim/PoseErrorMeters` on a line graph.
 
+### Vision debug keys
+
+Per camera (`photon-front`, `limelight`, …) under `Vision/<cam>/`:
+
+| Key | Type | Meaning |
+|-----|------|---------|
+| `AcceptedPose` / `RejectedPose` | `Pose2d[]` | Raw camera pose for the latest observation, routed to one of the two keys based on the filter outcome (single-element array when active, empty otherwise). Hold across cycles — only updated when a new frame produces an observation, so the ghost doesn't flicker between PV's 40 fps and the 50 Hz robot loop. |
+| `AcceptedTagPoses` / `RejectedTagPoses` | `Pose3d[]` | Field-frame poses of every tag used in the latest observation. Drop into AdvantageScope's *Vision Target* source for green/red lines from the robot to each tag. |
+| `LastObservationTimestamp` | `double` | FPGA seconds of the latest frame (latency-corrected). |
+| `LastObservationRobotPose` | `Pose2d` | Estimator's pose sampled at `LastObservationTimestamp` — what the robot *thought it was* when the camera shutter fired. Plot alongside `AcceptedPose` to see how close vision agrees with odometry at the same instant. |
+| `Rejected/<REASON>` | counter | Cumulative count per AOS-style gate (`AMBIGUOUS`, `TOO_FAR`, `OFF_FIELD`, `ROBOT_TOO_FAST`, `IMPLIED_YAW_ERROR`, `IMAGE_FROM_FUTURE`). Watch for a counter climbing fast — that's the gate killing your observations. |
+| `XYStdDev` / `ThetaStdDev` | `double` | Per-observation std-dev fed to the pose estimator. |
+
+### Preconfigured dashboard
+
+A ready-made AdvantageScope layout lives at [dashboard.json](dashboard.json) — open it with `File → Import Layout` and then `File → Open Log` to point at a `logs/*.wpilog`. Tabs cover the 2D and 3D pose+vision views (green/red ghosts and tag lines), per-module measured-vs-target speeds and angles, path-following error, vision health, and sim-vs-truth error.
+
 ---
 
 ## AdvantageScope: install the 3D robot model
