@@ -46,7 +46,6 @@ public class RobotContainer {
   // Mid-field spawn on the y-centerline, ~2.6 m from either Hub edge.
   private static final Pose2d SIM_SPAWN_POSE = new Pose2d(8.27, 4.0, Rotation2d.kZero);
 
-
   private static final double MAX_SPEED = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
   private static final double MAX_ANGULAR_RATE = RotationsPerSecond.of(1).in(RadiansPerSecond);
 
@@ -105,7 +104,8 @@ public class RobotContainer {
     // STUDENT: replace AutoSelector.DEMO_GOAL with your scoring target (always blue-origin).
     driver
         .a()
-        .onTrue(DriveToWithAvoidance.create(drivetrain, AutoSelector.DEMO_GOAL::get, obstacleField));
+        .onTrue(
+            DriveToWithAvoidance.create(drivetrain, AutoSelector.DEMO_GOAL::get, obstacleField));
   }
 
   // ==================== Public hooks called from Robot.java ====================
@@ -232,10 +232,10 @@ public class RobotContainer {
   }
 
   /**
-   * SIM only: registers the obstacle field with the dyn4j physics sim and wires up the sim
-   * chassis to track future estimator resets (including the one in the constructor immediately
-   * after this returns). Validates that {@link #SIM_SPAWN_POSE} is in free space — a spawn inside
-   * an obstacle would freeze the avoidance clamp and bewilder the student debugging it.
+   * SIM only: registers the obstacle field with the dyn4j physics sim and wires up the sim chassis
+   * to track future estimator resets (including the one in the constructor immediately after this
+   * returns). Validates that {@link #SIM_SPAWN_POSE} is in free space — a spawn inside an obstacle
+   * would freeze the avoidance clamp and bewilder the student debugging it.
    */
   private void setupSimWorld(SwerveDriveSimulation sim, ObstacleField field) {
     double spawnClearance = field.signedDistance(SIM_SPAWN_POSE.getX(), SIM_SPAWN_POSE.getY());

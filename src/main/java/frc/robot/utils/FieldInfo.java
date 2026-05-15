@@ -159,8 +159,7 @@ public final class FieldInfo {
     return switch (symmetryType) {
       case MIRROR -> new Translation2d(layout.getFieldLength() - t.getX(), t.getY());
       case ROTATE ->
-          new Translation2d(
-              layout.getFieldLength() - t.getX(), layout.getFieldWidth() - t.getY());
+          new Translation2d(layout.getFieldLength() - t.getX(), layout.getFieldWidth() - t.getY());
     };
   }
 
@@ -183,9 +182,7 @@ public final class FieldInfo {
 
   /** Only flipped for ROTATE symmetry. */
   public static double flipY(double y) {
-    return shouldFlip() && symmetryType == SymmetryType.ROTATE
-        ? layout.getFieldWidth() - y
-        : y;
+    return shouldFlip() && symmetryType == SymmetryType.ROTATE ? layout.getFieldWidth() - y : y;
   }
 
   public static double flipY(Distance y) {

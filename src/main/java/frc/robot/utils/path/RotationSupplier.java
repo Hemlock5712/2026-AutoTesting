@@ -6,8 +6,8 @@ import edu.wpi.first.math.geometry.Translation2d;
 /**
  * Decides what direction the robot should face during path following.
  *
- * <p>By default {@link frc.robot.commands.FollowPath} uses the path's own heading. Pass a lambda
- * to {@link frc.robot.commands.FollowPath#withRotationSupplier} to override:
+ * <p>By default {@link frc.robot.commands.FollowPath} uses the path's own heading. Pass a lambda to
+ * {@link frc.robot.commands.FollowPath#withRotationSupplier} to override:
  *
  * <pre>{@code
  * // Face a fixed point on the field

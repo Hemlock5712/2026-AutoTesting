@@ -38,7 +38,8 @@ public final class DriveToWithAvoidance {
 
   /** Surfaced on the AdvantageScope alerts panel + DS when the planner can't find a route. */
   private static final Alert PLAN_FAILED_ALERT =
-      new Alert("DriveToWithAvoidance: no clear route to goal — check obstacles or starting pose.",
+      new Alert(
+          "DriveToWithAvoidance: no clear route to goal — check obstacles or starting pose.",
           AlertType.kWarning);
 
   private DriveToWithAvoidance() {}

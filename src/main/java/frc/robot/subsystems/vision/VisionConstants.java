@@ -32,8 +32,8 @@ public final class VisionConstants {
   /**
    * AprilTag IDs we trust at full noise. Tags not in this set get a 1.5× noise scalar (AOS-style
    * per-tag deweight). For 2026 Rebuilt Reefscape: reef branches (6-11 red, 17-22 blue) and
-   * processor faces (3 red, 16 blue). Perimeter/station tags (coral stations, barge) are
-   * deweighted — they're farther from scoring action and less precisely surveyed in practice.
+   * processor faces (3 red, 16 blue). Perimeter/station tags (coral stations, barge) are deweighted
+   * — they're farther from scoring action and less precisely surveyed in practice.
    */
   public static final Set<Integer> TRUSTED_TAG_IDS =
       Set.of(3, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 21, 22);

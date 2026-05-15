@@ -17,7 +17,8 @@ public class ArmIOTalonFX implements ArmIO {
   private static final double GEAR_RATIO = 100.0;
 
   private final TalonFX motor;
-  private final MotionMagicVoltage positionRequest = new MotionMagicVoltage(0.0).withEnableFOC(true);
+  private final MotionMagicVoltage positionRequest =
+      new MotionMagicVoltage(0.0).withEnableFOC(true);
   private final VoltageOut voltageRequest = new VoltageOut(0.0).withEnableFOC(true);
   private double lastSetpointRad = 0.0;
 

@@ -42,7 +42,6 @@ public final class VelocityProfiler {
           AccelerationLimiter.MAX_FRICTION_ACCEL,
           AccelerationLimiter::maxAccelerationAtSpeed);
     }
-
   }
 
   private VelocityProfiler() {}

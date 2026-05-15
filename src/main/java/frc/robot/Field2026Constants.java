@@ -21,8 +21,7 @@ public final class Field2026Constants {
     public static final double width = Units.inchesToMeters(47.0);
     public static final double height = Units.inchesToMeters(72.0);
 
-    static final double centerX =
-        FieldInfo.aprilTags().getTagPose(26).get().getX() + width / 2.0;
+    static final double centerX = FieldInfo.aprilTags().getTagPose(26).get().getX() + width / 2.0;
     private static final double centerY = FieldInfo.widthMeters() / 2.0;
 
     public static final Translation2d nearLeftCorner =

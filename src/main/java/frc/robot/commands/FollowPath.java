@@ -50,6 +50,7 @@ public class FollowPath extends Command {
 
   private double lookaheadMin = 0.15;
   private double lookaheadMax = 1.0;
+
   /** Caps how far the lookahead can chord across a tight curve (30°). Prevents corner-cutting. */
   private double lookaheadMaxArcAngle = Math.PI / 6;
 

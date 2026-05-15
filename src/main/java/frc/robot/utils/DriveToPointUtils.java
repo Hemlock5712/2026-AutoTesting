@@ -130,9 +130,11 @@ public final class DriveToPointUtils {
 
     // Step 1: optimistic targets assuming the full budget on each axis.
     double optTargetX =
-        calculateAxisBrakingSpeed(distanceX, currentSpeedX, brakingReactionTime, availableLinearAccel);
+        calculateAxisBrakingSpeed(
+            distanceX, currentSpeedX, brakingReactionTime, availableLinearAccel);
     double optTargetY =
-        calculateAxisBrakingSpeed(distanceY, currentSpeedY, brakingReactionTime, availableLinearAccel);
+        calculateAxisBrakingSpeed(
+            distanceY, currentSpeedY, brakingReactionTime, availableLinearAccel);
 
     // Step 2: measure how much velocity each axis needs to change.
     double demandX = Math.abs(optTargetX - currentSpeedX);
@@ -193,8 +195,7 @@ public final class DriveToPointUtils {
     if (bufferedTargetSpeed < currentSpeed) {
       return Math.min(bufferedTargetSpeed, AccelerationLimiter.MAX_VELOCITY);
     } else {
-      return Math.min(
-          Math.sqrt(2.0 * availableAccel * distance), AccelerationLimiter.MAX_VELOCITY);
+      return Math.min(Math.sqrt(2.0 * availableAccel * distance), AccelerationLimiter.MAX_VELOCITY);
     }
   }
 

@@ -131,8 +131,7 @@ public final class AccelerationLimiter {
    */
   public static double maxAccelerationAtSpeed(double wheelSpeedMps) {
     double motorRadPerSec = (wheelSpeedMps / WHEEL_RADIUS) * GEAR_RATIO;
-    double currentAtSpeed =
-        DRIVE_MOTOR.getCurrent(motorRadPerSec, DRIVE_MOTOR.nominalVoltageVolts);
+    double currentAtSpeed = DRIVE_MOTOR.getCurrent(motorRadPerSec, DRIVE_MOTOR.nominalVoltageVolts);
     double effectiveCurrent = Math.min(currentAtSpeed, STATOR_CURRENT_LIMIT);
     double torquePerMotor = DRIVE_MOTOR.getTorque(effectiveCurrent);
     double totalForce = NUM_DRIVE_MOTORS * torquePerMotor * GEAR_RATIO / WHEEL_RADIUS;

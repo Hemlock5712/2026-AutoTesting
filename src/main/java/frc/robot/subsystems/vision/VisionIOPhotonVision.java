@@ -16,13 +16,13 @@ import org.photonvision.targeting.PhotonTrackedTarget;
 
 /**
  * Dumb passthrough for a PhotonVision coprocessor camera. Picks the right estimator method
- * (multi-tag PNP, single-tag trig-solve, or lowest-ambiguity fallback while disabled) and
- * surfaces raw metadata. {@link Vision} owns all quality filtering.
+ * (multi-tag PNP, single-tag trig-solve, or lowest-ambiguity fallback while disabled) and surfaces
+ * raw metadata. {@link Vision} owns all quality filtering.
  *
- * <p>PNP = Perspective-N-Point, the geometric algorithm that recovers a camera's pose from N
- * known 3D points seen as 2D image coordinates. "Multi-tag PNP" pools points from several
- * AprilTags for a strong solve; "trig-solve" uses a single tag plus our gyro heading (the
- * MegaTag2 analog: rotation comes from the gyro, only translation is solved visually).
+ * <p>PNP = Perspective-N-Point, the geometric algorithm that recovers a camera's pose from N known
+ * 3D points seen as 2D image coordinates. "Multi-tag PNP" pools points from several AprilTags for a
+ * strong solve; "trig-solve" uses a single tag plus our gyro heading (the MegaTag2 analog: rotation
+ * comes from the gyro, only translation is solved visually).
  *
  * <p>{@code isMegaTag2 = true} signals "rotation came from our gyro" — the trig-solve case.
  */

@@ -3,9 +3,10 @@ package frc.robot.subsystems.examples.flywheel;
 import org.littletonrobotics.junction.AutoLog;
 
 /**
- * Example IO interface. Copy this pattern for every new subsystem: one {@code XxxIO} interface,
- * one {@code XxxIOInputs} class with {@link AutoLog}, and one impl per hardware target
- * ({@code XxxIOTalonFX}, {@code XxxIOSim}, …). AdvantageKit auto-generates {@code FlywheelIOInputsAutoLogged}.
+ * Example IO interface. Copy this pattern for every new subsystem: one {@code XxxIO} interface, one
+ * {@code XxxIOInputs} class with {@link AutoLog}, and one impl per hardware target ({@code
+ * XxxIOTalonFX}, {@code XxxIOSim}, …). AdvantageKit auto-generates {@code
+ * FlywheelIOInputsAutoLogged}.
  */
 public interface FlywheelIO {
 

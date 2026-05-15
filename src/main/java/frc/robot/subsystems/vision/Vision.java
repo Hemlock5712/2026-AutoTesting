@@ -19,8 +19,8 @@ import org.littletonrobotics.junction.Logger;
  * Reads AprilTag observations from one or more cameras and feeds them to the pose estimator.
  *
  * <p>All quality filtering lives here — the IO impls are dumb passthroughs that pick the right
- * estimator method for their source (LL: MT1 vs MT2; PV: multi-tag vs trig-solve) and surface
- * raw metadata. This class enforces the gates and computes the per-observation std-dev.
+ * estimator method for their source (LL: MT1 vs MT2; PV: multi-tag vs trig-solve) and surface raw
+ * metadata. This class enforces the gates and computes the per-observation std-dev.
  *
  * <p>Rejection rules ported from AOS swerve_localizer (see {@code frc/vision/swerve_localizer/
  * localizer.cc} in github.com/RealtimeRoboticsGroup/aos): ambiguity ratio, distance, speed-in-
@@ -29,7 +29,10 @@ import org.littletonrobotics.junction.Logger;
  */
 public class Vision extends SubsystemBase {
 
-  /** Reason a frame was thrown out. Logged as per-camera counters under {@code Vision/<cam>/Rejected/}. */
+  /**
+   * Reason a frame was thrown out. Logged as per-camera counters under {@code
+   * Vision/<cam>/Rejected/}.
+   */
   private enum RejectionReason {
     AMBIGUOUS,
     TOO_FAR,
@@ -83,6 +86,7 @@ public class Vision extends SubsystemBase {
   private final VisionInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
   private final double[] lastFreshFrameTime;
+
   /** Per-camera, per-reason cumulative rejection counts. Logged each cycle. */
   private final long[][] rejectionCounts;
 
@@ -177,7 +181,8 @@ public class Vision extends SubsystemBase {
       //   θ  = base_θ  *               (1 + speed) * deweight   (no distance scalar on heading)
       double distanceScalar = Math.min(1.0, Math.pow(inputs[i].avgTagDistance, 2.0));
       double speedScalar = 1.0 + robotSpeed;
-      double deweightScalar = anyDeweightedTag(inputs[i].tagIds) ? VisionConstants.DEWEIGHTED_TAG_NOISE_SCALAR : 1.0;
+      double deweightScalar =
+          anyDeweightedTag(inputs[i].tagIds) ? VisionConstants.DEWEIGHTED_TAG_NOISE_SCALAR : 1.0;
       double xyStdDev = XY_STD_DEV_BASE * distanceScalar * speedScalar * deweightScalar;
       double thetaStdDev =
           inputs[i].isMegaTag2

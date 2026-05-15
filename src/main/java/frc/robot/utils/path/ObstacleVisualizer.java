@@ -44,7 +44,8 @@ public final class ObstacleVisualizer {
       }
       for (Ellipse2d e : ellipses) {
         inflatedEllipses.add(
-            new Ellipse2d(e.getCenter(), e.getXSemiAxis() + robotRadius, e.getYSemiAxis() + robotRadius));
+            new Ellipse2d(
+                e.getCenter(), e.getXSemiAxis() + robotRadius, e.getYSemiAxis() + robotRadius));
       }
       Logger.recordOutput(
           basePath + "/Inflated/Rectangles", inflatedRects.toArray(new Rectangle2d[0]));
