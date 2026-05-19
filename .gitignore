@@ -50,6 +50,8 @@
 
 # Package Files #
 *.jar
+# Vendored maven artifacts (in-tree fork resolution) — explicitly tracked.
+!libs/**/*.jar
 *.war
 *.nar
 *.ear

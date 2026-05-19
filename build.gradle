@@ -9,11 +9,15 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-// mavenLocal lookup for the in-progress PathPlannerLib fork (published via
-// publishToMavenLocal in c:/Users/joeoj/Downloads/pathplanner). Remove this block once
-// distance-based path following lands upstream and we depend on the official vendordep.
+// In-progress PathPlannerLib fork (mjansen4857/pathplanner PRs #1169 + #1170 + #1171) is
+// vendored under libs/ as a flat maven layout so CI can resolve it without a publishToMavenLocal
+// step on a fresh runner. Remove this block once distance-based path following lands upstream
+// and we depend on the official vendordep.
 repositories {
-    mavenLocal()
+    maven {
+        name = 'localFork'
+        url = uri(file('libs'))
+    }
 }
 
 spotless {
