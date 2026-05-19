@@ -4,15 +4,15 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoSelector;
-import frc.robot.commands.DriveToWithAvoidance;
+import frc.robot.commands.PathPlannerAutos;
 import frc.robot.commands.TeleopDrive;
 import frc.robot.generated.TunerConstants;
 import frc.robot.simlib.SimWorldSetup;
@@ -20,6 +20,7 @@ import frc.robot.simlib.SimulatedArena;
 import frc.robot.simlib.drivesims.SwerveDriveSimulation;
 import frc.robot.simlib.motorsims.SimulatedBattery;
 import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.drive.DrivePhysics;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.GyroIOSim;
@@ -34,10 +35,9 @@ import frc.robot.subsystems.vision.VisionIONoop;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.utils.DriverInput;
 import frc.robot.utils.FieldInfo;
-import frc.robot.utils.path.Footprint;
 import frc.robot.utils.path.ObstacleAvoidance;
-import frc.robot.utils.path.ObstacleField;
 import frc.robot.utils.path.ObstacleVisualizer;
+import java.util.List;
 
 public class RobotContainer {
 
@@ -53,7 +53,6 @@ public class RobotContainer {
 
   public final Drive drivetrain;
   public final Vision vision;
-  public final AutoCommands autoCommands;
 
   // -------------------- Driver controls --------------------
 
@@ -61,8 +60,8 @@ public class RobotContainer {
 
   // -------------------- World state --------------------
 
-  /** Built once and shared by the avoidance clamp, the path planner, and the visualizer. */
-  private final ObstacleField obstacleField;
+  /** Built once and shared by the avoidance clamp, PathPlanner's pathfinder, and the visualizer. */
+  private final List<Pair<Translation2d, Translation2d>> obstacles;
 
   /** SIM only: dyn4j physics handle for ticking the simulated arena. */
   private final SwerveDriveSimulation driveSimulation;
@@ -74,22 +73,27 @@ public class RobotContainer {
   // ==================== Construction ====================
 
   public RobotContainer() {
-    obstacleField = Field2026Obstacles.build();
+    obstacles = Field2026Obstacles.build();
     driveSimulation = createDriveSimulation();
     drivetrain = createDrive(driveSimulation);
     vision = createVision();
-    autoCommands = new AutoCommands(drivetrain);
     if (driveSimulation != null) {
-      setupSimWorld(driveSimulation, obstacleField);
+      setupSimWorld(driveSimulation, obstacles);
     }
     // Seed the pose estimator unconditionally so REPLAY reproduces the original run's
     // absolute poses, not just its trajectory shape. In REAL this gets overwritten by
     // autonomousInit's path-start reset; in SIM the sim-world reset callback (registered
     // above by setupSimWorld) snaps the chassis to match.
     drivetrain.resetPose(SIM_SPAWN_POSE);
+    // Inflate by the same amount PathPlanner's pathfinder uses (robot half-extent + margin) so
+    // the visualized clearance matches what the planner actually sees. For a symmetric chassis
+    // ROBOT_HALF_X == ROBOT_HALF_Y so a single scalar captures both axes.
     ObstacleVisualizer.log(
-        "World/Obstacles", obstacleField, Math.hypot(Drive.ROBOT_HALF_X, Drive.ROBOT_HALF_Y));
-    autoSelector = new AutoSelector(drivetrain, autoCommands, obstacleField);
+        "World/Obstacles", obstacles, Drive.ROBOT_HALF_X + DrivePhysics.PATH_INFLATION_MARGIN_M);
+    // Wire AutoBuilder + push static obstacles into PP's pathfinder. Done once at startup so
+    // pathfindToPose works immediately on driver-A press.
+    PathPlannerAutos.configure(drivetrain, obstacles);
+    autoSelector = new AutoSelector(drivetrain);
 
     configureBindings();
   }
@@ -99,13 +103,13 @@ public class RobotContainer {
   private void configureBindings() {
     drivetrain.setDefaultCommand(buildTeleopDrive());
 
-    // A button: plan a path from the current pose to AutoSelector.DEMO_GOAL (alliance-flipped at
-    // trigger time by ExtPose.get()) around the field obstacles, then drive it.
-    // STUDENT: replace AutoSelector.DEMO_GOAL with your scoring target (always blue-origin).
+    // A button: PathPlanner on-the-fly pathfind from current pose to AutoSelector.DEMO_GOAL
+    // (alliance-flipped at trigger time by ExtPose.get()), avoiding the static obstacles
+    // registered in PathPlannerAutos.configure. STUDENT: replace AutoSelector.DEMO_GOAL with
+    // your scoring target (always blue-origin).
     driver
         .a()
-        .onTrue(
-            DriveToWithAvoidance.create(drivetrain, AutoSelector.DEMO_GOAL::get, obstacleField));
+        .onTrue(PathPlannerAutos.pathfindToPose(drivetrain, AutoSelector.DEMO_GOAL.get()));
   }
 
   // ==================== Public hooks called from Robot.java ====================
@@ -142,14 +146,15 @@ public class RobotContainer {
             () -> vel[1],
             () -> -DriverInput.deadband(driver.getRightX()) * MAX_ANGULAR_RATE);
 
-    // Pose-based safety clamp + right-bumper bypass. Active in every mode (the obstacle field is
-    // built unconditionally so the avoidance brake works on the real robot too).
+    // Pose-based safety clamp + right-bumper bypass. Active in every mode (obstacles are built
+    // unconditionally so the avoidance brake works on the real robot too).
     teleop.withObstacleAvoidance(
         new ObstacleAvoidance(
-            obstacleField,
-            Footprint.fixed(Drive.ROBOT_HALF_X, Drive.ROBOT_HALF_Y),
-            Drive.AVOIDANCE_DECEL_BUDGET,
-            Drive.AVOIDANCE_SAFETY_MARGIN_M,
+            obstacles,
+            Drive.ROBOT_HALF_X,
+            Drive.ROBOT_HALF_Y,
+            0.6 * DrivePhysics.MAX_FRICTION_ACCEL,
+            DrivePhysics.PATH_INFLATION_MARGIN_M,
             "Drive/Avoidance"));
     teleop.withAvoidanceOverride(driver.getHID()::getRightBumperButton);
     return teleop;
@@ -232,19 +237,22 @@ public class RobotContainer {
   }
 
   /**
-   * SIM only: registers the obstacle field with the dyn4j physics sim and wires up the sim chassis
+   * SIM only: registers the obstacle list with the dyn4j physics sim and wires up the sim chassis
    * to track future estimator resets (including the one in the constructor immediately after this
    * returns). Validates that {@link #SIM_SPAWN_POSE} is in free space — a spawn inside an obstacle
    * would freeze the avoidance clamp and bewilder the student debugging it.
    */
-  private void setupSimWorld(SwerveDriveSimulation sim, ObstacleField field) {
-    double spawnClearance = field.signedDistance(SIM_SPAWN_POSE.getX(), SIM_SPAWN_POSE.getY());
-    if (spawnClearance < Drive.AVOIDANCE_SAFETY_MARGIN_M) {
+  private void setupSimWorld(
+      SwerveDriveSimulation sim, List<Pair<Translation2d, Translation2d>> field) {
+    double sx = SIM_SPAWN_POSE.getX();
+    double sy = SIM_SPAWN_POSE.getY();
+    double spawnClearance = minSignedDistance(field, sx, sy);
+    if (spawnClearance < DrivePhysics.PATH_INFLATION_MARGIN_M) {
       DriverStation.reportError(
           "SIM_SPAWN_POSE ("
-              + SIM_SPAWN_POSE.getX()
+              + sx
               + ", "
-              + SIM_SPAWN_POSE.getY()
+              + sy
               + ") is inside or too close to an obstacle (signedDistance="
               + spawnClearance
               + " m). The avoidance clamp will zero teleop velocities until the robot is moved."
@@ -253,5 +261,26 @@ public class RobotContainer {
     }
     SimWorldSetup.addObstacles(SimulatedArena.getInstance(), field);
     drivetrain.onPoseReset(sim::setSimulationWorldPose);
+  }
+
+  /** Distance from (x, y) to the nearest obstacle (negative inside). */
+  private static double minSignedDistance(
+      List<Pair<Translation2d, Translation2d>> obstacles, double x, double y) {
+    double best = Double.POSITIVE_INFINITY;
+    for (Pair<Translation2d, Translation2d> box : obstacles) {
+      Translation2d min = box.getFirst();
+      Translation2d max = box.getSecond();
+      double outX = Math.max(min.getX() - x, x - max.getX());
+      double outY = Math.max(min.getY() - y, y - max.getY());
+      double d;
+      if (outX > 0.0 || outY > 0.0) {
+        d = Math.hypot(Math.max(outX, 0.0), Math.max(outY, 0.0));
+      } else {
+        // Inside this AABB; distance is negative (the smaller of the per-axis penetrations).
+        d = Math.max(outX, outY);
+      }
+      if (d < best) best = d;
+    }
+    return best;
   }
 }

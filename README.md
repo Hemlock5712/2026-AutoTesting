@@ -1,15 +1,15 @@
 # 2026 Robot Template
 
-FRC swerve drive template built around CTRE Phoenix 6, AdvantageKit, MapleSim physics, and Choreo path following. Use this as the starting point for a new season's robot code.
+FRC swerve drive template built around CTRE Phoenix 6, AdvantageKit, MapleSim physics, and PathPlanner path following. Use this as the starting point for a new season's robot code.
 
 ## What you get out of the box
 
 - **Swerve drive** with 250 Hz odometry on a separate CAN bus thread (Phoenix Pro–ready)
 - **Three modes** — `REAL` on the roboRIO, `SIM` with MapleSim physics on your laptop, `REPLAY` against a saved log
 - **Vision** — Limelight on the real robot, PhotonVision sim in SIM (with PR #1767 PNP trig-solve for single tags), distance-weighted standard deviations
-- **Distance-based path following** using Choreo `.traj` files re-parameterized by arc length
+- **Distance-based path following** via PathPlannerLib, with `.path` and `.auto` files authored in Choreo or the PathPlanner UI
 - **Runtime path planning around obstacles** — driver A button plans a route from current pose to a goal, avoiding the field obstacle layout
-- **Acceleration limiting** with a friction-circle model so the wheels don't slip
+- **Per-module slip / torque / steer-rate limiting** via PathPlanner's `SwerveSetpointGenerator` so the wheels don't slip
 - **Unified logging** — everything the drivetrain knows lives under `Drive/*` (see [Logging](#logging))
 - **Two reference subsystems** under [subsystems/examples/](src/main/java/frc/robot/subsystems/examples/) — a velocity-controlled flywheel and a position-controlled arm — to copy when you add real mechanisms
 
@@ -25,7 +25,7 @@ Five steps from cloning the repo to a robot you can drive in sim.
 |------|----------------|-------|
 | WPILib 2026 | https://github.com/wpilibsuite/allwpilib/releases | Installs Java 17, VS Code, and the WPILib extension |
 | Phoenix Tuner X | https://www.ctr-electronics.com/tools/tuner-x/ | For configuring TalonFX/CANcoder/Pigeon |
-| Choreo | https://choreo.autos | Path planner |
+| PathPlanner | https://pathplanner.dev | Path authoring (also reads Choreo `.traj` exports) |
 | AdvantageScope | https://github.com/Mechanical-Advantage/AdvantageScope/releases | Log viewer |
 | (Optional) Git | https://git-scm.com | For source control |
 
@@ -43,7 +43,7 @@ Open the folder in WPILib VS Code (`File → Open Folder…`), then edit [.wpili
 gradlew.bat build         # Windows
 ```
 
-First build takes a few minutes — it downloads WPILib, CTRE Phoenix, AdvantageKit, ChoreoLib, and `dyn4j`. If you see *"Could not get unknown property 'teamNumber'"* you missed the team-number step.
+First build takes a few minutes — it downloads WPILib, CTRE Phoenix, AdvantageKit, PathPlannerLib, and `dyn4j`. If you see *"Could not get unknown property 'teamNumber'"* you missed the team-number step.
 
 ### 3. Run the simulator
 
@@ -64,7 +64,7 @@ MapleSim simulates wheel slip, friction, and inertia. AdvantageScope can connect
 
 ### 4. Configure your swerve hardware
 
-[generated/TunerConstants.java](src/main/java/frc/robot/generated/TunerConstants.java) is **generated** by Phoenix Tuner X → Swerve Project Generator. Open Tuner, connect to your robot, run the generator with your module geometry and encoder offsets, and replace the file's contents. **Do not hand-edit it** — re-running Tuner will overwrite changes. The defaults for robot mass, friction, and CoG offsets in [lib/dynamics/AccelerationLimiter.java](src/main/java/frc/robot/lib/dynamics/AccelerationLimiter.java) work for most teams.
+[generated/TunerConstants.java](src/main/java/frc/robot/generated/TunerConstants.java) is **generated** by Phoenix Tuner X → Swerve Project Generator. Open Tuner, connect to your robot, run the generator with your module geometry and encoder offsets, and replace the file's contents. **Do not hand-edit it** — re-running Tuner will overwrite changes. The defaults for robot mass, MOI, and wheel friction in [subsystems/drive/DrivePhysics.java](src/main/java/frc/robot/subsystems/drive/DrivePhysics.java) work for most teams.
 
 ### 5. Add a subsystem or auto routine
 
@@ -109,7 +109,7 @@ The robot must be connected via USB, Ethernet, or radio. Check the RioLog (WPILi
 
 Anything *not* in `TunerConstants` lives in:
 
-- `lib/dynamics/AccelerationLimiter.java` — robot mass, wheel friction, CoG offset
+- `subsystems/drive/DrivePhysics.java` — robot mass, wheel friction, MOI, max-steer rate; also builds the `RobotConfig` shared by the PathPlanner planner and the runtime `SwerveSetpointGenerator`
 - `subsystems/drive/Drive.java` — sim-only configuration in `getMapleSimConfig()`
 - `subsystems/drive/ModuleIOSim.java` — sim-only PID gains (intentionally differ from real)
 - `Robot.java` — `BROWNOUT_VOLTAGE` (default 6.0 V, below WPILib's 6.75 V) keeps motor outputs alive through transient battery sags during shooter spin-up or simultaneous module accel. Raise if the chassis browns out and resets mid-match
@@ -164,34 +164,28 @@ driver.x().whileTrue(shooter.runAtRPM(3000));
 
 ## Adding an autonomous routine
 
-### Option A — Choreo trajectory (the usual case)
+### Option A — PathPlanner path or auto file (the usual case)
 
-1. Open [Choreo](https://choreo.autos) and point it at the project root. Draw a path in the visual editor and save.
-2. Add the path to the [AutoPath](src/main/java/frc/robot/utils/path/AutoPath.java) enum. Entries reference `ChoreoTraj` constants (regenerated automatically when you save in Choreo), so typos fail at compile time:
+1. Open the PathPlanner UI (or Choreo, then export `.traj` files PathPlanner can consume). Author paths in [src/main/deploy/pathplanner/paths/](src/main/deploy/pathplanner/paths/) and auto sequences in [src/main/deploy/pathplanner/autos/](src/main/deploy/pathplanner/autos/).
+2. Register a routine in [AutoSelector.java](src/main/java/frc/robot/autonomous/AutoSelector.java) via [PathPlannerAutos](src/main/java/frc/robot/commands/PathPlannerAutos.java):
    ```java
-   public enum AutoPath {
-     NEW_PATH(ChoreoTraj.NewPath),
-     MY_AUTO(ChoreoTraj.MyAuto),
-   }
-   ```
-3. Register a routine in [AutoSelector.java](src/main/java/frc/robot/autonomous/AutoSelector.java):
-   ```java
-   chooser.addOption("My Auto", () -> autoCommands.followPathWithActions(
-       AutoPath.MY_AUTO.get(), Map.of()));
+   chooser.addOption("My Auto", () -> PathPlannerAutos.runAuto(drive, "My Auto"));
+   // or for a single path:
+   chooser.addOption("My Path", () -> PathPlannerAutos.followPath(drive, "MyPath"));
    ```
 
-Then pick it from the **Auto Mode** dropdown in the DriverStation.
+Then pick it from the **Auto Mode** dropdown in the DriverStation. The runtime follower is PathPlannerLib's distance-based controller; `Drive.runVelocity` enforces per-module slip/torque/steer limits via its `SwerveSetpointGenerator` (same `RobotConfig` as the planner).
 
 ### Option B — Drive somewhere with obstacle avoidance
 
-For "drive to that scoring location, plan around whatever's in the way," use `DriveToWithAvoidance`. The same command is bound to the driver A button — it works in autos too:
+For "drive to that scoring location, plan around whatever's in the way," use `PathPlannerAutos.pathfindToPose`. The same factory is bound to the driver A button — it works in autos too:
 
 ```java
 chooser.addOption("Goto Scoring",
-    () -> DriveToWithAvoidance.create(drive, () -> SCORING_POSE, obstacleField));
+    () -> PathPlannerAutos.pathfindToPose(drive, SCORING_POSE));
 ```
 
-The planner runs **at trigger time** using the current pose as the start, so a single binding handles different starting positions.
+Obstacles registered at startup (`PathPlannerAutos.configure(drive, obstacles)` in `RobotContainer`) feed PathPlanner's pathfinder, so a single binding handles different starting positions.
 
 ---
 
@@ -212,14 +206,10 @@ src/main/java/frc/robot/
 │   └── examples/               - Reference Flywheel + Arm subsystems (copy these for your robot)
 ├── commands/
 │   ├── TeleopDrive.java        - Default teleop command
-│   ├── FollowPath.java         - Distance-based path follower (PD + lookahead)
-│   ├── DriveToPoint.java       - Drive to a fixed pose with profiled velocity
-│   └── DriveToWithAvoidance.java - Plan around obstacles then drive (driver A button)
+│   ├── AxisLockDrive.java      - Teleop assist: lock X / Y / heading via feed-forward brake curve
+│   └── PathPlannerAutos.java   - PathPlanner-based auto/path/pathfind runner (production entry point)
 ├── autonomous/
-│   ├── AutoCommands.java       - Helpers for assembling auto routines
 │   └── AutoSelector.java       - Dashboard chooser + registered routines
-├── lib/
-│   └── dynamics/               - Acceleration limiter, motor curves (rarely modified)
 ├── utils/                      - Geometry helpers, path infra, Limelight SDK
 └── simlib/                     - Vendored MapleSim physics
 ```
@@ -252,18 +242,13 @@ Every subsystem talks to hardware through an interface called `XxxIO`. For each 
 
 ### 250 Hz fast loop
 
-The main robot loop runs at 50 Hz, but swerve odometry and the friction limiter need higher rates. A `Notifier` thread inside `Drive.java` runs at 250 Hz. Commands hook into it by passing a `SwerveRequest` to `drive.setControl(...)` — see `commands/FollowPath.java` for an example.
+The main robot loop runs at 50 Hz, but swerve odometry and the setpoint generator need higher rates. A `Notifier` thread inside `Drive.java` runs at 250 Hz. Commands hook into it by passing a `SwerveRequest` to `drive.setControl(...)` — see [TeleopDrive.java](src/main/java/frc/robot/commands/TeleopDrive.java) for an example.
 
 **Do not call `Logger.recordOutput` from a SwerveRequest's `apply()`** — AKit's log buffer isn't thread-safe. Stash diagnostics in volatile fields and let the subsystem log them from `periodic()`.
 
 ### Distance-based path following
 
-`FollowPath` projects the robot onto the path and asks "how far along am I?" — not "what time is it?". If the robot stalls or gets bumped, the path waits. The follower uses:
-
-- Arc-length re-parameterization of Choreo trajectories (`utils/path/ArcLengthTrajectory.java`)
-- A speed-dependent lookahead point
-- PD cross-track correction
-- Curvature feedforward
+Pre-authored autos are followed by PathPlannerLib's distance-based controller, wired in [PathPlannerAutos.java](src/main/java/frc/robot/commands/PathPlannerAutos.java). Per-module slip/torque/steer-rate limiting lives inside `Drive.runVelocity` via its `SwerveSetpointGenerator` — the same `RobotConfig` the planner uses, so plan-time and runtime can't disagree on what the wheels can do.
 
 ---
 
@@ -289,9 +274,8 @@ All drive-state logs live under one `Drive/*` tree, modeled after CTRE's `Swerve
 | `Drive/Sim/PoseErrorMeters` | **(sim only)** distance between estimator pose and physics pose |
 | `Drive/Sim/HeadingErrorRad` | **(sim only)** heading delta between estimator and physics |
 | `Drive/Diagnostics/ArcIntegrateRejections` | Counter — odometry samples rejected for non-finite inputs |
-| `Drive/Diagnostics/FrictionRatios` | Per-module friction utilization (a_i / mu*g) |
 | `World/Obstacles/Rectangles` | Field obstacles as native `Rectangle2d[]` (AdvantageScope renders directly) |
-| `World/Obstacles/Ellipses` | Field obstacles as native `Ellipse2d[]` |
+| `World/Obstacles/Inflated/Rectangles` | Same obstacles inflated by `ROBOT_HALF_X + PATH_INFLATION_MARGIN_M` — the exact inflation PathPlanner's pathfinder applies, so the planner's effective clearance is visible |
 
 To compare estimator vs. ground truth in sim, plot `Drive/Pose` and `Drive/Sim/GroundTruthPose` together in AdvantageScope's 2D field view, or watch `Drive/Sim/PoseErrorMeters` on a line graph.
 
@@ -346,10 +330,10 @@ Turret/Hood and the three turret components are grouped together.
 | Vision pose jitter | Bump `XY_STD_DEV_BASE` in `Vision.java`; tags farther away get distrusted more |
 | Modules misaligned at startup | Encoder offsets in `TunerConstants` are stale — re-run Tuner X's swerve generator |
 | "Disconnected gyro" alert in sim | Expected — the alert is suppressed in `Mode.SIM`. If you see it, something is misconfigured |
-| Driver-A planner button does nothing | Check the `DriveToWithAvoidance/PlanFailed` log key and the DS Alert — usually means the goal is unreachable or the robot is inside an obstacle |
+| Driver-A planner button does nothing | Watch `PathPlanner/LastResult` and the `PathPlanner/PathfindGoal` keys — `"interrupted"` immediately after press usually means the goal is unreachable or the robot is inside an obstacle |
 | Replay's absolute poses are offset from the original | The constructor's `drivetrain.resetPose(SIM_SPAWN_POSE)` must run in REPLAY mode too (it does in this template) — if you move it back inside the SIM-only block, replay will start at the origin |
 
-For deeper issues, drop a `.wpilog` from `logs/` into AdvantageScope and look at the `Drive/Diagnostics/*` entries. The unit-test suite (`./gradlew test`) covers the friction limiter, the path planner, and the field obstacle layout, so a regression there will fail loudly.
+For deeper issues, drop a `.wpilog` from `logs/` into AdvantageScope and look at the `Drive/Diagnostics/*` entries.
 
 ---
 
@@ -384,12 +368,12 @@ Available from any Claude Code session (no per-project setup):
 ### Things Claude does well on this codebase
 
 - Adding a subsystem from the example pattern (see [Adding your first subsystem](#adding-your-first-subsystem))
-- Writing or tuning a Choreo-driven auto routine
+- Writing or tuning a PathPlanner-driven auto routine
 - Wiring a button binding to a new command
-- Adding a JUnit test for math-heavy utilities (planner, limiter, geometry)
+- Adding a JUnit test for math-heavy utilities (obstacle layout, geometry)
 - Investigating an AdvantageKit log to diagnose a behavior issue
 
 ### Things to double-check
 
-- 250 Hz fast-path edits — Claude may suggest scratch-field tricks on shared objects (`Obstacle` records) that are not thread-safe. The skill docs above call this out, but verify against the codebase if you see it.
-- Choreo path generation — Claude can edit `AutoPath` and `AutoSelector`, but cannot author `.traj` files; use the Choreo GUI for that.
+- 250 Hz fast-path edits — Claude may suggest scratch-field tricks on shared objects (e.g. mutating a cached `ChassisSpeeds` from `apply`) that are not thread-safe. The skill docs above call this out, but verify against the codebase if you see it.
+- Path authoring — Claude can edit `AutoSelector` and `PathPlannerAutos` wiring, but cannot author `.path` / `.auto` files; use the PathPlanner UI (or Choreo for `.traj` exports) for that.

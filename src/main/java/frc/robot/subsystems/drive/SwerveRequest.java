@@ -6,8 +6,10 @@ package frc.robot.subsystems.drive;
  *
  * <p>An implementation typically reads {@code drive.getPose()}, {@code drive.getRotation()}, and/or
  * {@code drive.getRobotSpeeds()} (all tear-free volatile snapshots, safe from any thread), holds
- * any per-request state in instance fields (e.g. an acceleration limiter, a profiled PID
- * controller), and ends in a call to {@code drive.runVelocity(...)} or {@code drive.stopWithX()}.
+ * any per-request state in instance fields (e.g. a profiled PID controller, latched targets), and
+ * ends in a call to {@code drive.runVelocity(...)} or {@code drive.stopWithX()}. Per-module slip,
+ * torque, and steer-rate limiting live inside {@code Drive.runVelocity}, so requests should pass
+ * raw targets rather than ramping them themselves.
  *
  * <h2>Thread-safety contract</h2>
  *
@@ -44,8 +46,7 @@ public interface SwerveRequest {
   /**
    * Called once on the main thread when this request becomes the active controller (i.e. is passed
    * to {@link Drive#setControl(SwerveRequest)} and was not already active). Override to seed
-   * per-activation state — e.g. an acceleration limiter's integrator that should start from the
-   * current robot velocity rather than zero. Default: no-op.
+   * per-activation state — e.g. resetting an internal PID controller. Default: no-op.
    */
   default void onActivate(Drive drive) {}
 }

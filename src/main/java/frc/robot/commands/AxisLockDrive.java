@@ -1,190 +1,126 @@
 package frc.robot.commands;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.drive.Drive;
-import frc.robot.subsystems.drive.requests.FieldCentric;
-import frc.robot.utils.DriveToPointUtils;
+import frc.robot.subsystems.drive.DrivePhysics;
 import frc.robot.utils.FieldInfo;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 /**
- * Teleop command that locks one or more axes (X, Y, rotation) to a target value while letting the
- * driver control the others. Decelerates smoothly to a stop on each locked axis.
- *
- * <p>Target velocities are computed at 50 Hz in {@link #execute()} and written into the {@link
- * FieldCentric} request, which applies the acceleration limiter on the 250 Hz fast loop.
+ * Teleop assist that locks one of X / Y / heading to a target value while the driver controls the
+ * others. Locked-axis output is a feed-forward brake curve {@code v = sqrt(2·μg·distance)} clipped
+ * to chassis max; the resulting field-relative {@link ChassisSpeeds} flows through {@link
+ * Drive#runVelocity}, where PathPlanner's {@code SwerveSetpointGenerator} enforces per-module
+ * slip, torque, and steer-rate limits. The command itself does no PID and no profiling.
  */
 public class AxisLockDrive extends Command {
 
-  private static final double BRAKING_REACTION_TIME = 0.04;
-  private static final double POSITION_LOCK_TOLERANCE = 0.005;
-  private static final double HEADING_LOCK_REACTION_TIME = 0.03;
-  private static final double HEADING_LOCK_OMEGA_THRESHOLD = Math.toRadians(10);
-  private static final double HEADING_LOCK_DEADBAND = Math.toRadians(3);
+  private static final double POSITION_TOLERANCE_M = 0.01;
+  private static final double HEADING_TOLERANCE_RAD = Math.toRadians(1.0);
 
   private final Drive drive;
-  private final DoubleSupplier velocityXSupplier;
-  private final DoubleSupplier velocityYSupplier;
-  private final DoubleSupplier rotationalRateSupplier;
+  private final DoubleSupplier driverX;
+  private final DoubleSupplier driverY;
+  private final DoubleSupplier driverOmega;
 
   private final DoubleSupplier lockedXTarget;
   private final DoubleSupplier lockedYTarget;
   private final Supplier<Rotation2d> lockedRotationTarget;
 
-  private Rotation2d lockedHeading = Rotation2d.kZero;
-  private boolean wasDriverRotating = false;
-
-  private final FieldCentric request = new FieldCentric();
-
   public AxisLockDrive(
       Drive drive,
-      DoubleSupplier velocityX,
-      DoubleSupplier velocityY,
-      DoubleSupplier rotationalRate,
+      DoubleSupplier driverX,
+      DoubleSupplier driverY,
+      DoubleSupplier driverOmega,
       DoubleSupplier lockedXTarget,
       DoubleSupplier lockedYTarget,
       Supplier<Rotation2d> lockedRotationTarget) {
     this.drive = drive;
-    this.velocityXSupplier = velocityX;
-    this.velocityYSupplier = velocityY;
-    this.rotationalRateSupplier = rotationalRate;
+    this.driverX = driverX;
+    this.driverY = driverY;
+    this.driverOmega = driverOmega;
     this.lockedXTarget = lockedXTarget;
     this.lockedYTarget = lockedYTarget;
     this.lockedRotationTarget = lockedRotationTarget;
     addRequirements(drive);
   }
 
+  /** Lock the Y axis to {@code lockedYTarget}; driver controls X and rotation. */
   public static AxisLockDrive lockY(
       Drive drive,
-      DoubleSupplier velocityX,
-      DoubleSupplier rotationalRate,
-      DoubleSupplier lockedYTarget,
-      Supplier<Rotation2d> lockedRotationTarget) {
-    return new AxisLockDrive(
-        drive, velocityX, () -> 0.0, rotationalRate, null, lockedYTarget, lockedRotationTarget);
+      DoubleSupplier driverX,
+      DoubleSupplier driverOmega,
+      DoubleSupplier lockedYTarget) {
+    return new AxisLockDrive(drive, driverX, () -> 0.0, driverOmega, null, lockedYTarget, null);
   }
 
+  /** Lock the X axis to {@code lockedXTarget}; driver controls Y and rotation. */
   public static AxisLockDrive lockX(
       Drive drive,
-      DoubleSupplier velocityY,
-      DoubleSupplier rotationalRate,
-      DoubleSupplier lockedXTarget,
-      Supplier<Rotation2d> lockedRotationTarget) {
-    return new AxisLockDrive(
-        drive, () -> 0.0, velocityY, rotationalRate, lockedXTarget, null, lockedRotationTarget);
+      DoubleSupplier driverY,
+      DoubleSupplier driverOmega,
+      DoubleSupplier lockedXTarget) {
+    return new AxisLockDrive(drive, () -> 0.0, driverY, driverOmega, lockedXTarget, null, null);
   }
 
-  @Override
-  public void initialize() {
-    lockedHeading = drive.getRotation();
-    wasDriverRotating = false;
-    drive.setControl(request);
+  /** Lock the heading to {@code lockedRotationTarget}; driver controls X and Y. */
+  public static AxisLockDrive lockHeading(
+      Drive drive,
+      DoubleSupplier driverX,
+      DoubleSupplier driverY,
+      Supplier<Rotation2d> lockedRotationTarget) {
+    return new AxisLockDrive(drive, driverX, driverY, () -> 0.0, null, null, lockedRotationTarget);
   }
 
   @Override
   public void execute() {
-    Pose2d currentPose = drive.getPose();
-    ChassisSpeeds fieldSpeeds = drive.getFieldSpeeds();
+    var pose = drive.getPose();
+    double[] flipped = FieldInfo.flipJoystick(driverX.getAsDouble(), driverY.getAsDouble());
+    double flippedOmega = FieldInfo.flipJoystickRotation(driverOmega.getAsDouble());
 
-    double[] flippedInputs =
-        FieldInfo.flipJoystick(velocityXSupplier.getAsDouble(), velocityYSupplier.getAsDouble());
-    double flippedOmega = FieldInfo.flipJoystickRotation(rotationalRateSupplier.getAsDouble());
-
-    double velX =
-        lockedXTarget != null
-            ? calculateLockedAxisVelocity(
-                currentPose.getX(),
-                lockedXTarget.getAsDouble(),
-                fieldSpeeds.vxMetersPerSecond,
-                fieldSpeeds.omegaRadiansPerSecond)
-            : flippedInputs[0];
-    double velY =
-        lockedYTarget != null
-            ? calculateLockedAxisVelocity(
-                currentPose.getY(),
-                lockedYTarget.getAsDouble(),
-                fieldSpeeds.vyMetersPerSecond,
-                fieldSpeeds.omegaRadiansPerSecond)
-            : flippedInputs[1];
-
+    double vxField =
+        lockedXTarget != null ? brakeTowardLinear(pose.getX(), lockedXTarget.getAsDouble()) : flipped[0];
+    double vyField =
+        lockedYTarget != null ? brakeTowardLinear(pose.getY(), lockedYTarget.getAsDouble()) : flipped[1];
     double omega =
         lockedRotationTarget != null
-            ? calculateLockedRotationOmega(currentPose.getRotation())
-            : calculateHeadingLockedOmega(flippedOmega);
+            ? brakeTowardAngular(pose.getRotation(), lockedRotationTarget.get())
+            : flippedOmega;
 
-    request.withVelocityX(velX).withVelocityY(velY).withRotationalRate(omega);
+    drive.runVelocity(
+        ChassisSpeeds.fromFieldRelativeSpeeds(vxField, vyField, omega, pose.getRotation()));
   }
 
   /**
-   * Computes the speed needed to slow down and stop at the locked target. The current velocity
-   * passed in MUST be along the locked axis (not total chassis speed).
+   * Maximum velocity at which the chassis can still stop at the target under {@link
+   * DrivePhysics#MAX_FRICTION_ACCEL}, clipped to chassis max. Sign matches the direction to target.
+   * Final saturation is enforced per-module downstream by the setpoint generator; this is a clean
+   * kinematic ceiling, not a controller.
    */
-  private static double calculateLockedAxisVelocity(
-      double currentPosition,
-      double targetPosition,
-      double currentAxisVelocity,
-      double currentOmega) {
-    double distance = Math.abs(targetPosition - currentPosition);
-    if (distance < POSITION_LOCK_TOLERANCE) return 0.0;
-
-    double targetSpeed =
-        DriveToPointUtils.calculateBrakingTargetSpeed(
-            distance, Math.abs(currentAxisVelocity), BRAKING_REACTION_TIME, currentOmega, 0.0);
-    return Math.copySign(targetSpeed, targetPosition - currentPosition);
+  private double brakeTowardLinear(double measured, double target) {
+    double error = target - measured;
+    if (Math.abs(error) < POSITION_TOLERANCE_M) return 0.0;
+    double maxV = drive.getMaxLinearSpeedMetersPerSec();
+    double magnitude =
+        Math.min(maxV, Math.sqrt(2.0 * DrivePhysics.MAX_FRICTION_ACCEL * Math.abs(error)));
+    return Math.copySign(magnitude, error);
   }
 
-  private double calculateLockedRotationOmega(Rotation2d currentRotation) {
-    double angleError =
-        MathUtil.angleModulus(lockedRotationTarget.get().minus(currentRotation).getRadians());
-    if (Math.abs(angleError) < HEADING_LOCK_DEADBAND) return 0.0;
-
-    ChassisSpeeds fieldSpeeds = drive.getFieldSpeeds();
-    double currentSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    return DriveToPointUtils.calculateTargetOmega(
-        angleError,
-        0.0,
-        currentSpeed,
-        fieldSpeeds.omegaRadiansPerSecond,
-        HEADING_LOCK_REACTION_TIME);
-  }
-
-  private double calculateHeadingLockedOmega(double requestedOmega) {
-    double measuredOmega = drive.getRobotSpeeds().omegaRadiansPerSecond;
-    boolean isSpinningFromMomentum =
-        wasDriverRotating && Math.abs(measuredOmega) >= HEADING_LOCK_OMEGA_THRESHOLD;
-
-    if (requestedOmega != 0.0 || isSpinningFromMomentum) {
-      lockedHeading = drive.getRotation();
-    }
-
-    wasDriverRotating =
-        requestedOmega != 0.0
-            || (wasDriverRotating && Math.abs(measuredOmega) >= HEADING_LOCK_OMEGA_THRESHOLD);
-
-    if (requestedOmega != 0.0) return requestedOmega;
-
-    double angleError =
-        MathUtil.angleModulus(lockedHeading.minus(drive.getRotation()).getRadians());
-    if (Math.abs(angleError) < HEADING_LOCK_DEADBAND) return 0.0;
-
-    ChassisSpeeds fieldSpeeds = drive.getFieldSpeeds();
-    double currentSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    return DriveToPointUtils.calculateTargetOmega(
-        angleError,
-        0.0,
-        currentSpeed,
-        fieldSpeeds.omegaRadiansPerSecond,
-        HEADING_LOCK_REACTION_TIME);
+  private double brakeTowardAngular(Rotation2d measured, Rotation2d target) {
+    double error = MathUtil.angleModulus(target.minus(measured).getRadians());
+    if (Math.abs(error) < HEADING_TOLERANCE_RAD) return 0.0;
+    double maxOmega = drive.getMaxAngularSpeedRadPerSec();
+    double maxAlpha = DrivePhysics.MAX_FRICTION_ACCEL / DrivePhysics.DRIVE_BASE_RADIUS;
+    double magnitude = Math.min(maxOmega, Math.sqrt(2.0 * maxAlpha * Math.abs(error)));
+    return Math.copySign(magnitude, error);
   }
 
   @Override
   public void end(boolean interrupted) {
-    drive.clearControl();
     drive.runVelocity(new ChassisSpeeds());
   }
 

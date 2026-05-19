@@ -11,7 +11,7 @@
           "expanded": [
             "/RealOutputs",
             "/RealOutputs/Drive",
-            "/RealOutputs/FollowPath",
+            "/RealOutputs/PathPlanner",
             "/RealOutputs/Vision",
             "/RealOutputs/Vision/photon-front",
             "/Vision",

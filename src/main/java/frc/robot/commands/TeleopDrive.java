@@ -10,9 +10,8 @@ import java.util.function.DoubleSupplier;
 
 /**
  * Field-relative teleop drive built on the {@link FieldCentric} {@link
- * frc.robot.subsystems.drive.SwerveRequest}. Acceleration limiting and the 250 Hz pacing live
- * entirely inside {@link FieldCentric}; the command just plumbs joystick suppliers into the
- * request's setters.
+ * frc.robot.subsystems.drive.SwerveRequest}. The 250 Hz pacing lives inside {@link FieldCentric};
+ * this command just plumbs joystick suppliers into the request's setters.
  *
  * <p>Joystick deadbanding/rescaling is expected to be done upstream by the supplier (see {@code
  * RobotContainer.rescaleTranslation}), so the request's own deadband is left at the default of

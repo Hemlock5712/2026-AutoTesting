@@ -1,67 +1,56 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Ellipse2d;
+import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rectangle2d;
-import java.util.ArrayList;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Logs obstacles as native {@link Rectangle2d} and {@link Ellipse2d} arrays so AdvantageScope can
- * render them directly on its 2D-Field tab without any helper geometry.
+ * Logs obstacle AABBs as native {@link Rectangle2d} arrays so AdvantageScope can render them
+ * directly on its 2D-Field tab.
  *
- * <p>Drag {@code <basePath>/Rectangles} or {@code <basePath>/Ellipses} onto the 2D-Field display in
- * AdvantageScope and it will draw outlined shapes — no trajectory tricks needed.
+ * <p>Drag {@code <basePath>/Rectangles} onto the 2D-Field display in AdvantageScope and it will
+ * draw outlined shapes — no trajectory tricks needed.
  */
 public final class ObstacleVisualizer {
 
   private ObstacleVisualizer() {}
 
   /**
-   * Logs every obstacle in the field. Safe to call every loop.
+   * Logs every obstacle. Safe to call every loop.
    *
-   * @param basePath Log key prefix (e.g. {@code "World/Obstacles"})
-   * @param field Obstacles to visualize
-   * @param robotRadius If positive, also logs each obstacle inflated by this much so the planner's
-   *     effective clearance can be seen on the field.
+   * @param basePath log key prefix (e.g. {@code "World/Obstacles"})
+   * @param obstacles AABB list (min/max corner pairs)
+   * @param inflation if positive, also logs each obstacle inflated by this much so the planner's
+   *     effective clearance can be seen on the field
    */
-  public static void log(String basePath, ObstacleField field, double robotRadius) {
-    List<Rectangle2d> rects = new ArrayList<>();
-    List<Ellipse2d> ellipses = new ArrayList<>();
-    collect(field.staticObstacles(), rects, ellipses);
-    collect(field.dynamicObstacles(), rects, ellipses);
-    Logger.recordOutput(basePath + "/Rectangles", rects.toArray(new Rectangle2d[0]));
-    Logger.recordOutput(basePath + "/Ellipses", ellipses.toArray(new Ellipse2d[0]));
+  public static void log(
+      String basePath, List<Pair<Translation2d, Translation2d>> obstacles, double inflation) {
+    Rectangle2d[] rects = new Rectangle2d[obstacles.size()];
+    for (int i = 0; i < obstacles.size(); i++) {
+      rects[i] = toRectangle(obstacles.get(i), 0.0);
+    }
+    Logger.recordOutput(basePath + "/Rectangles", rects);
 
-    if (robotRadius > 0.0) {
-      List<Rectangle2d> inflatedRects = new ArrayList<>(rects.size());
-      List<Ellipse2d> inflatedEllipses = new ArrayList<>(ellipses.size());
-      for (Rectangle2d r : rects) {
-        Pose2d c = r.getCenter();
-        inflatedRects.add(
-            new Rectangle2d(c, r.getXWidth() + 2 * robotRadius, r.getYWidth() + 2 * robotRadius));
+    if (inflation > 0.0) {
+      Rectangle2d[] inflated = new Rectangle2d[obstacles.size()];
+      for (int i = 0; i < obstacles.size(); i++) {
+        inflated[i] = toRectangle(obstacles.get(i), inflation);
       }
-      for (Ellipse2d e : ellipses) {
-        inflatedEllipses.add(
-            new Ellipse2d(
-                e.getCenter(), e.getXSemiAxis() + robotRadius, e.getYSemiAxis() + robotRadius));
-      }
-      Logger.recordOutput(
-          basePath + "/Inflated/Rectangles", inflatedRects.toArray(new Rectangle2d[0]));
-      Logger.recordOutput(
-          basePath + "/Inflated/Ellipses", inflatedEllipses.toArray(new Ellipse2d[0]));
+      Logger.recordOutput(basePath + "/Inflated/Rectangles", inflated);
     }
   }
 
-  private static void collect(
-      List<Obstacle> obstacles, List<Rectangle2d> rects, List<Ellipse2d> ellipses) {
-    for (Obstacle o : obstacles) {
-      if (o instanceof Obstacle.Rectangle r) {
-        rects.add(r.shape());
-      } else if (o instanceof Obstacle.Circle c) {
-        ellipses.add(c.shape());
-      }
-    }
+  private static Rectangle2d toRectangle(Pair<Translation2d, Translation2d> box, double inflation) {
+    Translation2d min = box.getFirst();
+    Translation2d max = box.getSecond();
+    double cx = (min.getX() + max.getX()) / 2.0;
+    double cy = (min.getY() + max.getY()) / 2.0;
+    double widthX = (max.getX() - min.getX()) + 2 * inflation;
+    double widthY = (max.getY() - min.getY()) + 2 * inflation;
+    return new Rectangle2d(new Pose2d(cx, cy, Rotation2d.kZero), widthX, widthY);
   }
 }

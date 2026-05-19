@@ -199,6 +199,9 @@ sim-test.log
 # Local exploration / agent skills (track explicitly via .agent/ if desired)
 analysis/
 
+# One-off log-analysis scripts kept locally; not part of the build.
+tmp_*.py
+
 # Claude Code runtime state
 .claude/*.lock
 .claude/worktrees/

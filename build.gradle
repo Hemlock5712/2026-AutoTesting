@@ -9,6 +9,13 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+// mavenLocal lookup for the in-progress PathPlannerLib fork (published via
+// publishToMavenLocal in c:/Users/joeoj/Downloads/pathplanner). Remove this block once
+// distance-based path following lands upstream and we depend on the official vendordep.
+repositories {
+    mavenLocal()
+}
+
 spotless {
     java {
         target "src/**/*.java"
@@ -115,6 +122,11 @@ dependencies {
     // on the robot. If keeping dyn4j out of the roboRIO bundle becomes important, the right
     // fix is a sim-only source set; `implementation` works for both targets today.
     implementation 'org.dyn4j:dyn4j:5.0.2'
+
+    // PathPlannerLib local fork (mjansen4857/pathplanner#1169 + #1170 + #1171). Pulls from
+    // mavenLocal published from c:/Users/joeoj/Downloads/pathplanner. Used to validate the
+    // distance-based path follower stack end-to-end before opening upstream merges.
+    implementation 'com.pathplanner.lib:PathplannerLib-java:0.0.0'
 }
 
 test {

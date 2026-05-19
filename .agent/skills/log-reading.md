@@ -49,23 +49,22 @@ All drive state lives under one `Drive/*` tree, modeled after CTRE's `SwerveDriv
 | `/RealOutputs/Drive/Sim/PoseErrorMeters`                  | (sim only) distance between estimator pose and physics pose |
 | `/RealOutputs/Drive/Sim/HeadingErrorRad`                  | (sim only) heading delta between estimator and physics |
 | `/RealOutputs/Drive/Diagnostics/ArcIntegrateRejections`   | Counter — odometry samples rejected for non-finite inputs |
-| `/RealOutputs/Drive/Diagnostics/FrictionRatios`           | Per-module friction utilization (a_i / mu*g)          |
 | `/RealOutputs/Drive/Avoidance/MinFreeDistance`            | Pose-clamped distance to the nearest obstacle (m). Drops to 0 when the brake engages. |
 | `/RealOutputs/World/Obstacles/Rectangles`                 | Field obstacles as `Rectangle2d[]` — AdvantageScope renders these natively |
-| `/RealOutputs/World/Obstacles/Ellipses`                   | Field obstacles as `Ellipse2d[]` |
-| `/RealOutputs/DriveToWithAvoidance/PlanFailed`            | True when the runtime planner couldn't find a route (paired with a yellow DS Alert) |
 | `/AdvantageKit/Drive/Module<0-3>/...`                     | Per-module AKit inputs: drive/steer position, applied volts, currents, plus 250 Hz odometry sample arrays |
 | `/AdvantageKit/Drive/Gyro/...`                            | Gyro AKit inputs: yaw, yaw rate, 250 Hz yaw sample arrays |
 | `/AdvantageKit/Vision/<camera>/...`                       | Per-camera Vision inputs: filtered pose, tag count, ambiguity, distance, MT2 flag |
 | `/RealOutputs/Vision/<camera>/XYStdDev`                   | Computed XY standard deviation (lower = more trusted) |
 | `/RealOutputs/Vision/<camera>/ThetaStdDev`                | Computed heading standard deviation                   |
-| `/RealOutputs/FollowPath/Progress`                        | 0..1 along the active path (arc-length based)         |
-| `/RealOutputs/FollowPath/CrossTrackError`                 | Lateral error to nearest path point (m)               |
-| `/RealOutputs/FollowPath/HeadingError`                    | Heading error vs path heading (rad)                   |
-| `/RealOutputs/FollowPath/ProfiledSpeed`                   | Path's commanded speed at projection (m/s)            |
-| `/RealOutputs/FollowPath/ActualSpeed`                     | Robot's measured speed (m/s)                          |
-| `/RealOutputs/FollowPath/ReferencePath`                   | Pose2d[] sampling of the active reference path        |
-| `/RealOutputs/FollowPath/TargetPoint`, `/ClosestPoint`    | [x,y] of the lookahead target and the closest path point |
+| `/RealOutputs/PathPlanner/CurrentPose`                    | Pose PathPlanner is feeding into the controller (= estimator pose) |
+| `/RealOutputs/PathPlanner/TargetPose`                     | Active target pose along the path                     |
+| `/RealOutputs/PathPlanner/ActivePath`                     | `Pose2d[]` sampling of the active reference path      |
+| `/RealOutputs/PathPlanner/PathName`                       | Name of the currently-running `.path` file (when followed via `followPath`) |
+| `/RealOutputs/PathPlanner/AutoName`                       | Name of the currently-running `.auto` file (when run via `runAuto`)         |
+| `/RealOutputs/PathPlanner/PathfindGoal`                   | Goal pose for the latest `pathfindToPose` call        |
+| `/RealOutputs/PathPlanner/LastResult`                     | `"finished"` or `"interrupted"` — status of the most recent path/auto/pathfind |
+| `/RealOutputs/PathPlanner/StaticObstacleCount`            | Number of inflated AABBs pushed into the pathfinder at `configure` time |
+| `/RealOutputs/PathPlanner/Diag/Target{HeadingRad,LinearVel,Curvature,FieldVx,FieldVy,FieldOmega}` | Raw target-state fields logged from the controller wrapper |
 | `/DriverStation/Enabled`, `/DriverStation/Autonomous`     | Use these to find auto / teleop start times           |
 | `/SmartDashboard/Auto Mode/selected`                      | Which auto routine was chosen                         |
 | `/RealOutputs/Mode`                                       | "REAL", "SIM", or "REPLAY" — confirms run mode        |
@@ -108,7 +107,7 @@ for r in reader2:
     if r.isStart() or r.isFinish() or r.isControl() or r.isSetMetadata():
         continue
     name, typ = entries.get(r.getEntry(), ("", ""))
-    if name.endswith("/CrossTrackError"):
+    if name.endswith("/PathPlanner/TargetPose"):
         ts = r.getTimestamp() / 1e6
         val = struct.unpack("<d", bytes(r.getRaw()))[0]
         print(ts, val)
@@ -132,21 +131,19 @@ For other types check the `type` string returned by `getStartData()` and look up
 
 ## Suggested summary statistics
 
-When evaluating a path-following run, the cheapest useful summary is:
+When evaluating a path-following run, the cheapest useful summary derives from `PathPlanner/CurrentPose` vs `PathPlanner/TargetPose` (PathPlanner doesn't publish a separate cross-track error key):
 
-| Stat                       | How to compute (per `/RealOutputs/FollowPath/...` series) |
-| -------------------------- | -------------------------------------------------------- |
-| `duration_s`               | last timestamp − first timestamp on `Progress`           |
-| `end_progress`             | last value of `Progress`                                 |
-| `max_abs_cross_track_m`    | `max(abs(v) for v in CrossTrackError)`                   |
-| `mean_abs_cross_track_m`   | `mean(abs(v) for v in CrossTrackError)`                  |
-| `end_cross_track_m`        | last `CrossTrackError`                                   |
-| `end_speed_mps`            | last `ActualSpeed`                                       |
-| `stall_time_s`             | `0.02 * count(v < 0.5 for v in ActualSpeed)`             |
-| `mean_solve_ms`            | `mean(SolveTimeMs)`                                      |
-| `max_solve_ms`             | `max(SolveTimeMs)`                                       |
+| Stat                       | How to compute |
+| -------------------------- | -------------- |
+| `duration_s`               | last timestamp − first timestamp on `PathPlanner/TargetPose` |
+| `final_result`             | last value of `PathPlanner/LastResult` (`"finished"` vs `"interrupted"`) |
+| `max_abs_xy_error_m`       | `max(hypot(tx-cx, ty-cy))` over the run (CurrentPose vs TargetPose) |
+| `mean_abs_xy_error_m`      | `mean(hypot(tx-cx, ty-cy))`                                          |
+| `end_xy_error_m`           | last sample's `hypot(tx-cx, ty-cy)`                                  |
+| `end_speed_mps`            | last `hypot(Drive/FieldSpeeds.vx, Drive/FieldSpeeds.vy)`             |
+| `stall_time_s`             | `0.02 * count(v < 0.5 for v in Drive/TranslationSpeedMps while target_v > 1.0)` |
 
-That's usually enough to answer "is this controller better than the previous one?" without staring at plots.
+That's usually enough to answer "is this controller better than the previous one?" without staring at plots. Per-tick target-state fields under `PathPlanner/Diag/*` are available if you need to inspect curvature, heading, or commanded field-velocity directly.
 
 ## Discovering keys you don't know yet
 
@@ -157,8 +154,8 @@ There is **no `runLogDumper` Gradle task in this project** — that's a differen
 
 ## Common analyses
 
-- **"Did the path follower drift?"** → max `|CrossTrackError|`, where in `Progress` it peaked, end-of-path `CrossTrackError`.
-- **"Did we ever stall?"** → count samples where `ActualSpeed < 0.5 m/s` while `ProfiledSpeed > 1.0 m/s`.
+- **"Did the path follower drift?"** → max `hypot(TargetPose - CurrentPose)`, when in the run it peaked, end-of-path error.
+- **"Did we ever stall?"** → count samples where `Drive/TranslationSpeedMps < 0.5 m/s` while `PathPlanner/Diag/TargetLinearVel > 1.0 m/s`.
 - **"Is the loop overrunning?"** → max `Timing/TotalMs`, count samples > 20ms.
 - **"Did vision agree with odometry?"** → compare `/RealOutputs/Drive/Pose` to per-camera vision pose estimates around vision update timestamps.
 - **"Did the right auto run?"** → `/SmartDashboard/Auto Mode/selected` at the moment auto enables.

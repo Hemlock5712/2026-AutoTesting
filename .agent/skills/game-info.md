@@ -12,7 +12,7 @@ This skill captures the season-specific knowledge an agent needs to reason about
 - **2026 FRC season.** Project root is named `2026-AutoTesting`. WPILib year is **2026**, vendordeps are 2026 builds:
   - GradleRIO `2026.2.1`
   - Phoenix6 `26.1.3`
-  - ChoreoLib `2026`
+  - PathPlannerLib (local fork via mavenLocal — see [build.gradle](build.gradle))
   - AdvantageKit (current)
 - Robot model assets are tracked under the AdvantageScope name `Robot_2026` (see [README.md](README.md) for install).
 
@@ -20,15 +20,15 @@ This skill captures the season-specific knowledge an agent needs to reason about
 
 The codebase enforces these as project conventions — agents should respect them rather than re-deriving:
 
-- **Field origin is blue alliance.** Choreo paths are authored in the blue-alliance frame.
-- **Red alliance = rotated** (180° rotational symmetry, *not* mirrored). The 2026 field uses `SymmetryType.ROTATE` — a path point at blue (x, y, θ) maps to red (`fieldLength - x`, `fieldWidth - y`, `θ + 180°`). Choreo's `trajectory.flipped()` does this; don't hand-compute. (Distinct from earlier-season fields that used MIRROR symmetry — copy/pasting old flip code from a 2024/2025 codebase will produce wrong red poses.)
-- **Where the flip lives:** [AutoPath.get()](src/main/java/frc/robot/utils/path/AutoPath.java) returns `red` when `FieldInfo.shouldFlip()` is true, where `red = ArcLengthTrajectory.fromChoreo(trajectory.flipped())`. Both alliances are pre-computed at load time — flipping at runtime is a const-time pointer swap, not a recompute.
+- **Field origin is blue alliance.** PathPlanner paths are authored in the blue-alliance frame.
+- **Red alliance = rotated** (180° rotational symmetry, *not* mirrored). The 2026 field uses `SymmetryType.ROTATE` — a path point at blue (x, y, θ) maps to red (`fieldLength - x`, `fieldWidth - y`, `θ + 180°`). PathPlanner's `PathPlannerPath.flipPath()` does this; don't hand-compute. (Distinct from earlier-season fields that used MIRROR symmetry — copy/pasting old flip code from a 2024/2025 codebase will produce wrong red poses.)
+- **Where the flip lives:** PathPlanner-followed paths can be flipped via the `shouldFlip` callback in [PathPlannerAutos.configure](src/main/java/frc/robot/commands/PathPlannerAutos.java) (currently `() -> false`; wire to `FieldInfo.shouldFlip()` when red-alliance autos are added). For non-path field positions, use the `Ext*` containers in `utils/geometry/` — they call `FieldInfo.shouldFlip()` and pre-flip at construction time.
 - **Driver perspective rotation** is applied by the joystick lambda in [RobotContainer.buildTeleopDrive](src/main/java/frc/robot/RobotContainer.java): `sign = FieldInfo.shouldFlip() ? +1.0 : -1.0` flips the X/Y stick inputs once per alliance so "forward on the joystick" always means "downfield from the driver's POV." CTRE's `CommandSwerveDrivetrain` is not used in this project.
 - **Alliance is cached** — `FieldInfo.resetAllianceCache()` is wired into `autonomousInit()` and `teleopInit()` in [Robot.java](src/main/java/frc/robot/Robot.java) so DS reconnects mid-match don't silently flip behavior. Don't read `DriverStation.getAlliance()` directly anywhere on the hot path; go through `FieldInfo`.
 
 ## Field zones / scoring locations
 
-> **Status: TODO.** As autos are added, fill in the named field positions an agent should know about — substations, scoring locations, defensive zones — keyed to the game-specific terminology and to the `Pose2d` constants in code (or the named waypoints in `src/main/deploy/choreo/Choreo.chor`).
+> **Status: TODO.** As autos are added, fill in the named field positions an agent should know about — substations, scoring locations, defensive zones — keyed to the game-specific terminology and to the `Pose2d` constants in code (or the named waypoints in PathPlanner `.path` files under `src/main/deploy/pathplanner/paths/`).
 >
 > Recommended structure once known:
 >
@@ -54,13 +54,13 @@ The codebase enforces these as project conventions — agents should respect the
 When this skill is silent or stale, defer to (in order):
 
 1. **The 2026 game manual** — rules, field dimensions, scoring values. Always treat as source of truth over anything written here.
-2. **`src/main/deploy/choreo/Choreo.chor`** — opened in the Choreo desktop app, this contains the field image, named waypoints, and obstacle constraints used to author paths.
+2. **`src/main/deploy/pathplanner/`** — `paths/*.path`, `autos/*.auto`, `navgrid.json`, and `settings.json`, all opened in the PathPlanner desktop app (or Choreo if authoring `.traj` exports). Source of truth for named waypoints and auto sequencing.
 3. **WPILib `AprilTagFieldLayout`** for the 2026 season — tag IDs / poses on the field. Loaded by `LimelightHelpers` for vision pose estimation.
 4. **6328's published season guide** — the codebase already borrows their vision std-dev formula and JVM tuning recipe; their field-zone analysis is usually the cleanest secondary reference.
 
 ## Anti-patterns
 
-- Don't hardcode red-alliance poses. Author in blue, flip via `FieldInfo` / `AutoPath`.
+- Don't hardcode red-alliance poses. Author in blue, flip via `FieldInfo` / the `Ext*` containers / PathPlannerAutos' `shouldFlip` callback.
 - Don't assume the 2025 field layout. Tag IDs, reef/processor/whatever-the-2026-equivalent layouts changed.
 - Don't read `DriverStation.getAlliance()` in subsystem `periodic()` — use `FieldInfo`'s cached value, refreshed at mode-change boundaries.
-- Don't introduce a "match clock" path-trigger. Triggers are arc-length-based ([PathAction](src/main/java/frc/robot/autonomous/AutoCommands.java)), not time-based — see [Robot Description](.agent/skills/robot-description.md) for the why.
+- Don't introduce a "match clock" path-trigger. PathPlanner `.auto` files use named-command actions tied to path waypoints, not match-time gates.

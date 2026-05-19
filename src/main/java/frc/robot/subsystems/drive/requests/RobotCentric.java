@@ -3,18 +3,14 @@ package frc.robot.subsystems.drive.requests;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import frc.robot.lib.dynamics.AccelerationLimiter;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.SwerveRequest;
 
 /**
  * Robot-relative velocity request. Same shape as {@link FieldCentric}, but vx/vy are interpreted in
- * robot frame so they aren't rotated by heading before being commanded. Mirrors CTRE's {@code
+ * robot frame so they aren't rotated by heading before being commanded. Per-module slip/torque/
+ * steer-rate limiting happens inside {@link Drive#runVelocity}. Mirrors CTRE's {@code
  * SwerveRequest::RobotCentric}.
- *
- * <p>The acceleration limiter is invoked with {@code headingRadians = 0} since the speeds are
- * already in robot frame; the per-module friction check then evaluates module accelerations
- * directly without a frame rotation.
  */
 public class RobotCentric implements SwerveRequest {
   private volatile double velocityX = 0.0;
@@ -23,8 +19,6 @@ public class RobotCentric implements SwerveRequest {
   private volatile double deadband = 0.0;
   private volatile double rotationalDeadband = 0.0;
   private volatile Translation2d centerOfRotation = Translation2d.kZero;
-
-  private final ChassisSpeeds limitedRobotSpeeds = new ChassisSpeeds();
 
   /** Robot-frame velocity X (m/s, forward positive). */
   public RobotCentric withVelocityX(double v) {
@@ -63,21 +57,11 @@ public class RobotCentric implements SwerveRequest {
   }
 
   @Override
-  public void onActivate(Drive drive) {
-    ChassisSpeeds robot = drive.getRobotSpeeds();
-    limitedRobotSpeeds.vxMetersPerSecond = robot.vxMetersPerSecond;
-    limitedRobotSpeeds.vyMetersPerSecond = robot.vyMetersPerSecond;
-    limitedRobotSpeeds.omegaRadiansPerSecond = robot.omegaRadiansPerSecond;
-  }
-
-  @Override
   public void apply(Drive drive, double dt) {
     double targetVx = MathUtil.applyDeadband(velocityX, deadband);
     double targetVy = MathUtil.applyDeadband(velocityY, deadband);
     double targetOmega = MathUtil.applyDeadband(rotationalRate, rotationalDeadband);
 
-    AccelerationLimiter.integrateVelocityInPlace(
-        limitedRobotSpeeds, targetVx, targetVy, targetOmega, dt, 0.0);
-    drive.runVelocity(limitedRobotSpeeds, centerOfRotation);
+    drive.runVelocity(new ChassisSpeeds(targetVx, targetVy, targetOmega), centerOfRotation);
   }
 }

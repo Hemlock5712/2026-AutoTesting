@@ -77,7 +77,7 @@ The typical agent loop:
 
 1. `./gradlew simulateJavaAgent` (headless, starts in auto)
 2. Wait until either:
-   - `FollowPath/Progress` reaches ~1.0 on NetworkTables, or
+   - `PathPlanner/LastResult` flips to `"finished"` on NetworkTables, or
    - The robot disables itself (auto routine ends), or
    - Some timeout you've set
 3. Stop the gradle process (Ctrl+Break / SIGINT — flushes the WPILOG)

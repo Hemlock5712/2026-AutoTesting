@@ -5,15 +5,15 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import frc.robot.lib.dynamics.AccelerationLimiter;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.SwerveRequest;
 
 /**
  * Field-relative velocity request with a heading lock. The driver supplies vx/vy in field frame and
  * a target heading; the request's PID controller turns the heading error into a rotational rate,
- * which then flows through the same {@link AccelerationLimiter} pipeline as {@link FieldCentric}.
- * Mirrors CTRE's {@code SwerveRequest::FieldCentricFacingAngle}.
+ * which is then handed to {@link Drive#runVelocity(ChassisSpeeds)} along with the translation
+ * target. The setpoint generator inside {@code Drive} enforces per-module slip/torque/steer-rate
+ * limits. Mirrors CTRE's {@code SwerveRequest::FieldCentricFacingAngle}.
  *
  * <p>The internal {@link PIDController} is exposed via {@link #getHeadingController()} so callers
  * can tune gains and tolerance. It's configured for continuous input on {@code [-pi, pi]} so the
@@ -26,9 +26,6 @@ public class FieldCentricFacingAngle implements SwerveRequest {
   private volatile double deadband = 0.0;
   private volatile Rotation2d targetDirection = Rotation2d.kZero;
   private volatile Translation2d centerOfRotation = Translation2d.kZero;
-
-  // Read by the fast loop only.
-  private final ChassisSpeeds limitedFieldSpeeds = new ChassisSpeeds();
 
   // PID is touched only by the fast loop after onActivate resets it on the main thread (which
   // happens-before the volatile activeRequest publish in Drive.setControl).
@@ -88,10 +85,6 @@ public class FieldCentricFacingAngle implements SwerveRequest {
 
   @Override
   public void onActivate(Drive drive) {
-    ChassisSpeeds field = drive.getFieldSpeeds();
-    limitedFieldSpeeds.vxMetersPerSecond = field.vxMetersPerSecond;
-    limitedFieldSpeeds.vyMetersPerSecond = field.vyMetersPerSecond;
-    limitedFieldSpeeds.omegaRadiansPerSecond = field.omegaRadiansPerSecond;
     headingController.reset();
   }
 
@@ -104,9 +97,8 @@ public class FieldCentricFacingAngle implements SwerveRequest {
     double targetOmega =
         headingController.calculate(heading.getRadians(), targetDirection.getRadians());
 
-    AccelerationLimiter.integrateVelocityInPlace(
-        limitedFieldSpeeds, targetVx, targetVy, targetOmega, dt, heading.getRadians());
     drive.runVelocity(
-        ChassisSpeeds.fromFieldRelativeSpeeds(limitedFieldSpeeds, heading), centerOfRotation);
+        ChassisSpeeds.fromFieldRelativeSpeeds(targetVx, targetVy, targetOmega, heading),
+        centerOfRotation);
   }
 }

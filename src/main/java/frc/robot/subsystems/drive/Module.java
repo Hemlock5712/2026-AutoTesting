@@ -77,9 +77,9 @@ public class Module {
   }
 
   /**
-   * Tells the module to drive at the given speed/angle. Optimizes the state in place. The {@code
-   * dt} is the loop time — used to dynamically compute the exact acceleration needed to interpolate
-   * to the new velocity smoothly using MotionMagicVelocityVoltage.
+   * Drive at the given speed/angle. {@code dt} sets the MotionMagicVelocityVoltage accel limit.
+   * The {@code optimize} + {@code cosineScale} against the measured angle compensate for steer
+   * servo lag between ticks; stripping them regresses Out-path tracking 113mm → 176mm.
    */
   public void runSetpoint(SwerveModuleState state, double dt) {
     state.optimize(getAngle());

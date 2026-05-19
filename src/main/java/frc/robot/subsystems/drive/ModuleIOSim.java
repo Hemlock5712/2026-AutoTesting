@@ -25,25 +25,20 @@ import java.util.Arrays;
  * is always voltage-controlled. Odometry samples come from the sim's cached sub-tick state.
  */
 public class ModuleIOSim implements ModuleIO {
-  // TunerConstants doesn't carry sim-only gains, so they live here.
+  // Sim-only gains (TunerConstants doesn't carry these).
+  // Voltage needed to overcome wheel friction at low speed (empirical).
   private static final double DRIVE_KS = 0.03;
-  // kV chosen so that FF = 12V at the rated top wheel speed (kSpeedAt12Volts / wheelRadius).
-  // The earlier hard-coded 0.91035 V*s/rev gave FF ≈ 14.3 V at top speed — capped at 12 V by the
-  // battery clamp, but more importantly the FF over-drove the motor at every intermediate speed.
-  // During hard deceleration that meant the applied voltage stayed above back-EMF at the
-  // setpoint, so the motor still produced forward torque (only the small KP*error term opposed
-  // it) and the chassis lagged its commanded brake by ~1 m/s — visible as ~0.4 m of overshoot
-  // at the end of paths. Computing kV from kSpeedAt12Volts brings FF into agreement with
-  // back-EMF at every speed, so FF alone produces braking torque whenever the wheel is faster
-  // than its setpoint.
+  // Computed so FF = 12V at the rated top wheel speed -- matches back-EMF at every speed,
+  // so FF alone produces braking torque whenever the wheel is faster than its setpoint.
   private static final double DRIVE_KV =
       12.0
           / (TunerConstants.kSpeedAt12Volts.in(MetersPerSecond)
               / TunerConstants.FrontLeft.WheelRadius);
-  // Bumped from 0.05 to 0.4 (matching real-robot driveGains.kP) so the velocity loop has enough
-  // authority to clamp tracking lag during hard brake commands. With the old gain, peak lag during
-  // the path-end deceleration was ~1 m/s (most of the end-of-path overshoot).
-  private static final double DRIVE_KP = 0.4;
+  // Velocity-loop P. 0.2 holds tracking with the current 9.5 m/s² path accel + position-stable
+  // bootstrap; bump back toward 0.4 if a future path runs at the friction limit.
+  private static final double DRIVE_KP = 0.2;
+  // Steer-loop P. ~22 rad/s motor free speed / steer reduction gives ~5°/cycle correction at
+  // 8.0 -- aggressive enough to track planner steer-rate, gentle enough not to oscillate.
   private static final double TURN_KP = 8.0;
 
   private final SwerveModuleSimulation moduleSimulation;

@@ -7,12 +7,9 @@ import frc.robot.subsystems.drive.SwerveRequest;
 
 /**
  * Applies a robot-relative {@link ChassisSpeeds} setpoint each tick. Pure passthrough — no
- * deadband, no acceleration limiting. For autonomous controllers (path followers, etc.) that have
- * already shaped the trajectory and want the chassis to track it directly. Mirrors CTRE's {@code
- * SwerveRequest::ApplyRobotSpeeds}.
- *
- * <p>Note: {@link Drive#runVelocity} always discretizes; CTR's variant says "without automatic
- * discretization" but here we keep the project's single discretization path for consistency.
+ * deadband. The per-module limiter inside {@link Drive#runVelocity} still applies. For autonomous
+ * controllers (path followers, etc.) that already shape the trajectory and want the chassis to
+ * track it directly. Mirrors CTRE's {@code SwerveRequest::ApplyRobotSpeeds}.
  */
 public class ApplyRobotSpeeds implements SwerveRequest {
   // Defensive copies of the caller's ChassisSpeeds, so reusing a single instance across ticks

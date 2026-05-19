@@ -5,14 +5,18 @@
 // license that can be found in the LICENSE file
 // at the root directory of this project.
 //
-// Adapted from the AdvantageKit talonfx_swerve template. PathPlanner integration is removed
-// (this project uses Choreo); the rest of the structure is preserved so behavior matches the
-// upstream template's sim ↔ replay determinism guarantees.
+// Adapted from the AdvantageKit talonfx_swerve template. PathPlanner AutoBuilder wiring has been
+// moved out of this subsystem into PathPlannerAutos.configure(...) so Drive stays focused on
+// per-module control; the rest of the upstream template structure is preserved so behavior
+// matches its sim ↔ replay determinism guarantees.
 
 package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
 
+import com.pathplanner.lib.util.DriveFeedforwards;
+import com.pathplanner.lib.util.swerve.SwerveSetpoint;
+import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -35,7 +39,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.generated.TunerConstants;
-import frc.robot.lib.dynamics.AccelerationLimiter;
 import frc.robot.simlib.drivesims.COTS;
 import frc.robot.simlib.drivesims.configs.DriveTrainSimulationConfig;
 import frc.robot.simlib.drivesims.configs.SwerveModuleSimulationConfig;
@@ -49,14 +52,7 @@ import org.littletonrobotics.junction.Logger;
 public class Drive extends SubsystemBase {
   // Not included in TunerConstants, so declared here.
   static final double ODOMETRY_FREQUENCY = TunerConstants.kCANBus.isNetworkFD() ? 250.0 : 100.0;
-  public static final double DRIVE_BASE_RADIUS =
-      Math.max(
-          Math.max(
-              Math.hypot(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY),
-              Math.hypot(TunerConstants.FrontRight.LocationX, TunerConstants.FrontRight.LocationY)),
-          Math.max(
-              Math.hypot(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
-              Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
+  public static final double DRIVE_BASE_RADIUS = DrivePhysics.DRIVE_BASE_RADIUS;
 
   /** Standard FRC bumper thickness (3.25 in). */
   public static final double BUMPER_THICKNESS_M = 0.0826;
@@ -70,27 +66,6 @@ public class Drive extends SubsystemBase {
   public static final double ROBOT_HALF_Y =
       Math.abs(TunerConstants.FrontLeft.LocationY) + BUMPER_THICKNESS_M;
 
-  /**
-   * Deceleration budget the avoidance clamp's brake curve plans against. Held below {@link
-   * AccelerationLimiter#MAX_FRICTION_ACCEL} so the chassis controller still has headroom to
-   * actually decelerate in time — the clamp commits to 60% of the friction limit so the remaining
-   * 40% covers controller lag, weight transfer, and modeling error.
-   */
-  public static final double AVOIDANCE_DECEL_BUDGET = 0.6 * AccelerationLimiter.MAX_FRICTION_ACCEL;
-
-  /**
-   * Buffer kept between the robot's bounding box and any obstacle edge. Sized to cover the
-   * cachedPose staleness budget: pose is published from periodic() at 50 Hz but read on the 250 Hz
-   * fast loop, so the clamp can act on a pose up to one 50 Hz cycle (20 ms) stale. At
-   * kSpeedAt12Volts (~4.7 m/s) that's ~0.094 m of unobserved motion — 0.10 m gives ~6 mm of slack
-   * over the worst case. Don't reduce without re-deriving from the staleness × max-speed product.
-   */
-  public static final double AVOIDANCE_SAFETY_MARGIN_M = 0.10;
-
-  // MapleSim physics shares constants with the limiter — one source of truth.
-  private static final double ROBOT_MASS_KG = AccelerationLimiter.ROBOT_MASS;
-  private static final double WHEEL_COF = AccelerationLimiter.MU_FRICTION;
-
   private static DriveTrainSimulationConfig mapleSimConfig = null;
 
   /** Lazily-built MapleSim drivetrain config keyed off TunerConstants. */
@@ -98,7 +73,7 @@ public class Drive extends SubsystemBase {
     if (mapleSimConfig != null) return mapleSimConfig;
     return mapleSimConfig =
         DriveTrainSimulationConfig.Default()
-            .withRobotMass(Kilograms.of(ROBOT_MASS_KG))
+            .withRobotMass(Kilograms.of(DrivePhysics.ROBOT_MASS_KG))
             .withCustomModuleTranslations(getModuleTranslations())
             .withGyro(COTS.ofPigeon2())
             .withSwerveModule(
@@ -111,7 +86,7 @@ public class Drive extends SubsystemBase {
                     Volts.of(TunerConstants.FrontLeft.SteerFrictionVoltage),
                     Meters.of(TunerConstants.FrontLeft.WheelRadius),
                     KilogramSquareMeters.of(TunerConstants.FrontLeft.SteerInertia),
-                    WHEEL_COF));
+                    DrivePhysics.WHEEL_COF));
   }
 
   /**
@@ -162,12 +137,15 @@ public class Drive extends SubsystemBase {
   private volatile ChassisSpeeds latestSetpointSpeeds = new ChassisSpeeds();
   private volatile double lastRunVelocityTime = -1.0;
 
-  // --- Measured-acceleration tracking (drives AccelerationLimiter weight-transfer) ---
-  // Estimate field-frame acceleration from the measured chassis-speed delta and feed it back to
-  // AccelerationLimiter.lastAccel so applyPerModuleFrictionLimit's weight-transfer term tracks
-  // reality even on paths that bypass the chassis-level integrator (e.g. Choreo follower).
-  private ChassisSpeeds lastMeasuredFieldSpeeds = new ChassisSpeeds();
-  private double lastMeasuredFieldSpeedsTime = -1.0;
+  // --- Setpoint generator (per-module slip/torque/steer-rate limiting) ---
+  // Replaces the old chassis-envelope limiter with PathPlanner's runtime setpoint generator. Same
+  // physics model as the offline PP planner (single RobotConfig source of truth) so plan-time and
+  // runtime can't disagree on what the wheels can do. prevSetpoint is initialized in the ctor
+  // (modules array isn't populated until then).
+  private final SwerveSetpointGenerator setpointGenerator =
+      new SwerveSetpointGenerator(
+          DrivePhysics.buildRobotConfig(), DrivePhysics.MAX_STEER_VELOCITY_RAD_PER_SEC);
+  private SwerveSetpoint prevSetpoint;
 
   // Tracks DS-disable transitions so we stop the modules once on the rising edge instead of
   // every periodic tick (avoiding a 50 Hz storm of stop() calls racing the 250 Hz hook).
@@ -194,6 +172,8 @@ public class Drive extends SubsystemBase {
     modules[1] = new Module(frModuleIO, 1, TunerConstants.FrontRight);
     modules[2] = new Module(blModuleIO, 2, TunerConstants.BackLeft);
     modules[3] = new Module(brModuleIO, 3, TunerConstants.BackRight);
+
+    prevSetpoint = blankSetpoint();
 
     PhoenixOdometryThread.getInstance().start();
 
@@ -230,6 +210,8 @@ public class Drive extends SubsystemBase {
         for (var module : modules) {
           module.stop();
         }
+        // Reset generator state so we don't carry stale velocity/angle across an enable cycle.
+        prevSetpoint = blankSetpoint();
       }
       latestSetpointStates = EMPTY_STATES;
     }
@@ -239,28 +221,6 @@ public class Drive extends SubsystemBase {
 
     cachedPose = poseEstimator.getEstimatedPosition();
     cachedRobotSpeeds = kinematics.toChassisSpeeds(getModuleStates());
-
-    // Feed AccelerationLimiter with a measured field-frame acceleration estimate so its
-    // weight-transfer term tracks reality even when no caller is running the chassis-level
-    // integrator (e.g. Choreo follower calls runVelocity directly).
-    ChassisSpeeds measuredFieldSpeeds =
-        ChassisSpeeds.fromRobotRelativeSpeeds(cachedRobotSpeeds, getRotation());
-    double now = Timer.getFPGATimestamp();
-    if (lastMeasuredFieldSpeedsTime > 0) {
-      double dt = now - lastMeasuredFieldSpeedsTime;
-      if (dt > 1e-6) {
-        AccelerationLimiter.setLastAcceleration(
-            (measuredFieldSpeeds.vxMetersPerSecond - lastMeasuredFieldSpeeds.vxMetersPerSecond)
-                / dt,
-            (measuredFieldSpeeds.vyMetersPerSecond - lastMeasuredFieldSpeeds.vyMetersPerSecond)
-                / dt,
-            (measuredFieldSpeeds.omegaRadiansPerSecond
-                    - lastMeasuredFieldSpeeds.omegaRadiansPerSecond)
-                / dt);
-      }
-    }
-    lastMeasuredFieldSpeeds = measuredFieldSpeeds;
-    lastMeasuredFieldSpeedsTime = now;
 
     logState();
 
@@ -287,8 +247,6 @@ public class Drive extends SubsystemBase {
     Logger.recordOutput("Drive/SetpointSpeeds", latestSetpointSpeeds);
 
     Logger.recordOutput("Drive/Diagnostics/ArcIntegrateRejections", arcIntegrateRejections);
-    Logger.recordOutput(
-        "Drive/Diagnostics/FrictionRatios", AccelerationLimiter.getLastModuleFrictionRatios());
   }
 
   /**
@@ -429,49 +387,56 @@ public class Drive extends SubsystemBase {
 
   /**
    * Drive at the given robot-relative chassis speeds. Can be called from the main loop or the 250
-   * Hz fast loop.
+   * Hz fast loop. The setpoint generator inside this method enforces per-module slip, torque, and
+   * steer-rate limits; callers pass raw targets.
    */
   public void runVelocity(ChassisSpeeds speeds) {
-    runVelocity(speeds, Translation2d.kZero);
+    runVelocityInternal(speeds);
   }
 
   /**
-   * Drive at the given robot-relative chassis speeds, pivoting around an offset center of rotation
-   * (in robot frame, meters). Useful when the robot's CoG is offset, or when you want to spin
-   * around a specific point (e.g. a corner module) rather than the geometric center.
+   * Drive at the given chassis speeds, with rotation pivoting about an offset point (in robot
+   * frame, meters). The pivot is implemented as a kinematics rebase: the velocity at the
+   * geometric center equivalent to a pivot-relative command {@code (vx, vy, ω)} at point {@code
+   * p} is {@code (vx + ω·p.y, vy − ω·p.x, ω)}. The rebased ChassisSpeeds then flow through the
+   * same per-module limiter as {@link #runVelocity(ChassisSpeeds)}.
    */
   public void runVelocity(ChassisSpeeds speeds, Translation2d centerOfRotation) {
+    if (centerOfRotation.getX() == 0.0 && centerOfRotation.getY() == 0.0) {
+      runVelocityInternal(speeds);
+      return;
+    }
+    double omega = speeds.omegaRadiansPerSecond;
+    ChassisSpeeds rebased =
+        new ChassisSpeeds(
+            speeds.vxMetersPerSecond + omega * centerOfRotation.getY(),
+            speeds.vyMetersPerSecond - omega * centerOfRotation.getX(),
+            omega);
+    runVelocityInternal(rebased);
+  }
+
+  private void runVelocityInternal(ChassisSpeeds speeds) {
     double now = Timer.getFPGATimestamp();
     double dt = (lastRunVelocityTime < 0) ? 0.02 : (now - lastRunVelocityTime);
     lastRunVelocityTime = now;
     if (dt < 1e-6) dt = 0.02;
 
-    // 1. Chassis-Level Slip Limiting (Prevent macro-slip)
-    // Scale the entire vector back if it exceeds the friction circle, keeping kinematics perfectly
-    // locked.
-    ChassisSpeeds limitedSpeeds = new ChassisSpeeds();
-    AccelerationLimiter.integrateVelocity(
-        limitedSpeeds,
-        latestSetpointSpeeds.vxMetersPerSecond,
-        latestSetpointSpeeds.vyMetersPerSecond,
-        latestSetpointSpeeds.omegaRadiansPerSecond,
-        speeds.vxMetersPerSecond,
-        speeds.vyMetersPerSecond,
-        speeds.omegaRadiansPerSecond,
-        dt);
+    // Per-module slip/torque/steer-rate limiting via PathPlanner's runtime generator. Pass 12V
+    // explicitly so REAL/SIM/REPLAY produce identical commands (the generator's default reads
+    // RobotController.getInputVoltage, which differs across modes).
+    prevSetpoint = setpointGenerator.generateSetpoint(prevSetpoint, speeds, null, dt, 12.0);
 
-    SwerveModuleState[] setpointStates =
-        kinematics.toSwerveModuleStates(limitedSpeeds, centerOfRotation);
-    SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, TunerConstants.kSpeedAt12Volts);
+    SwerveModuleState[] setpointStates = prevSetpoint.moduleStates();
 
-    // 2. Motion Magic Interpolation (Smooth out 50Hz/250Hz steps)
+    // Motion Magic interpolation (smooth out 50 Hz/250 Hz steps) lives inside Module.runSetpoint;
+    // the generator-produced module states are its inputs.
     for (int i = 0; i < 4; i++) {
       modules[i].runSetpoint(setpointStates[i], dt);
     }
 
-    // Save the latest setpoints for the next loop's logging
+    // Save the latest setpoints for the next loop's logging.
     latestSetpointStates = setpointStates;
-    latestSetpointSpeeds = limitedSpeeds;
+    latestSetpointSpeeds = prevSetpoint.robotRelativeSpeeds();
   }
 
   /** Stop driving but keep wheels pointing where they were. */
@@ -574,6 +539,10 @@ public class Drive extends SubsystemBase {
     // periodic() would see the previous estimator pose (or Pose2d.kZero at boot — which sits on
     // a perimeter obstacle and would cause the avoidance clamp to fire spuriously).
     cachedPose = pose;
+    // Re-baseline the generator from current physical state (the robot may have been teleported,
+    // e.g. by auto-start). Anchored to current module angles so the generator doesn't try to
+    // rotate from zero on the first tick after the reset.
+    prevSetpoint = blankSetpoint();
     if (poseResetListener != null) {
       poseResetListener.accept(pose);
     }
@@ -608,6 +577,19 @@ public class Drive extends SubsystemBase {
       new SwerveModulePosition(),
       new SwerveModulePosition()
     };
+  }
+
+  /**
+   * Zero-velocity setpoint with current module angles. Used after a pose reset and on disable
+   * edges so the generator's prev state matches the current physical state rather than the last
+   * commanded velocity.
+   */
+  private SwerveSetpoint blankSetpoint() {
+    SwerveModuleState[] states = new SwerveModuleState[4];
+    for (int i = 0; i < 4; i++) {
+      states[i] = new SwerveModuleState(0.0, modules[i].getAngle());
+    }
+    return new SwerveSetpoint(new ChassisSpeeds(), states, DriveFeedforwards.zeros(4));
   }
 
   /** Returns the (x, y) position of each swerve module, in robot frame. */
