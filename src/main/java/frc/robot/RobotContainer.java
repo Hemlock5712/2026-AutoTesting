@@ -5,7 +5,6 @@ import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -134,6 +133,9 @@ public class RobotContainer {
             () -> translationVel[1],
             () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
 
+    joystick.leftBumper().onTrue(Commands.runOnce(() -> superstructure.decreaseDistance()));
+    joystick.rightBumper().onTrue(Commands.runOnce(() -> superstructure.increaseDistance()));
+
     // // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
     // joystick
     //     .leftBumper()
@@ -213,8 +215,9 @@ public class RobotContainer {
     // Debounce prevents analog trigger noise from causing multiple toggles.
     joystick
         .rightTrigger(0.1)
-        .debounce(0.1, DebounceType.kFalling)
-        .toggleOnTrue(superstructure.shootManual());
+        // .debounce(0.1, DebounceType.kFalling)
+        .onTrue(superstructure.shootManual())
+        .onFalse(superstructure.stopShoot());
 
     // joystick
     // .leftTrigger(0.5)
@@ -226,7 +229,7 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    // joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
 
     // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 

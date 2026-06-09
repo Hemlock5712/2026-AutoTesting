@@ -125,6 +125,24 @@ public class Superstructure {
 
   private FeedTargetSelector.FeedSelection feedSelection = null;
 
+  private double shootDist = 1.0;
+
+  private double maxDist = 5.0;
+
+  private double minDist = 0.5;
+
+  public void increaseDistance() {
+    shootDist += 0.5;
+    shootDist = Math.min(shootDist, maxDist);
+    shootDist = Math.max(shootDist, minDist);
+  }
+
+  public void decreaseDistance() {
+    shootDist -= 0.5;
+    shootDist = Math.min(shootDist, maxDist);
+    shootDist = Math.max(shootDist, minDist);
+  }
+
   // ==================== Constructor ====================
 
   public Superstructure(Supplier<SwerveDriveState> driveState) {
@@ -273,10 +291,8 @@ public class Superstructure {
   /** Manual shooting at fixed distance — fallback when vision is unavailable. */
   public Command shootManual() {
     return Commands.parallel(
-        Commands.run(() -> shooter.setForDistance(1)),
-        Commands.sequence(
-            Commands.runOnce(() -> isShooting = true),
-            Commands.either(hopper.start(), hopper.stop(), () -> isFeedReady()).repeatedly()));
+        Commands.run(() -> shooter.setForDistance(shootDist)),
+        Commands.sequence(Commands.runOnce(() -> isShooting = true), hopper.start()));
   }
 
   private boolean isHubReady() {
@@ -669,6 +685,7 @@ public class Superstructure {
     // versions dropped (redundant with 2D, height/yaw are static constants).
     Logger.recordOutput("SWM/HubPose2d", FieldInfo.flip(FieldInfo.HUB_POSITION));
     Logger.recordOutput("SWM/EndGoalPose2d", targetPosition);
+    Logger.recordOutput("Demo/ShootDistance", shootDist);
   }
 
   public void sethood() {
