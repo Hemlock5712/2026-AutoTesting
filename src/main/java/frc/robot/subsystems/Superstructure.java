@@ -131,7 +131,7 @@ public class Superstructure {
     this.driveState = driveState;
     // Set turret tracking as default command - uses SWM-aware getters for seamless
     // mode switching
-    turret.setDefaultCommand(turret.trackHubCommand(this::getTurretAngle));
+    // turret.setDefaultCommand(turret.trackHubCommand(this::getTurretAngle));
     shooter.setDefaultCommand(shooter.runHoodDynamic(this::getHoodDistance, this::isShooting));
   }
 
@@ -273,8 +273,7 @@ public class Superstructure {
   /** Manual shooting at fixed distance — fallback when vision is unavailable. */
   public Command shootManual() {
     return Commands.parallel(
-        Commands.run(() -> shooter.setForDistance(3.4)),
-        turret.trackHubCommand(() -> 0.0),
+        Commands.run(() -> shooter.setForDistance(1)),
         Commands.sequence(
             Commands.runOnce(() -> isShooting = true),
             Commands.either(hopper.start(), hopper.stop(), () -> isFeedReady()).repeatedly()));
