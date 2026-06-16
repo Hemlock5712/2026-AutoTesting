@@ -382,4 +382,17 @@ public class Shooter extends SubsystemBase {
   public Command runDynamicSWM(DoubleSupplier flywheelDist, DoubleSupplier hoodDist) {
     return run(() -> setForDistanceSWM(flywheelDist.getAsDouble(), hoodDist.getAsDouble()));
   }
+
+  /**
+   * Hub-model command: set the flywheel speed (RPS) and hood angle (deg) directly from the {@link
+   * frc.robot.subsystems.shooter.SwmTargeting} solver, which already accounts for distance, radial
+   * velocity, and robot tilt. Replaces the distance-lookup path for hub shots.
+   */
+  public Command runHubModel(DoubleSupplier flywheelRps, DoubleSupplier hoodDeg) {
+    return run(
+        () -> {
+          setVelocity(flywheelRps.getAsDouble());
+          setPositionDeg(hoodDeg.getAsDouble());
+        });
+  }
 }

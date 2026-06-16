@@ -24,6 +24,7 @@ import frc.robot.subsystems.hopper.Hopper;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
+import frc.robot.subsystems.shooter.SwmTargeting;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FeedTargetSelector;
@@ -31,6 +32,7 @@ import frc.robot.utils.FieldInfo;
 import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
 import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -90,6 +92,15 @@ public class Superstructure {
   private final TunableDouble targetHoodAngle = Tunables.value("Tuning/Hood", 0.0);
   private final TunableDouble swmPoseDelay = Tunables.value("SWM/PoseDelay", 0.02);
 
+  // Tilt compensation enable (>0.5 = on). VERIFY the Pigeon pitch/roll sign on the real robot
+  // before trusting this — drive onto the bump and confirm the logged drivetrain pitch.
+  private final TunableDouble swmTiltComp = Tunables.value("SWM/TiltComp", 1.0);
+
+  // Robot tilt (pitch/roll, radians). Defaults to level until a source is wired via
+  // setTiltSource().
+  private DoubleSupplier pitchRadSupplier = () -> 0.0;
+  private DoubleSupplier rollRadSupplier = () -> 0.0;
+
   // ==================== Targeting Data (calculated once per loop)
   // ====================
 
@@ -101,6 +112,11 @@ public class Superstructure {
   private Translation2d virtualTargetPosition = FieldInfo.HUB_POSITION;
   private double distanceToVirtualTarget = 0;
   private double angleToVirtualTarget = 0;
+
+  // Hub-model aim, recomputed each loop by SwmTargeting for hub shots.
+  private double aimTurretAngleRot = 0;
+  private double aimHoodDeg = 0;
+  private double aimFlywheelRps = 0;
 
   // SWM feasibility — pre-allocated Twist2d to avoid per-cycle allocation in
   // virtualTarget()
@@ -166,15 +182,13 @@ public class Superstructure {
         Math.hypot(
             targetPosition.getX() - turretPose.getX(), targetPosition.getY() - turretPose.getY());
 
-    // Calculate SWM targeting values
-    virtualTargetPosition = virtualTarget(state);
-    double vdx = virtualTargetPosition.getX() - turretPose.getX();
-    double vdy = virtualTargetPosition.getY() - turretPose.getY();
-    distanceToVirtualTarget = Math.hypot(vdx, vdy);
-    double angleToVtFieldRad = Math.atan2(vdy, vdx);
-    double robotAngleRad = robotPose.getRotation().getRadians();
-    angleToVirtualTarget =
-        MathUtil.inputModulus((angleToVtFieldRad - robotAngleRad) / (2.0 * Math.PI), -0.25, 0.75);
+    // Calculate shoot-while-moving targeting values. Hub shots use the physics-model lookup with
+    // radial/tangential + tilt compensation; feed shots keep the virtual-target + feed-map path.
+    if (isHubShot) {
+      updateHubAim(state);
+    } else {
+      updateFeedAim(state, robotPose);
+    }
 
     logTelemetry(state);
   }
@@ -205,6 +219,24 @@ public class Superstructure {
   @AutoLogOutput
   public double getFlywheelDistance() {
     return distanceToVirtualTarget;
+  }
+
+  /** Hub-model flywheel speed (RPS), radial-velocity + tilt compensated. */
+  @AutoLogOutput
+  public double getHubFlywheelRps() {
+    return aimFlywheelRps;
+  }
+
+  /** Hub-model hood angle (deg), tilt compensated. */
+  @AutoLogOutput
+  public double getHubHoodDeg() {
+    return aimHoodDeg;
+  }
+
+  /** Wire the robot tilt source (pitch/roll in radians) for tilt-compensated hub shooting. */
+  public void setTiltSource(DoubleSupplier pitchRad, DoubleSupplier rollRad) {
+    this.pitchRadSupplier = pitchRad;
+    this.rollRadSupplier = rollRad;
   }
 
   public void setFromPose(Pose2d pose) {
@@ -248,7 +280,7 @@ public class Superstructure {
   }
 
   public Command spinUpShooter() {
-    return shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance);
+    return shooter.runHubModel(this::getHubFlywheelRps, this::getHubHoodDeg);
   }
 
   public Command prerollShooter(double rps) {
@@ -258,7 +290,7 @@ public class Superstructure {
   /** Hub shot with SWM compensation and jam protection. */
   public Command hubShoot() {
     return shootSequenceWithJamProtection(
-        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance), this::isHubReady);
+        shooter.runHubModel(this::getHubFlywheelRps, this::getHubHoodDeg), this::isHubReady);
   }
 
   /** Hub shot with SWM compensation and jam protection. */
@@ -313,7 +345,7 @@ public class Superstructure {
   /** Hub shot with SWM compensation and jam protection. */
   public Command jamProtectedHubShoot() {
     return shootSequenceWithJamProtection(
-        shooter.runDynamicSWM(this::getFlywheelDistance, this::getHoodDistance), this::isHubReady);
+        shooter.runHubModel(this::getHubFlywheelRps, this::getHubHoodDeg), this::isHubReady);
   }
 
   /** Feed shot with jam protection. */
@@ -398,6 +430,72 @@ public class Superstructure {
   public Command recoverHopper() {
     return Commands.runOnce(
         () -> hopper.setVelocity(RotationsPerSecond.of(-30), RotationsPerSecond.of(-30)));
+  }
+
+  /**
+   * Hub aim via the physics model. Latency-compensates the pose, computes the turret's field
+   * velocity, then delegates to {@link SwmTargeting}: radial velocity -> flywheel, tangential ->
+   * turret lead, pitch/roll -> tilt compensation.
+   */
+  private void updateHubAim(SwerveDriveState state) {
+    double delay = (Utils.getCurrentTimeSeconds() - state.Timestamp) + swmPoseDelay.get();
+    swmDelay = delay;
+    advanceTwist.dx = state.Speeds.vxMetersPerSecond * delay;
+    advanceTwist.dy = state.Speeds.vyMetersPerSecond * delay;
+    advanceTwist.dtheta = state.Speeds.omegaRadiansPerSecond * delay;
+    Pose2d advancedPose = state.Pose.exp(advanceTwist);
+
+    double cos = advancedPose.getRotation().getCos();
+    double sin = advancedPose.getRotation().getSin();
+    double fieldVx = state.Speeds.vxMetersPerSecond * cos - state.Speeds.vyMetersPerSecond * sin;
+    double fieldVy = state.Speeds.vxMetersPerSecond * sin + state.Speeds.vyMetersPerSecond * cos;
+
+    // Turret position and velocity on the field (v_turret = v_center + omega x r), predicted to
+    // ball-release time with the commanded acceleration.
+    double offsetX = TURRET_TRANSFORM.getX() * cos - TURRET_TRANSFORM.getY() * sin;
+    double offsetY = TURRET_TRANSFORM.getX() * sin + TURRET_TRANSFORM.getY() * cos;
+    double turretX = advancedPose.getX() + offsetX;
+    double turretY = advancedPose.getY() + offsetY;
+    double omega = state.Speeds.omegaRadiansPerSecond;
+    double velX = fieldVx - omega * offsetY + AccelerationLimiter.getLastAccelVx() * delay;
+    double velY = fieldVy + omega * offsetX + AccelerationLimiter.getLastAccelVy() * delay;
+
+    boolean tilt = swmTiltComp.get() > 0.5;
+    double pitch = tilt ? pitchRadSupplier.getAsDouble() : 0.0;
+    double roll = tilt ? rollRadSupplier.getAsDouble() : 0.0;
+
+    SwmTargeting.Aim aim =
+        SwmTargeting.solve(
+            turretX,
+            turretY,
+            velX,
+            velY,
+            targetPosition.getX(),
+            targetPosition.getY(),
+            advancedPose.getRotation().getRadians(),
+            pitch,
+            roll);
+
+    aimTurretAngleRot = aim.turretAngleRot();
+    aimHoodDeg = aim.hoodDeg();
+    aimFlywheelRps = aim.flywheelRps();
+    angleToVirtualTarget = aim.turretAngleRot();
+    distanceToVirtualTarget = aim.distanceM();
+    swmSolutionFeasible = aim.feasible();
+    swmConverged = true;
+    virtualTargetPosition = targetPosition;
+  }
+
+  /** Feed/pass aim: the virtual-target solver feeding the feed lookup tables (unchanged path). */
+  private void updateFeedAim(SwerveDriveState state, Pose2d robotPose) {
+    virtualTargetPosition = virtualTarget(state);
+    double vdx = virtualTargetPosition.getX() - turretPose.getX();
+    double vdy = virtualTargetPosition.getY() - turretPose.getY();
+    distanceToVirtualTarget = Math.hypot(vdx, vdy);
+    double angleToVtFieldRad = Math.atan2(vdy, vdx);
+    double robotAngleRad = robotPose.getRotation().getRadians();
+    angleToVirtualTarget =
+        MathUtil.inputModulus((angleToVtFieldRad - robotAngleRad) / (2.0 * Math.PI), -0.25, 0.75);
   }
 
   private Translation2d virtualTarget(SwerveDriveState state) {

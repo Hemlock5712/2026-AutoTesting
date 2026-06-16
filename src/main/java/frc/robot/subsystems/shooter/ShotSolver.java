@@ -12,8 +12,8 @@ import frc.robot.subsystems.shooter.ShotPhysics.ShotResult;
  *   <li>{@link #solveAtHood} — for a fixed hood angle, bisects the flywheel speed so the ball's
  *       descending rim crossing lands exactly at the target distance. The primitive the table
  *       generator uses to build {@code flywheel(distance, radialVel)} and {@code tof(...)}.
- *   <li>{@link #solve} — also auto-selects the hood, maximizing a robustness metric: the area of the
- *       (flywheel, hood) make-window that still scores. This is HighTide's "shot most robust to
+ *   <li>{@link #solve} — also auto-selects the hood, maximizing a robustness metric: the area of
+ *       the (flywheel, hood) make-window that still scores. This is HighTide's "shot most robust to
  *       errors" and yields a near-constant ~50 deg entry angle across distances.
  * </ul>
  *
@@ -49,9 +49,10 @@ public final class ShotSolver {
   }
 
   /**
-   * Solve for the on-target flywheel speed at a specific hood angle. Given distance, radial velocity
-   * and hood, returns the flywheel speed and physical time-of-flight, plus the make-window sizes.
-   * This is the trustworthy primitive used to generate the lookup table from a hood schedule.
+   * Solve for the on-target flywheel speed at a specific hood angle. Given distance, radial
+   * velocity and hood, returns the flywheel speed and physical time-of-flight, plus the make-window
+   * sizes. This is the trustworthy primitive used to generate the lookup table from a hood
+   * schedule.
    */
   public static Shot solveAtHood(double distanceM, double radialVelMps, double hoodDeg) {
     double fw = onTargetFlywheel(hoodDeg, distanceM, radialVelMps);
@@ -66,7 +67,14 @@ public final class ShotSolver {
     double hoodWindow = hoodWindowDeg(fw, distanceM, radialVelMps, hoodDeg);
     double robustness = speedWindow * hoodWindow;
     return new Shot(
-        true, hoodDeg, fw, r.timeOfFlight(), r.entryAngleDeg(), speedWindow, hoodWindow, robustness);
+        true,
+        hoodDeg,
+        fw,
+        r.timeOfFlight(),
+        r.entryAngleDeg(),
+        speedWindow,
+        hoodWindow,
+        robustness);
   }
 
   /**
@@ -132,8 +140,8 @@ public final class ShotSolver {
   }
 
   /**
-   * Bisect the flywheel speed so the descending rim crossing lands at {@code distanceM}. Returns NaN
-   * if the target is unreachable within the flywheel speed range for this hood angle.
+   * Bisect the flywheel speed so the descending rim crossing lands at {@code distanceM}. Returns
+   * NaN if the target is unreachable within the flywheel speed range for this hood angle.
    */
   static double onTargetFlywheel(double hoodDeg, double distanceM, double radialVelMps) {
     double lo = FW_MIN_RPS;

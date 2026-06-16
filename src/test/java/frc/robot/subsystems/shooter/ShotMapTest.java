@@ -24,10 +24,13 @@ class ShotMapTest {
     }
     for (int i = 0; i < ShotMapGenerator.N_DIST; i++) {
       for (int j = 0; j < ShotMapGenerator.N_VEL; j++) {
-        assertEquals(gen.flywheelGrid()[i][j], ShooterMap.FLYWHEEL_GRID[i][j], 0.01,
+        assertEquals(
+            gen.flywheelGrid()[i][j],
+            ShooterMap.FLYWHEEL_GRID[i][j],
+            0.01,
             "flywheel[" + i + "][" + j + "]");
-        assertEquals(gen.tofGrid()[i][j], ShooterMap.TOF_GRID[i][j], 0.005,
-            "tof[" + i + "][" + j + "]");
+        assertEquals(
+            gen.tofGrid()[i][j], ShooterMap.TOF_GRID[i][j], 0.005, "tof[" + i + "][" + j + "]");
       }
     }
   }
@@ -95,8 +98,10 @@ class ShotMapTest {
   void hoodScheduleIsSaneAndIncreasing() {
     for (double d = ShooterMap.MIN_DIST_M; d < ShooterMap.MAX_DIST_M - 1e-9; d += 0.5) {
       double hood = ShooterMap.hoodDeg(d);
-      assertTrue(hood >= 0.0 && hood <= 32.0, "hood out of mechanism range at d=" + d + ": " + hood);
-      assertTrue(ShooterMap.hoodDeg(d + 0.5) > hood, "hood should increase with distance at d=" + d);
+      assertTrue(
+          hood >= 0.0 && hood <= 32.0, "hood out of mechanism range at d=" + d + ": " + hood);
+      assertTrue(
+          ShooterMap.hoodDeg(d + 0.5) > hood, "hood should increase with distance at d=" + d);
     }
     // Clamped outside the envelope.
     assertEquals(ShooterMap.hoodDeg(1.0), ShooterMap.hoodDeg(0.1), 1e-9);

@@ -93,6 +93,9 @@ public class RobotContainer {
   public RobotContainer() {
     autoRoutines = new AutoRoutines(autoCommands, superstructure, intakeCoordinator);
 
+    // Tilt-compensated shooting: feed robot pitch/roll from the Pigeon to the targeting model.
+    superstructure.setTiltSource(drivetrain::getPitchRadians, drivetrain::getRollRadians);
+
     // Register available paths (lightweight — no SplinePath/VelocityProfile
     // computation)
     // addPathAutoOption(Paths.START_LEFT_TO_RIGHT_TRENCH_TO_DEPOT);

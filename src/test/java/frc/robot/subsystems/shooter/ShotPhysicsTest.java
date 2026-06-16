@@ -31,7 +31,8 @@ class ShotPhysicsTest {
   void closingVelocityExtendsRange() {
     double atRest = ShotPhysics.simulate(40.0, 14.0, 4.0, 0.0).rangeAtRim();
     double closing = ShotPhysics.simulate(40.0, 14.0, 4.0, 2.0).rangeAtRim();
-    assertTrue(closing > atRest, "closing inherits horizontal velocity: " + atRest + " -> " + closing);
+    assertTrue(
+        closing > atRest, "closing inherits horizontal velocity: " + atRest + " -> " + closing);
   }
 
   @Test
@@ -61,7 +62,8 @@ class ShotPhysicsTest {
 
   @Test
   void rk4MatchesClosedFormInVacuum() {
-    // With no drag and no spin (=> no Magnus), the integrator must match analytic projectile motion.
+    // With no drag and no spin (=> no Magnus), the integrator must match analytic projectile
+    // motion.
     double drag = ShotPhysics.DRAG_COEFFICIENT;
     double spin = ShotPhysics.SPIN_FACTOR;
     try {
@@ -99,7 +101,8 @@ class ShotPhysicsTest {
       double withDrag = ShotPhysics.simulate(50.0, 10.0, 4.0, 0.0).rangeAtRim();
       ShotPhysics.DRAG_COEFFICIENT = 0.0;
       double noDrag = ShotPhysics.simulate(50.0, 10.0, 4.0, 0.0).rangeAtRim();
-      assertTrue(noDrag > withDrag, "drag should shorten range: drag=" + withDrag + " vacuum=" + noDrag);
+      assertTrue(
+          noDrag > withDrag, "drag should shorten range: drag=" + withDrag + " vacuum=" + noDrag);
     } finally {
       ShotPhysics.DRAG_COEFFICIENT = drag;
     }

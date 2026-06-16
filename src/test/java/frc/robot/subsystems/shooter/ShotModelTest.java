@@ -19,7 +19,8 @@ class ShotModelTest {
   @Test
   void printModelVsTableAtTableHood() {
     System.out.println();
-    System.out.println("=== Physics model at the table's hood angles vs. competition table (vr=0) ===");
+    System.out.println(
+        "=== Physics model at the table's hood angles vs. competition table (vr=0) ===");
     System.out.printf(
         "%-5s | %9s %9s | %9s %9s | %9s%n",
         "dist", "fw(model)", "fw(table)", "tof(model)", "tof(table)", "hood");

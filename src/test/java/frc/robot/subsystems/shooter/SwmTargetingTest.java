@@ -91,7 +91,8 @@ class SwmTargetingTest {
     // Rolling the robot tips that elevated vector sideways, which must be corrected by the turret
     // azimuth. (A purely horizontal aim would be unaffected, but real shots are lofted.)
     SwmTargeting.Aim flat = SwmTargeting.solve(0, 0, 0, 0, 4.0, 0.0, 0.0, 0.0, 0.0);
-    SwmTargeting.Aim rolled = SwmTargeting.solve(0, 0, 0, 0, 4.0, 0.0, 0.0, 0.0, Math.toRadians(10));
+    SwmTargeting.Aim rolled =
+        SwmTargeting.solve(0, 0, 0, 0, 4.0, 0.0, 0.0, 0.0, Math.toRadians(10));
     assertTrue(
         Math.abs(rolled.turretAngleRot() - flat.turretAngleRot()) > 0.005,
         "roll should shift the turret azimuth for a lofted shot: "
