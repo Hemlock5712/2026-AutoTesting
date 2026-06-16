@@ -30,22 +30,26 @@ class SwmTargetingTest {
   }
 
   @Test
-  void closingReducesFlywheelAndFlightTime() {
+  void closingReducesFlywheelSpeed() {
     SwmTargeting.Aim rest = SwmTargeting.solve(0, 0, 0, 0, 4.0, 0.0, 0.0, 0.0, 0.0);
     SwmTargeting.Aim closing = SwmTargeting.solve(0, 0, 2.0, 0, 4.0, 0.0, 0.0, 0.0, 0.0);
     assertEquals(2.0, closing.radialVelMps(), 1e-9, "velocity toward target is radial");
-    assertTrue(closing.flywheelRps() < rest.flywheelRps(), "closing needs less speed");
-    assertTrue(closing.tofSeconds() < rest.tofSeconds(), "closing shortens flight time");
+    assertTrue(closing.flywheelRps() < rest.flywheelRps(), "closing needs less shooter speed");
+    // The ball flies the stationary trajectory, so the flight time is the stationary one.
+    assertEquals(rest.tofSeconds(), closing.tofSeconds(), 1e-9, "tof is the stationary value");
   }
 
   @Test
   void tangentialMotionLeadsTheTurretOppositeTheDrift() {
-    // Target ahead (+x); moving +y (left). Ball drifts +y, so the turret must lead toward -y.
+    // Target ahead (+x); moving +y (left). Ball drifts +y, so the turret must lead toward -y, and
+    // the shooter needs slightly more speed to keep the radial reach while adding the lead.
+    SwmTargeting.Aim rest = SwmTargeting.solve(0, 0, 0, 0, 4.0, 0.0, 0.0, 0.0, 0.0);
     SwmTargeting.Aim aim = SwmTargeting.solve(0, 0, 0, 2.0, 4.0, 0.0, 0.0, 0.0, 0.0);
     assertEquals(0.0, aim.radialVelMps(), 1e-9, "pure tangential has no radial component");
     assertTrue(aim.turretAngleRot() < 0.0, "turret should lead toward -y: " + aim.turretAngleRot());
-    // Flywheel ~ the at-rest value because there is no radial velocity.
-    assertEquals(ShooterMap.flywheelRps(4.0, 0.0), aim.flywheelRps(), 1e-6);
+    assertTrue(
+        aim.flywheelRps() >= rest.flywheelRps() - 1e-9,
+        "tangential motion needs at least the stationary speed");
   }
 
   @Test

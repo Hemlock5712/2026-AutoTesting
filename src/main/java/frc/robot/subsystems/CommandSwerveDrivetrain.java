@@ -219,18 +219,19 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   }
 
   /**
-   * Robot pitch from the Pigeon 2, in radians, for shot tilt compensation. Logged so the sign and
-   * units can be verified on the real robot (drive onto the bump and confirm the value).
+   * Robot pitch from the Pigeon 2, in radians, for shot tilt compensation. Uses the IMU's 3D
+   * rotation (unambiguously radians). Logged so the sign can be verified on the real robot (drive
+   * onto the bump and confirm).
    */
   @AutoLogOutput
   public double getPitchRadians() {
-    return Math.toRadians(getPigeon2().getPitch().getValueAsDouble());
+    return getPigeon2().getRotation3d().getY();
   }
 
   /** Robot roll from the Pigeon 2, in radians, for shot tilt compensation. */
   @AutoLogOutput
   public double getRollRadians() {
-    return Math.toRadians(getPigeon2().getRoll().getValueAsDouble());
+    return getPigeon2().getRotation3d().getX();
   }
 
   public SwerveModuleState[] getModuleStates() {

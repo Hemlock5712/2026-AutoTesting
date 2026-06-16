@@ -22,8 +22,6 @@ package frc.robot.subsystems.shooter;
 public final class SwmTargeting {
   private SwmTargeting() {}
 
-  private static final double AIR_DENSITY = 1.225; // kg/m^3
-  private static final double MIN_EFFECTIVE_RADIAL_SPEED = 0.5; // ball must outrun the robot
   private static final double TWO_PI = 2.0 * Math.PI;
 
   /** Result of a targeting solve. Angles in the units the mechanisms consume. */
@@ -61,53 +59,48 @@ public final class SwmTargeting {
     if (dist < 1e-6) {
       return new Aim(0, ShooterMap.hoodDeg(0), ShooterMap.flywheelRps(0, 0), 0, 0, 0, false);
     }
+    double azimuthToTarget = Math.atan2(dy, dx);
 
-    // Radial (toward target) / tangential (across) split of the turret's velocity.
-    double aimX = dx / dist;
-    double aimY = dy / dist;
-    double vRadial = turretVx * aimX + turretVy * aimY;
-    double vTanX = turretVx - vRadial * aimX;
-    double vTanY = turretVy - vRadial * aimY;
-
-    // Flight time for this geometric distance and radial velocity.
-    double tof = ShooterMap.tofSeconds(dist, vRadial);
-
-    // Tangential lead with a drag correction: the inherited tangential velocity is the whole
-    // tangential airspeed, so it decays over the flight (radial drag is already in the model).
-    double effRadialSpeed = dist / tof + vRadial;
-    double vTanMag = Math.hypot(vTanX, vTanY);
-    double vRef = Math.sqrt(effRadialSpeed * effRadialSpeed + vTanMag * vTanMag);
-    double beta = kDrag() * vRef / ShotPhysics.BALL_MASS_KG;
-    double tofEff = (beta > 1e-8) ? (1.0 - Math.exp(-beta * tof)) / beta : tof;
-
-    // Aim point in the field, led opposite the tangential drift.
-    double leadX = targetX - vTanX * tofEff;
-    double leadY = targetY - vTanY * tofEff;
-    double azimuthField = Math.atan2(leadY - turretY, leadX - turretX);
-
-    // Desired field-frame launch elevation from the hood schedule.
+    // Desired ball velocity (field) = the stationary scoring shot at this distance. Giving the ball
+    // this exact velocity reproduces the stationary trajectory (and its robust entry angle) no
+    // matter how the robot is moving.
     double hoodLevelDeg = ShooterMap.hoodDeg(dist);
-    double elevationField = Math.toRadians(ShotPhysics.HOOD_ZERO_ELEVATION_DEG - hoodLevelDeg);
+    double v0 = ShotPhysics.exitSpeed(ShooterMap.flywheelRps(dist, 0.0));
+    double elevation = Math.toRadians(ShotPhysics.HOOD_ZERO_ELEVATION_DEG - hoodLevelDeg);
+    double cosE = Math.cos(elevation);
+    double desiredX = v0 * cosE * Math.cos(azimuthToTarget);
+    double desiredY = v0 * cosE * Math.sin(azimuthToTarget);
+    double desiredZ = v0 * Math.sin(elevation);
 
-    // Tilt compensation: rotate the desired field direction into the robot frame.
-    double cosE = Math.cos(elevationField);
-    double[] robotDir =
-        fieldToRobot(
-            cosE * Math.cos(azimuthField),
-            cosE * Math.sin(azimuthField),
-            Math.sin(elevationField),
-            robotYawRad,
-            pitchRad,
-            rollRad);
+    // The shooter must supply (desired ball velocity - inherited robot velocity). This single vector
+    // subtraction handles radial and tangential motion together, exactly, with no lead
+    // approximation (robot velocity is horizontal, so it does not change the vertical component).
+    double sx = desiredX - turretVx;
+    double sy = desiredY - turretVy;
+    double sz = desiredZ;
+    double shooterSpeed = Math.sqrt(sx * sx + sy * sy + sz * sz);
+    double flywheelRps =
+        shooterSpeed / (ShotPhysics.SLIP_EFFICIENCY * 2.0 * Math.PI * ShotPhysics.WHEEL_RADIUS_M);
+
+    // Tilt compensation: rotate the shooter's field-frame direction into the robot frame.
+    double inv = 1.0 / shooterSpeed;
+    double[] robotDir = fieldToRobot(sx * inv, sy * inv, sz * inv, robotYawRad, pitchRad, rollRad);
     double azimuthRobot = Math.atan2(robotDir[1], robotDir[0]);
     double elevationRobot = Math.atan2(robotDir[2], Math.hypot(robotDir[0], robotDir[1]));
 
     double hoodDeg = ShotPhysics.HOOD_ZERO_ELEVATION_DEG - Math.toDegrees(elevationRobot);
     double turretAngleRot = inputModulus(azimuthRobot / TWO_PI, -0.25, 0.75);
-    double flywheelRps = ShooterMap.flywheelRps(dist, vRadial);
 
+    // The ball flies the stationary trajectory, so its flight time is the stationary one.
+    double tof = ShooterMap.tofSeconds(dist, 0.0);
+    double vRadial =
+        turretVx * Math.cos(azimuthToTarget) + turretVy * Math.sin(azimuthToTarget);
     boolean feasible =
-        ShooterMap.inEnvelope(dist, vRadial) && effRadialSpeed > MIN_EFFECTIVE_RADIAL_SPEED;
+        ShooterMap.inEnvelope(dist, 0.0)
+            && flywheelRps >= ShotSolver.FW_MIN_RPS
+            && flywheelRps <= ShotSolver.FW_MAX_RPS
+            && hoodDeg >= ShotSolver.HOOD_MIN_DEG
+            && hoodDeg <= ShotSolver.HOOD_MAX_DEG;
 
     return new Aim(turretAngleRot, hoodDeg, flywheelRps, tof, dist, vRadial, feasible);
   }
@@ -156,12 +149,6 @@ public final class SwmTargeting {
     double x3 = x2 * cz - y1 * sz;
     double y3 = x2 * sz + y1 * cz;
     return new double[] {x3, y3, z2};
-  }
-
-  private static double kDrag() {
-    double rBall = ShotPhysics.BALL_DIAMETER_M / 2.0;
-    double area = Math.PI * rBall * rBall;
-    return 0.5 * AIR_DENSITY * ShotPhysics.DRAG_COEFFICIENT * area;
   }
 
   static double inputModulus(double value, double min, double max) {
