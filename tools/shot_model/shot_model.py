@@ -344,7 +344,7 @@ def _input_modulus(v, lo, hi):
 
 
 def swm_solve(smap, turret_x, turret_y, turret_vx, turret_vy, target_x, target_y,
-              yaw, pitch, roll):
+              yaw, pitch, roll, slip_efficiency=None):
     """3D-vector shoot-while-moving + tilt.
 
     Give the ball the exact field velocity of the stationary scoring shot, then have the shooter
@@ -352,6 +352,8 @@ def swm_solve(smap, turret_x, turret_y, turret_vx, turret_vy, target_x, target_y
     (the ball flies the same field trajectory as a stationary shot at this distance) and preserves
     the robust entry angle; radial and tangential are handled together with no lead approximation.
     """
+    if slip_efficiency is None:
+        slip_efficiency = SLIP_EFFICIENCY  # reference (baked) slip
     dx, dy = target_x - turret_x, target_y - turret_y
     dist = math.hypot(dx, dy)
     azimuth_to_target = math.atan2(dy, dx)
@@ -370,7 +372,7 @@ def swm_solve(smap, turret_x, turret_y, turret_vx, turret_vy, target_x, target_y
     sy = desired_y - turret_vy
     sz = desired_z
     shooter_speed = math.sqrt(sx * sx + sy * sy + sz * sz)
-    flywheel = shooter_speed / (SLIP_EFFICIENCY * 2.0 * math.pi * WHEEL_RADIUS_M)
+    flywheel = shooter_speed / (slip_efficiency * 2.0 * math.pi * WHEEL_RADIUS_M)
 
     # Shooter direction (field) -> robot frame for the turret/hood commands (tilt compensation).
     inv = 1.0 / shooter_speed

@@ -42,6 +42,10 @@ public final class SwmTargeting {
    * @param targetX,targetY target position on the field (m)
    * @param robotYawRad robot heading (rad)
    * @param pitchRad,rollRad robot tilt from the IMU (rad); pass 0 to disable tilt compensation
+   * @param slipEfficiency live exit-speed-per-surface-speed fraction. Only scales the flywheel
+   *     command, so it can be tuned at runtime (NetworkTables) with no map regeneration — the hood
+   *     schedule and time-of-flight are slip-independent. Pass {@link ShotPhysics#SLIP_EFFICIENCY}
+   *     (the value the map was baked with) for the nominal shot.
    */
   public static Aim solve(
       double turretX,
@@ -52,7 +56,8 @@ public final class SwmTargeting {
       double targetY,
       double robotYawRad,
       double pitchRad,
-      double rollRad) {
+      double rollRad,
+      double slipEfficiency) {
     double dx = targetX - turretX;
     double dy = targetY - turretY;
     double dist = Math.hypot(dx, dy);
@@ -63,7 +68,8 @@ public final class SwmTargeting {
 
     // Desired ball velocity (field) = the stationary scoring shot at this distance. Giving the ball
     // this exact velocity reproduces the stationary trajectory (and its robust entry angle) no
-    // matter how the robot is moving.
+    // matter how the robot is moving. This target EXIT SPEED is slip-independent (a function of the
+    // baked map), so it uses the reference slip the map was generated with.
     double hoodLevelDeg = ShooterMap.hoodDeg(dist);
     double v0 = ShotPhysics.exitSpeed(ShooterMap.flywheelRps(dist, 0.0));
     double elevation = Math.toRadians(ShotPhysics.HOOD_ZERO_ELEVATION_DEG - hoodLevelDeg);
@@ -79,8 +85,9 @@ public final class SwmTargeting {
     double sy = desiredY - turretVy;
     double sz = desiredZ;
     double shooterSpeed = Math.sqrt(sx * sx + sy * sy + sz * sz);
+    // Convert required exit speed to flywheel RPS with the LIVE slip (the runtime tuning knob).
     double flywheelRps =
-        shooterSpeed / (ShotPhysics.SLIP_EFFICIENCY * 2.0 * Math.PI * ShotPhysics.WHEEL_RADIUS_M);
+        shooterSpeed / (slipEfficiency * 2.0 * Math.PI * ShotPhysics.WHEEL_RADIUS_M);
 
     // Tilt compensation: rotate the shooter's field-frame direction into the robot frame.
     double inv = 1.0 / shooterSpeed;
@@ -103,6 +110,21 @@ public final class SwmTargeting {
             && hoodDeg <= ShotSolver.HOOD_MAX_DEG;
 
     return new Aim(turretAngleRot, hoodDeg, flywheelRps, tof, dist, vRadial, feasible);
+  }
+
+  /** Convenience overload using the reference (baked) slip — for tests and the nominal shot. */
+  public static Aim solve(
+      double turretX,
+      double turretY,
+      double turretVx,
+      double turretVy,
+      double targetX,
+      double targetY,
+      double robotYawRad,
+      double pitchRad,
+      double rollRad) {
+    return solve(turretX, turretY, turretVx, turretVy, targetX, targetY, robotYawRad, pitchRad,
+        rollRad, ShotPhysics.SLIP_EFFICIENCY);
   }
 
   /**

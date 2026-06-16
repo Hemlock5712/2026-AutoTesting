@@ -110,4 +110,17 @@ class SwmTargetingTest {
     SwmTargeting.Aim tooFar = SwmTargeting.solve(0, 0, 0, 0, 9.0, 0.0, 0.0, 0.0, 0.0);
     assertTrue(!tooFar.feasible(), "beyond max range should be infeasible");
   }
+
+  @Test
+  void liveSlipRescalesFlywheelButNotHoodOrTof() {
+    SwmTargeting.Aim ref = SwmTargeting.solve(0, 0, 0, 0, 4.0, 0, 0, 0, 0, ShotPhysics.SLIP_EFFICIENCY);
+    SwmTargeting.Aim lower =
+        SwmTargeting.solve(0, 0, 0, 0, 4.0, 0, 0, 0, 0, ShotPhysics.SLIP_EFFICIENCY * 0.9);
+    // Less grip (lower slip) needs more flywheel for the same exit speed, scaling as 1/slip.
+    assertTrue(lower.flywheelRps() > ref.flywheelRps(), "lower slip should need more RPS");
+    assertEquals(ref.flywheelRps() / 0.9, lower.flywheelRps(), 1e-6, "flywheel scales as 1/slip");
+    // Hood schedule and time-of-flight are slip-independent, so tuning slip leaves them untouched.
+    assertEquals(ref.hoodDeg(), lower.hoodDeg(), 1e-9, "hood is slip-independent");
+    assertEquals(ref.tofSeconds(), lower.tofSeconds(), 1e-9, "tof is slip-independent");
+  }
 }

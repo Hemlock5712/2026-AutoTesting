@@ -24,6 +24,7 @@ import frc.robot.subsystems.hopper.Hopper;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
+import frc.robot.subsystems.shooter.ShotPhysics;
 import frc.robot.subsystems.shooter.SwmTargeting;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
@@ -95,6 +96,11 @@ public class Superstructure {
   // Tilt compensation enable (>0.5 = on). VERIFY the Pigeon pitch/roll sign on the real robot
   // before trusting this — drive onto the bump and confirm the logged drivetrain pitch.
   private final TunableDouble swmTiltComp = Tunables.value("SWM/TiltComp", 1.0);
+
+  // Live exit-speed-per-surface-speed fraction. The field calibration knob: spin up, sweep this
+  // until shots drop centered. Only rescales flywheel RPS — no map regeneration needed.
+  private final TunableDouble swmSlip =
+      Tunables.value("Shooter/SlipEfficiency", ShotPhysics.SLIP_EFFICIENCY);
 
   // Robot tilt (pitch/roll, radians). Defaults to level until a source is wired via
   // setTiltSource().
@@ -474,7 +480,8 @@ public class Superstructure {
             targetPosition.getY(),
             advancedPose.getRotation().getRadians(),
             pitch,
-            roll);
+            roll,
+            swmSlip.get());
 
     aimTurretAngleRot = aim.turretAngleRot();
     aimHoodDeg = aim.hoodDeg();
