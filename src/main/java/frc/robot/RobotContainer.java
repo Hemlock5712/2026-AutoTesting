@@ -258,7 +258,7 @@ public class RobotContainer {
         .povDown()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.AUTO)));
 
-    joystick.back().whileTrue(superstructure.turretTrackPeople(limelight));
+    joystick.back().toggleOnTrue(superstructure.turretTrackPeople(limelight));
 
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 
