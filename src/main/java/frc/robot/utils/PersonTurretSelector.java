@@ -23,7 +23,7 @@ public class PersonTurretSelector {
    * Sign applied to Limelight tx (degrees) when mapping to turret rotations. Flip to -1 if the
    * turret turns the wrong way during bring-up.
    */
-  public static final double TX_SIGN = 1.0;
+  public static final double TX_SIGN = -1.0;
 
   /** Seconds between random reselection when multiple people are visible. */
   public static final double RESELECT_PERIOD_SECONDS = 3.0;
