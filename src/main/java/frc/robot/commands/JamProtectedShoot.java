@@ -67,7 +67,7 @@ public class JamProtectedShoot extends Command {
 
     // switch (state) {
     //   case NORMAL:
-        executeNormal();
+    executeNormal();
     //     break;
     //   case MONITORING_SIDEWAYS:
     //     executeMonitoringSideways();

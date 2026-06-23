@@ -57,7 +57,7 @@ public class IntakeWheels extends SubsystemBase {
   }
 
   public Command runIntake() {
-    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(20)));
+    return runOnce(() -> wheel.setControl(voltageOut.withVelocity(25)));
   }
 
   public Command reverseIntake() {

@@ -220,7 +220,7 @@ public class RobotContainer {
         .debounce(0.1, DebounceType.kFalling)
         .toggleOnTrue(
             Commands.parallel(
-                superstructure.autoShootMode(),
+                superstructure.jamProtectedShoot(),
                 new TurretDrive(
                     drivetrain,
                     () -> {
@@ -244,7 +244,7 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 

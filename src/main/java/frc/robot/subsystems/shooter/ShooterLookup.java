@@ -69,19 +69,19 @@ public class ShooterLookup {
   // =       COMPETITION VALUES        =
   // ===================================
   private static void buildFlywheel() {
-    flywheelMap.put(0.0, 25.0);
-    flywheelMap.put(1.0, 25.0);
-    flywheelMap.put(1.5, 28.0);
-    flywheelMap.put(2.0, 25.0);
-    flywheelMap.put(2.5, 28.0);
-    flywheelMap.put(3.0, 30.0);
-    flywheelMap.put(3.5, 34.0);
-    flywheelMap.put(4.0, 35.0);
-    flywheelMap.put(4.5, 37.0);
-    flywheelMap.put(5.0, 41.0);
-    flywheelMap.put(5.5, 41.0);
-    flywheelMap.put(6.0, 44.5);
-    flywheelMap.put(6.5, 48.0);
+    flywheelMap.put(0.0, 19.0);
+    flywheelMap.put(1.0, 19.0);
+    flywheelMap.put(1.5, 22.0);
+    flywheelMap.put(2.0, 19.0);
+    flywheelMap.put(2.5, 23.0);
+    flywheelMap.put(3.0, 24.0);
+    flywheelMap.put(3.5, 26.0);
+    flywheelMap.put(4.0, 27.0);
+    flywheelMap.put(4.5, 29.0);
+    flywheelMap.put(5.0, 32.5);
+    flywheelMap.put(5.5, 37.0);
+    flywheelMap.put(6.0, 38.5);
+    flywheelMap.put(6.5, 42.0);
     // flywheelMap.put(7.0, 65.0);
   }
 
@@ -94,12 +94,12 @@ public class ShooterLookup {
     hoodMap.put(3.0, 14.0);
     hoodMap.put(3.5, 17.0);
     hoodMap.put(4.0, 20.0);
-    hoodMap.put(4.5, 25.0);
-    hoodMap.put(5.0, 27.0);
-    hoodMap.put(5.5, 32.0);
+    hoodMap.put(4.5, 23.0);
+    hoodMap.put(5.0, 26.0);
+    hoodMap.put(5.5, 28.0);
     hoodMap.put(6.0, 32.0);
     hoodMap.put(6.5, 32.0);
-    // hoodMap.put(7.0, 32.0);
+    // hoodMap.put(7.0, 32.0);x
   }
 
   private static void buildToF() {
