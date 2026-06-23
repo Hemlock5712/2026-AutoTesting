@@ -18,6 +18,8 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
+import frc.robot.utils.LimelightHelpers.RawDetection;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.littletonrobotics.junction.Logger;
@@ -49,6 +51,15 @@ public class Limelight extends SubsystemBase {
   private static final double FIELD_BORDER_MARGIN_METERS = 0.5;
   private static final double MAX_ANGULAR_VELOCITY_MT1_DEG_PER_SEC = 360;
   private static final double MAX_ANGULAR_VELOCITY_MT2_DEG_PER_SEC = 200;
+
+  // --- Person detector (limelight-mm, dedicated — not in pose-fusion list) ---
+  public static final String DETECTOR_CAMERA = "limelight-mm";
+
+  /** Class index for "person" in the neural detector pipeline on limelight-mm. */
+  public static final int PERSON_CLASS_ID = 0;
+
+  /** Pipeline index on limelight-mm that runs the person detector NN. */
+  public static final int DETECTOR_PIPELINE_INDEX = 1;
 
   private static final class CameraState {
     final String name;
@@ -282,5 +293,27 @@ public class Limelight extends SubsystemBase {
 
   private boolean isRotatingTooFastForMT2() {
     return Math.abs(cachedOmegaDegPerSec) > MAX_ANGULAR_VELOCITY_MT2_DEG_PER_SEC;
+  }
+
+  /** Switches limelight-mm to the person-detector pipeline. Call when people-tracking starts. */
+  public void setDetectorPipeline() {
+    LimelightHelpers.setPipelineIndex(DETECTOR_CAMERA, DETECTOR_PIPELINE_INDEX);
+  }
+
+  /**
+   * Returns raw neural detections from limelight-mm filtered to the person class.
+   *
+   * @return Detections with {@code classId == PERSON_CLASS_ID}, or empty array if none.
+   */
+  public RawDetection[] getPersonDetections() {
+    RawDetection[] all = LimelightHelpers.getRawDetections(DETECTOR_CAMERA);
+    List<RawDetection> people = new ArrayList<>();
+    for (RawDetection detection : all) {
+      if (detection.classId == PERSON_CLASS_ID) {
+        people.add(detection);
+      }
+    }
+    Logger.recordOutput("PersonTrack/DetectionCount", people.size());
+    return people.toArray(new RawDetection[0]);
   }
 }

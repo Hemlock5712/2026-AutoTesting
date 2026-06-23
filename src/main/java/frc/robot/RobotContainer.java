@@ -69,11 +69,10 @@ public class RobotContainer {
 
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 
-  // Vision cameras for tracking robot position
+  // Vision cameras for tracking robot position (limelight-mm is dedicated to person detection)
   public final Limelight limelight =
       new Limelight(
-          List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr", "limelight-mm"),
-          drivetrain);
+          List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr"), drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -259,7 +258,7 @@ public class RobotContainer {
         .povDown()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.AUTO)));
 
-    // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
+    joystick.back().whileTrue(superstructure.turretTrackPeople(limelight));
 
     joystick.povUp().onTrue(intakeCoordinator.straightUp());
 

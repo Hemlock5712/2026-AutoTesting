@@ -28,6 +28,7 @@ import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
 import frc.robot.utils.FeedTargetSelector;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.PersonTurretSelector;
 import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
 import java.util.function.BooleanSupplier;
@@ -83,6 +84,8 @@ public class Superstructure {
   private final Turret turret = RobotBase.isSimulation() ? new TurretSIM() : new Turret();
 
   private final Hopper hopper = new Hopper();
+
+  private final PersonTurretSelector personSelector = new PersonTurretSelector();
 
   private final Supplier<SwerveDriveState> driveState;
 
@@ -246,6 +249,21 @@ public class Superstructure {
 
   public Command turretTrackHub() {
     return turret.trackHubCommand(this::getTurretAngle);
+  }
+
+  /**
+   * Demo mode: aim turret at people detected by limelight-mm. Holds position when none visible;
+   * randomly reselects among multiple people every few seconds.
+   */
+  public Command turretTrackPeople(Limelight limelight) {
+    return turret
+        .trackHubCommand(
+            () -> {
+              var people = limelight.getPersonDetections();
+              personSelector.logEstimatedPositions(people, driveState.get().Pose);
+              return personSelector.computeTurretAngle(people, turret.getAngleRot());
+            })
+        .beforeStarting(Commands.runOnce(limelight::setDetectorPipeline));
   }
 
   /** Tuning mode: override flywheel/hood with dashboard tunables. */
