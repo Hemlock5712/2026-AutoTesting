@@ -50,9 +50,9 @@ public class IntakeWheels extends SubsystemBase {
   private final TunableDouble minDriveRequestRPS =
       Tunables.value("IntakeWheels/AntiJam/MinDriveRequestRPS", 1.0);
   private final TunableDouble jamCurrentThresholdAmps =
-      Tunables.value("IntakeWheels/AntiJam/JamCurrentThresholdAmps", 20.0);
+      Tunables.value("IntakeWheels/AntiJam/JamCurrentThresholdAmps", 50.0);
   private final TunableDouble jamVelocityThresholdRPS =
-      Tunables.value("IntakeWheels/AntiJam/JamVelocityThresholdRPS", 2.0);
+      Tunables.value("IntakeWheels/AntiJam/JamVelocityThresholdRPS", 8.0);
   private final TunableDouble jamConfirmTimeSeconds =
       Tunables.value("IntakeWheels/AntiJam/JamConfirmTimeSeconds", 0.15);
   private final TunableDouble jamRecoveryTimeSeconds =
