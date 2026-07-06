@@ -215,7 +215,7 @@ public class RobotContainer {
     joystick
         .rightTrigger(0.1)
         // .debounce(0.1, DebounceType.kFalling)
-        .onTrue(superstructure.shootManual())
+        .onTrue(superstructure.shootDemoPerson())
         .onFalse(superstructure.stopShoot());
 
     // joystick

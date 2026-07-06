@@ -129,6 +129,7 @@ public class Superstructure {
   private FeedTargetSelector.FeedSelection feedSelection = null;
 
   private double shootDist = 1.0;
+  private double demoPersonDistance = PersonTurretSelector.ESTIMATED_PERSON_DISTANCE_M;
 
   private double maxDist = 5.0;
 
@@ -252,8 +253,8 @@ public class Superstructure {
   }
 
   /**
-   * Demo mode: aim turret at people detected by limelight-mm. Holds position when none visible;
-   * randomly reselects among multiple people every few seconds.
+   * Demo mode: aim turret at people detected by limelight-mm. Holds position when none visible.
+   * Multiple detections are selected by stable left-to-right order.
    */
   public Command turretTrackPeople(Limelight limelight) {
     return turret
@@ -261,7 +262,10 @@ public class Superstructure {
             () -> {
               var people = limelight.getPersonDetections();
               personSelector.logEstimatedPositions(people, driveState.get().Pose);
-              return personSelector.computeTurretAngle(people, turret.getAngleRot());
+              var aim = personSelector.computeAimSolution(people, turret.getAngleRot());
+              demoPersonDistance =
+                  aim.hasTarget ? aim.distanceMeters : personSelector.getLastDistanceMeters();
+              return aim.predictedAngleRot;
             })
         .beforeStarting(Commands.runOnce(limelight::setDetectorPipeline));
   }
@@ -310,6 +314,13 @@ public class Superstructure {
   public Command shootManual() {
     return Commands.parallel(
         Commands.run(() -> shooter.setForDistance(shootDist)),
+        Commands.sequence(Commands.runOnce(() -> isShooting = true), hopper.start()));
+  }
+
+  /** Demo shooting using the current person-track range estimate. */
+  public Command shootDemoPerson() {
+    return Commands.parallel(
+        Commands.run(() -> shooter.setForDistance(getDemoPersonDistance())),
         Commands.sequence(Commands.runOnce(() -> isShooting = true), hopper.start()));
   }
 
@@ -704,9 +715,17 @@ public class Superstructure {
     Logger.recordOutput("SWM/HubPose2d", FieldInfo.flip(FieldInfo.HUB_POSITION));
     Logger.recordOutput("SWM/EndGoalPose2d", targetPosition);
     Logger.recordOutput("Demo/ShootDistance", shootDist);
+    Logger.recordOutput("Demo/PersonShootDistance", getDemoPersonDistance());
   }
 
   public void sethood() {
     shooter.setPosition(Rotations.of(0));
+  }
+
+  private double getDemoPersonDistance() {
+    return MathUtil.clamp(
+        demoPersonDistance,
+        PersonTurretSelector.MIN_PERSON_DISTANCE_M,
+        PersonTurretSelector.MAX_PERSON_DISTANCE_M);
   }
 }
