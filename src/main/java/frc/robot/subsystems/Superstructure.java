@@ -16,6 +16,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.AccelerationLimiter;
@@ -130,6 +131,15 @@ public class Superstructure {
 
   private double shootDist = 1.0;
   private double demoPersonDistance = PersonTurretSelector.ESTIMATED_PERSON_DISTANCE_M;
+  private boolean demoPeopleTrackingEnabled = false;
+  private boolean demoPersonTargetVisible = false;
+  private boolean demoPersonShooting = false;
+  private int demoPersonSelectedIndex = -1;
+  private double demoPersonLeadTimeSeconds = 0.0;
+  private double demoPersonAngularVelocityRotPerSec = 0.0;
+  private double demoPersonCurrentAngleRot = 0.0;
+  private double demoPersonPredictedAngleRot = 0.0;
+  private String demoPersonStatus = "OFF";
 
   private double maxDist = 5.0;
 
@@ -263,11 +273,23 @@ public class Superstructure {
               var people = limelight.getPersonDetections();
               personSelector.logEstimatedPositions(people, driveState.get().Pose);
               var aim = personSelector.computeAimSolution(people, turret.getAngleRot());
-              demoPersonDistance =
-                  aim.hasTarget ? aim.distanceMeters : personSelector.getLastDistanceMeters();
+              updateDemoPersonAim(aim);
               return aim.predictedAngleRot;
             })
-        .beforeStarting(Commands.runOnce(limelight::setDetectorPipeline));
+        .beforeStarting(
+            Commands.runOnce(
+                () -> {
+                  limelight.setDetectorPipeline();
+                  demoPeopleTrackingEnabled = true;
+                  demoPersonTargetVisible = false;
+                  demoPersonStatus = "SEARCHING";
+                }))
+        .finallyDo(
+            () -> {
+              demoPeopleTrackingEnabled = false;
+              demoPersonTargetVisible = false;
+              demoPersonStatus = "OFF";
+            });
   }
 
   /** Tuning mode: override flywheel/hood with dashboard tunables. */
@@ -320,8 +342,15 @@ public class Superstructure {
   /** Demo shooting using the current person-track range estimate. */
   public Command shootDemoPerson() {
     return Commands.parallel(
-        Commands.run(() -> shooter.setForDistance(getDemoPersonDistance())),
-        Commands.sequence(Commands.runOnce(() -> isShooting = true), hopper.start()));
+            Commands.run(() -> shooter.setForDistance(getDemoPersonDistance())),
+            Commands.sequence(
+                Commands.runOnce(
+                    () -> {
+                      isShooting = true;
+                      demoPersonShooting = true;
+                    }),
+                hopper.start()))
+        .finallyDo(() -> demoPersonShooting = false);
   }
 
   private boolean isHubReady() {
@@ -716,6 +745,22 @@ public class Superstructure {
     Logger.recordOutput("SWM/EndGoalPose2d", targetPosition);
     Logger.recordOutput("Demo/ShootDistance", shootDist);
     Logger.recordOutput("Demo/PersonShootDistance", getDemoPersonDistance());
+    Logger.recordOutput("Demo/PeopleTrackingEnabled", demoPeopleTrackingEnabled);
+    Logger.recordOutput("Demo/PersonTargetVisible", demoPersonTargetVisible);
+    Logger.recordOutput("Demo/PersonShooting", demoPersonShooting);
+    Logger.recordOutput("Demo/PersonStatus", demoPersonStatus);
+    Logger.recordOutput("Demo/PersonSelectedIndex", demoPersonSelectedIndex);
+    Logger.recordOutput("Demo/PersonLeadTimeSeconds", demoPersonLeadTimeSeconds);
+    Logger.recordOutput("Demo/PersonAngularVelocityRotPerSec", demoPersonAngularVelocityRotPerSec);
+    Logger.recordOutput("Demo/PersonCurrentAngleRot", demoPersonCurrentAngleRot);
+    Logger.recordOutput("Demo/PersonPredictedAngleRot", demoPersonPredictedAngleRot);
+    SmartDashboard.putBoolean("Demo People Tracking Enabled", demoPeopleTrackingEnabled);
+    SmartDashboard.putBoolean("Demo Person Visible", demoPersonTargetVisible);
+    SmartDashboard.putBoolean("Demo Person Shooting", demoPersonShooting);
+    SmartDashboard.putString("Demo Person Status", demoPersonStatus);
+    SmartDashboard.putNumber("Demo Person Distance", getDemoPersonDistance());
+    SmartDashboard.putNumber("Demo Person Selected Index", demoPersonSelectedIndex);
+    SmartDashboard.putNumber("Demo Person Lead Time", demoPersonLeadTimeSeconds);
   }
 
   public void sethood() {
@@ -727,5 +772,17 @@ public class Superstructure {
         demoPersonDistance,
         PersonTurretSelector.MIN_PERSON_DISTANCE_M,
         PersonTurretSelector.MAX_PERSON_DISTANCE_M);
+  }
+
+  private void updateDemoPersonAim(PersonTurretSelector.AimSolution aim) {
+    demoPersonTargetVisible = aim.hasTarget;
+    demoPersonDistance =
+        aim.hasTarget ? aim.distanceMeters : personSelector.getLastDistanceMeters();
+    demoPersonSelectedIndex = aim.selectedIndex;
+    demoPersonLeadTimeSeconds = aim.leadTimeSeconds;
+    demoPersonAngularVelocityRotPerSec = aim.angularVelocityRotPerSec;
+    demoPersonCurrentAngleRot = aim.currentAngleRot;
+    demoPersonPredictedAngleRot = aim.predictedAngleRot;
+    demoPersonStatus = aim.hasTarget ? "TRACKING" : "HOLDING_LAST";
   }
 }
