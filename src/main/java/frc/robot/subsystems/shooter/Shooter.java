@@ -93,8 +93,9 @@ public class Shooter extends SubsystemBase {
   private static final double JAWS_LOW_HZ = 82.41; // E2
   private static final double JAWS_HIGH_HZ = 87.31; // F2
   private static final double JAWS_START_NOTE_SECONDS = 0.75;
-  private static final double JAWS_MIN_NOTE_SECONDS = 0.10;
-  private static final double JAWS_NOTE_ACCELERATION = 0.88;
+  private static final double JAWS_MIN_NOTE_SECONDS = 0.25;
+  private static final double JAWS_NOTE_GAP_SECONDS = 0.04;
+  private static final double JAWS_NOTE_ACCELERATION = 0.96;
 
   public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled
@@ -367,24 +368,34 @@ public class Shooter extends SubsystemBase {
   }
 
   public Command playJawsTheme() {
-    double[] nextNoteTime = {0.0};
+    double[] nextTransitionTime = {0.0};
     double[] noteSeconds = {JAWS_START_NOTE_SECONDS};
     int[] note = {0};
+    boolean[] inGap = {false};
 
     return new FunctionalCommand(
         () -> {
-          nextNoteTime[0] = 0.0;
+          nextTransitionTime[0] = 0.0;
           noteSeconds[0] = JAWS_START_NOTE_SECONDS;
           note[0] = 0;
+          inGap[0] = false;
         },
         () -> {
           double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-          if (now >= nextNoteTime[0]) {
+          if (now >= nextTransitionTime[0]) {
+            if (inGap[0]) {
+              setFlywheelTone(0);
+              inGap[0] = false;
+              nextTransitionTime[0] = now + JAWS_NOTE_GAP_SECONDS;
+              noteSeconds[0] =
+                  Math.max(JAWS_MIN_NOTE_SECONDS, noteSeconds[0] * JAWS_NOTE_ACCELERATION);
+              return;
+            }
+
             setFlywheelTone((note[0] & 1) == 0 ? JAWS_LOW_HZ : JAWS_HIGH_HZ);
             note[0]++;
-            nextNoteTime[0] = now + noteSeconds[0];
-            noteSeconds[0] =
-                Math.max(JAWS_MIN_NOTE_SECONDS, noteSeconds[0] * JAWS_NOTE_ACCELERATION);
+            inGap[0] = true;
+            nextTransitionTime[0] = now + Math.max(0.02, noteSeconds[0] - JAWS_NOTE_GAP_SECONDS);
           }
         },
         interrupted -> {
