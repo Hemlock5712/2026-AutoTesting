@@ -43,6 +43,7 @@ public class Limelight extends SubsystemBase {
 
   // Toggle between synced inverse-variance fusion (true) and simple per-camera measurements (false)
   private static final boolean USE_FUSED_VISION = true;
+  private static final int DEFAULT_PIPELINE = 0;
 
   // --- Rejection Thresholds ---
   private static final double MAX_AMBIGUITY = 0.3;
@@ -89,7 +90,9 @@ public class Limelight extends SubsystemBase {
     validRotStdDevs = new double[cameraCount];
     for (int i = 0; i < cameraCount; i++) {
       cameras[i] = new CameraState(cameraNames.get(i));
+      LimelightHelpers.setPipelineIndex(cameras[i].name, DEFAULT_PIPELINE);
     }
+    LimelightHelpers.Flush();
   }
 
   @Override
