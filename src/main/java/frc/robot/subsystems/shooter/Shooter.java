@@ -12,6 +12,7 @@ import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.Follower;
+import com.ctre.phoenix6.controls.MusicTone;
 import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -30,6 +31,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.FunctionalCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.BooleanSupplier;
@@ -64,6 +66,7 @@ public class Shooter extends SubsystemBase {
 
   // Controller for spinning the flywheel at a target speed
   private final VelocityTorqueCurrentFOC velocityOut = new VelocityTorqueCurrentFOC(0);
+  private final MusicTone musicToneOut = new MusicTone(0);
 
   private final PositionTorqueCurrentFOC rotationOut =
       new PositionTorqueCurrentFOC(Rotations.of(0));
@@ -84,6 +87,12 @@ public class Shooter extends SubsystemBase {
 
   private final Debouncer atHubSpeed = new Debouncer(0.25, DebounceType.kFalling);
   private final Debouncer atFeedSpeed = new Debouncer(0.5, DebounceType.kFalling);
+
+  private static final double JAWS_LOW_HZ = 82.41; // E2
+  private static final double JAWS_HIGH_HZ = 87.31; // F2
+  private static final double JAWS_START_NOTE_SECONDS = 0.75;
+  private static final double JAWS_MIN_NOTE_SECONDS = 0.10;
+  private static final double JAWS_NOTE_ACCELERATION = 0.88;
 
   public Shooter() {
     // Coast mode: Flywheel can spin freely by hand when disabled
@@ -141,7 +150,7 @@ public class Shooter extends SubsystemBase {
     motorConfigAlert.set(!hoodConfigSuccess);
 
     flywheel.getTorqueCurrent().setUpdateFrequency(500);
-    follower.setControl(new Follower(flywheel.getDeviceID(), MotorAlignmentValue.Opposed));
+    setFlywheelFollower();
 
     // Cache status signals and set update frequencies
     flywheelVelocitySignal = flywheel.getVelocity();
@@ -175,6 +184,15 @@ public class Shooter extends SubsystemBase {
    */
   public void setVelocity(double velocity) {
     flywheel.setControl(velocityOut.withVelocity(velocity));
+  }
+
+  private void setFlywheelFollower() {
+    follower.setControl(new Follower(flywheel.getDeviceID(), MotorAlignmentValue.Opposed));
+  }
+
+  private void setFlywheelTone(double frequencyHz) {
+    flywheel.setControl(musicToneOut.withAudioFrequency(frequencyHz));
+    follower.setControl(musicToneOut.withAudioFrequency(frequencyHz));
   }
 
   /**
@@ -344,6 +362,35 @@ public class Shooter extends SubsystemBase {
   public void stopMotors() {
     flywheel.stopMotor();
     hood.stopMotor();
+  }
+
+  public Command playJawsTheme() {
+    double[] nextNoteTime = {0.0};
+    double[] noteSeconds = {JAWS_START_NOTE_SECONDS};
+    int[] note = {0};
+
+    return new FunctionalCommand(
+        () -> {
+          nextNoteTime[0] = 0.0;
+          noteSeconds[0] = JAWS_START_NOTE_SECONDS;
+          note[0] = 0;
+        },
+        () -> {
+          double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+          if (now >= nextNoteTime[0]) {
+            setFlywheelTone((note[0] & 1) == 0 ? JAWS_LOW_HZ : JAWS_HIGH_HZ);
+            note[0]++;
+            nextNoteTime[0] = now + noteSeconds[0];
+            noteSeconds[0] =
+                Math.max(JAWS_MIN_NOTE_SECONDS, noteSeconds[0] * JAWS_NOTE_ACCELERATION);
+          }
+        },
+        interrupted -> {
+          flywheel.stopMotor();
+          setFlywheelFollower();
+        },
+        () -> false,
+        this);
   }
 
   /**

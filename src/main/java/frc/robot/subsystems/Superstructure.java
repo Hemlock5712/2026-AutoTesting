@@ -431,6 +431,10 @@ public class Superstructure {
         Commands.runOnce(() -> isShooting = false), hopper.stop(), shooter.stopCommand());
   }
 
+  public Command playJawsTheme() {
+    return shooter.playJawsTheme();
+  }
+
   /**
    * Autonomous pass to a specific field location. Bypasses ALL checks (zone, convergence, speed
    * readiness) and fires immediately. Uses feed lookup tables for long-range passes. SWM

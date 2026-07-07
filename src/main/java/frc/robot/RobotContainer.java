@@ -232,6 +232,8 @@ public class RobotContainer {
 
     // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
+    joystick.y().whileTrue(superstructure.playJawsTheme());
+
     // joystick
     //     .y()
     //     .whileTrue(
