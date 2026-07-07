@@ -69,19 +69,19 @@ public class ShooterLookup {
   // =       COMPETITION VALUES        =
   // ===================================
   private static void buildFlywheel() {
-    flywheelMap.put(0.0, 25.0);
-    flywheelMap.put(1.0, 25.0);
-    flywheelMap.put(1.5, 28.0);
-    flywheelMap.put(2.0, 25.0);
-    flywheelMap.put(2.5, 28.0);
-    flywheelMap.put(3.0, 30.0);
-    flywheelMap.put(3.5, 34.0);
-    flywheelMap.put(4.0, 35.0);
-    flywheelMap.put(4.5, 37.0);
-    flywheelMap.put(5.0, 41.0);
-    flywheelMap.put(5.5, 41.0);
-    flywheelMap.put(6.0, 44.5);
-    flywheelMap.put(6.5, 48.0);
+    flywheelMap.put(0.0, 18.0);
+    flywheelMap.put(1.0, 18.0);
+    flywheelMap.put(1.5, 19.0);
+    flywheelMap.put(2.0, 20.0);
+    flywheelMap.put(2.5, 20.5);
+    flywheelMap.put(3.0, 21.5);
+    flywheelMap.put(3.5, 22.0);
+    flywheelMap.put(4.0, 24.0);
+    flywheelMap.put(4.5, 25.0);
+    flywheelMap.put(5.0, 26.0);
+    flywheelMap.put(5.5, 28.0);
+    flywheelMap.put(6.0, 30.0);
+    flywheelMap.put(6.5, 31.0);
     // flywheelMap.put(7.0, 65.0);
   }
 

@@ -12,6 +12,7 @@ import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.Follower;
+import com.ctre.phoenix6.controls.MusicTone;
 import com.ctre.phoenix6.controls.PositionTorqueCurrentFOC;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -67,6 +68,8 @@ public class Shooter extends SubsystemBase {
 
   private final PositionTorqueCurrentFOC rotationOut =
       new PositionTorqueCurrentFOC(Rotations.of(0));
+
+  private final MusicTone musicTone = new MusicTone(0);
 
   // Configuration settings for the flywheel motor
   protected TalonFXConfiguration config = new TalonFXConfiguration();

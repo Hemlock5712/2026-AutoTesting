@@ -40,7 +40,7 @@ public class PersonTurretSelector {
   public static final double PERSON_TARGET_HEIGHT_M = 1.0;
 
   /** Camera pitch above horizontal in degrees. Positive means the camera points upward. */
-  public static final double CAMERA_PITCH_DEG = 0.0;
+  public static final double CAMERA_PITCH_DEG = 10.0;
 
   public static final double MIN_PERSON_DISTANCE_M = 0.5;
   public static final double MAX_PERSON_DISTANCE_M = 6.5;
