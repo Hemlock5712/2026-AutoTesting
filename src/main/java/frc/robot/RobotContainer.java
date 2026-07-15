@@ -24,6 +24,7 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.Superstructure.FeedMode;
+import frc.robot.subsystems.blocker.Blocker;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 import java.util.List;
@@ -73,6 +74,8 @@ public class RobotContainer {
   private final Superstructure superstructure = new Superstructure(drivetrain::getCachedState);
 
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
+
+  private final Blocker blocker = new Blocker();
 
   // Vision cameras for tracking robot position
   public final Limelight limelight =
@@ -270,13 +273,12 @@ public class RobotContainer {
     joystick
         .povRight()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.FORCE_RIGHT)));
-    joystick
-        .povDown()
-        .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.AUTO)));
+    joystick.povDown().onTrue(intakeCoordinator.straightUp());
 
     // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
 
-    joystick.povUp().onTrue(intakeCoordinator.straightUp());
+    // The blocker starts in its down state; each POV-up press toggles its target position.
+    joystick.povUp().onTrue(blocker.toggle());
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }
