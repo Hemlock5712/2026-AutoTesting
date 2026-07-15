@@ -3,10 +3,10 @@ package frc.robot.subsystems.blocker;
 import static edu.wpi.first.units.Units.Rotations;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
-import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
@@ -15,7 +15,6 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.generated.TunerConstants;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
 
@@ -35,9 +34,9 @@ public class Blocker extends SubsystemBase {
   private static final double ACCELERATION_RPS2 = 4;
   private static final double POSITION_TOLERANCE_ROTATIONS = 0.01;
 
-  private final TalonFX motor = new TalonFX(MOTOR_ID, TunerConstants.kCANBus);
-  private final PositionVoltage positionRequest =
-      new PositionVoltage(DOWN_POSITION_ROTATIONS);
+  private final TalonFX motor = new TalonFX(MOTOR_ID, CANBus.roboRIO());
+  private final MotionMagicVoltage positionRequest =
+      new MotionMagicVoltage(DOWN_POSITION_ROTATIONS);
   private final StatusSignal<Angle> positionSignal = motor.getPosition();
   private final TalonFXConfiguration config = new TalonFXConfiguration();
 
@@ -48,10 +47,10 @@ public class Blocker extends SubsystemBase {
 
   public Blocker() {
     config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-    config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
+    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
 
     // These are intentionally gentle starting gains and constraints for first motion tests.
-    config.Slot0.kP = 2.0;
+    config.Slot0.kP = 8.0;
     config.Slot0.kD = 0.0;
     config.Slot0.kS = 0.2;
     config.Slot0.kV = 0.12;
