@@ -6,7 +6,7 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
@@ -28,15 +28,14 @@ import org.littletonrobotics.junction.AutoLogOutput;
 public class Blocker extends SubsystemBase {
   // Hardware/calibration constants. Confirm these values before enabling the mechanism.
   private static final int MOTOR_ID = 53;
-  private static final double DOWN_POSITION_ROTATIONS = 0.25;
-  private static final double UP_POSITION_ROTATIONS = 3.0;
-  private static final double CRUISE_VELOCITY_RPS = 1;
-  private static final double ACCELERATION_RPS2 = 4;
+  private static final double DOWN_POSITION_ROTATIONS = 0.0;
+  private static final double UP_POSITION_ROTATIONS = 6.58;
+  private static final double CRUISE_VELOCITY_RPS = 3;
+  private static final double ACCELERATION_RPS2 = 6;
   private static final double POSITION_TOLERANCE_ROTATIONS = 0.01;
 
   private final TalonFX motor = new TalonFX(MOTOR_ID, CANBus.roboRIO());
-  private final MotionMagicVoltage positionRequest =
-      new MotionMagicVoltage(DOWN_POSITION_ROTATIONS);
+  private final PositionVoltage positionRequest = new PositionVoltage(DOWN_POSITION_ROTATIONS);
   private final StatusSignal<Angle> positionSignal = motor.getPosition();
   private final TalonFXConfiguration config = new TalonFXConfiguration();
 
@@ -47,7 +46,7 @@ public class Blocker extends SubsystemBase {
 
   public Blocker() {
     config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+    config.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
     // These are intentionally gentle starting gains and constraints for first motion tests.
     config.Slot0.kP = 8.0;
@@ -59,13 +58,15 @@ public class Blocker extends SubsystemBase {
 
     // Keep commanded motion inside the initially tested range.
     config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
-    config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 3;
+    config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 6.58;
     config.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
     config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
 
     configAlert.set(!TalonFXUtil.applyConfigWithRetries(motor, config));
     positionSignal.setUpdateFrequency(50);
     motor.optimizeBusUtilization();
+
+    motor.setPosition(0);
   }
 
   @Override

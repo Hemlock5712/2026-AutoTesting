@@ -278,7 +278,13 @@ public class RobotContainer {
     // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
 
     // The blocker starts in its down state; each POV-up press toggles its target position.
-    joystick.povUp().onTrue(blocker.toggle());
+    joystick
+        .povUp()
+        .onTrue(
+            Commands.either(
+                blocker.down().alongWith(intakeCoordinator.deployAndRun()),
+                blocker.up(),
+                blocker::isUp));
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }
