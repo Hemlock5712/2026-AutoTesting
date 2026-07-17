@@ -24,6 +24,7 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.Superstructure.FeedMode;
+import frc.robot.subsystems.blocker.Blocker;
 import frc.robot.subsystems.intake.IntakeCoordinator;
 import frc.robot.utils.FieldInfo;
 import java.util.List;
@@ -73,6 +74,8 @@ public class RobotContainer {
   private final Superstructure superstructure = new Superstructure(drivetrain::getCachedState);
 
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
+
+  private final Blocker blocker = new Blocker();
 
   // Vision cameras for tracking robot position
   public final Limelight limelight =
@@ -220,7 +223,7 @@ public class RobotContainer {
         .debounce(0.1, DebounceType.kFalling)
         .toggleOnTrue(
             Commands.parallel(
-                superstructure.autoShootMode(),
+                superstructure.jamProtectedShoot(),
                 new TurretDrive(
                     drivetrain,
                     () -> {
@@ -244,7 +247,7 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    joystick.y().onTrue(superstructure.shootManual()).onFalse(superstructure.stopShoot());
+    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
@@ -270,13 +273,18 @@ public class RobotContainer {
     joystick
         .povRight()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.FORCE_RIGHT)));
-    joystick
-        .povDown()
-        .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.AUTO)));
+    joystick.povDown().onTrue(intakeCoordinator.straightUp());
 
     // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
 
-    joystick.povUp().onTrue(intakeCoordinator.straightUp());
+    // The blocker starts in its down state; each POV-up press toggles its target position.
+    joystick
+        .povUp()
+        .onTrue(
+            Commands.either(
+                blocker.down().alongWith(intakeCoordinator.deployAndRun()),
+                blocker.up(),
+                blocker::isUp));
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }

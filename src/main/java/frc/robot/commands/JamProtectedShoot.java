@@ -65,20 +65,20 @@ public class JamProtectedShoot extends Command {
     Logger.recordOutput("JamProtection/State", STATE_NAMES[state.ordinal()]);
     Logger.recordOutput("JamProtection/IsReadyToFeed", isReadyToFeed.getAsBoolean());
 
-    switch (state) {
-      case NORMAL:
-        executeNormal();
-        break;
-      case MONITORING_SIDEWAYS:
-        executeMonitoringSideways();
-        break;
-      case WAITING_FOR_KICKER:
-        executeWaitingForKicker();
-        break;
-      case JAM_RECOVERY:
-        executeJamRecovery();
-        break;
-    }
+    // switch (state) {
+    //   case NORMAL:
+    executeNormal();
+    //     break;
+    //   case MONITORING_SIDEWAYS:
+    //     executeMonitoringSideways();
+    //     break;
+    //   case WAITING_FOR_KICKER:
+    //     executeWaitingForKicker();
+    //     break;
+    //   case JAM_RECOVERY:
+    //     executeJamRecovery();
+    //     break;
+    // }
   }
 
   private void executeNormal() {

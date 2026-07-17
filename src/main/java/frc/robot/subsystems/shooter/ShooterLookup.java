@@ -69,19 +69,19 @@ public class ShooterLookup {
   // =       COMPETITION VALUES        =
   // ===================================
   private static void buildFlywheel() {
-    flywheelMap.put(0.0, 25.0);
-    flywheelMap.put(1.0, 25.0);
-    flywheelMap.put(1.5, 28.0);
-    flywheelMap.put(2.0, 25.0);
-    flywheelMap.put(2.5, 28.0);
-    flywheelMap.put(3.0, 30.0);
-    flywheelMap.put(3.5, 34.0);
-    flywheelMap.put(4.0, 35.0);
-    flywheelMap.put(4.5, 37.0);
-    flywheelMap.put(5.0, 41.0);
-    flywheelMap.put(5.5, 41.0);
-    flywheelMap.put(6.0, 44.5);
-    flywheelMap.put(6.5, 48.0);
+    flywheelMap.put(0.0, 23.0);
+    flywheelMap.put(1.0, 23.0);
+    flywheelMap.put(1.5, 23.0);
+    flywheelMap.put(2.0, 22.0);
+    flywheelMap.put(2.5, 23.0);
+    flywheelMap.put(3.0, 24.0);
+    flywheelMap.put(3.5, 26.0);
+    flywheelMap.put(4.0, 27.0);
+    flywheelMap.put(4.5, 29.0);
+    flywheelMap.put(5.0, 32.5);
+    flywheelMap.put(5.5, 37.0);
+    flywheelMap.put(6.0, 38.5);
+    flywheelMap.put(6.5, 42.0);
     // flywheelMap.put(7.0, 65.0);
   }
 
@@ -94,28 +94,28 @@ public class ShooterLookup {
     hoodMap.put(3.0, 14.0);
     hoodMap.put(3.5, 17.0);
     hoodMap.put(4.0, 20.0);
-    hoodMap.put(4.5, 25.0);
-    hoodMap.put(5.0, 27.0);
-    hoodMap.put(5.5, 32.0);
+    hoodMap.put(4.5, 23.0);
+    hoodMap.put(5.0, 26.0);
+    hoodMap.put(5.5, 28.0);
     hoodMap.put(6.0, 32.0);
     hoodMap.put(6.5, 32.0);
-    // hoodMap.put(7.0, 32.0);
+    // hoodMap.put(7.0, 32.0);x
   }
 
   private static void buildToF() {
-    tofMap.put(0.0, 1.24 * tofMult);
-    tofMap.put(1.0, 1.24 * tofMult);
-    tofMap.put(1.5, 1.24 * tofMult);
-    tofMap.put(2.0, 1.059 * tofMult);
-    tofMap.put(2.5, 1.093 * tofMult);
-    tofMap.put(3.0, 1.082 * tofMult);
-    tofMap.put(3.5, 1.097 * tofMult);
-    tofMap.put(4.0, 1.104 * tofMult);
-    tofMap.put(4.5, 1.056 * tofMult);
-    tofMap.put(5.0, 1.079 * tofMult);
-    tofMap.put(5.5, 1.027 * tofMult);
-    tofMap.put(6.0, 1.086 * tofMult);
-    tofMap.put(6.5, 1.142 * tofMult);
+    tofMap.put(0.0, 0.91905);
+    tofMap.put(1.0, 0.91905);
+    tofMap.put(1.5, 0.91905);
+    tofMap.put(2.0, 0.92222);
+    tofMap.put(2.5, 0.85417);
+    tofMap.put(3.0, 0.96250);
+    tofMap.put(3.5, 0.9152);
+    tofMap.put(4.0, 0.9333);
+    tofMap.put(4.5, 0.84545);
+    tofMap.put(5.0, 0.97576);
+    tofMap.put(5.5, 1.3077);
+    tofMap.put(6.0, 1.4); // Not measured
+    tofMap.put(6.5, 1.5); // Not measured
     // tofMap.put(7.0, 1.6);
   }
 
