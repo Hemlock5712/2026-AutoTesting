@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
+import frc.robot.commands.FaceVelocityDrive;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.commands.TurretDrive;
 import frc.robot.generated.TunerConstants;
@@ -245,7 +246,22 @@ public class RobotContainer {
     // intakeCoordinator.upAndRun(),
     // () -> intakeCoordinator.getTargetPositionRotations() != 0));
 
-    joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
+    // While intaking, auto-rotate so the intake (robot front) faces the measured direction of
+    // travel. Uses real chassis speeds so braking doesn't flip the heading. Right stick overrides.
+    joystick
+        .leftTrigger(0.5)
+        .onTrue(intakeCoordinator.deployAndRun())
+        .whileTrue(
+            new FaceVelocityDrive(
+                drivetrain,
+                () -> {
+                  double[] scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+                  translationVel[0] = -scaled[0] * maxSpeed;
+                  translationVel[1] = -scaled[1] * maxSpeed;
+                  return translationVel[0];
+                },
+                () -> translationVel[1],
+                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
 
     joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
