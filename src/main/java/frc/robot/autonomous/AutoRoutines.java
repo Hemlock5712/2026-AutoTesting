@@ -1,17 +1,12 @@
 package frc.robot.autonomous;
 
-import static edu.wpi.first.units.Units.Meters;
+import static org.wpilib.units.Units.Meters;
+import static org.wpilib.units.Units.Seconds;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.WaitCommand;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.intake.IntakeCoordinator;
+import frc.robot.utils.Commands;
 import frc.robot.utils.FieldFlip;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
@@ -19,6 +14,12 @@ import frc.robot.utils.path.PathData;
 import frc.robot.utils.path.Paths;
 import frc.robot.utils.path.Paths.AlliancePath;
 import java.util.List;
+import org.wpilib.command3.Command;
+import org.wpilib.driverstation.Alliance;
+import org.wpilib.driverstation.MatchState;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
 
 public class AutoRoutines {
 
@@ -76,11 +77,6 @@ public class AutoRoutines {
 
     shortPathRight.blue().precompute();
     shortPathRight.red().precompute();
-
-    // Warm up JVM class loading by building a throwaway command chain.
-    // Forces all command framework classes to load during robot init, not first
-    // auto.
-    autoCommands.followPath(leftToMiddle.blue());
   }
 
   /**
@@ -121,7 +117,7 @@ public class AutoRoutines {
   }
 
   private boolean isRedAlliance() {
-    return DriverStation.getAlliance().map(a -> a == DriverStation.Alliance.Red).orElse(false);
+    return MatchState.getAlliance().map(a -> a == Alliance.RED).orElse(false);
   }
 
   private Command side2Passes(AlliancePath mainAlliancePath, AlliancePath cleanupAlliancePath) {
@@ -152,21 +148,26 @@ public class AutoRoutines {
 
     return Commands.sequence(
         autoCommands.resetPose(() -> mainPath.getStartingPose()),
-        autoCommands
-            .followPath(mainPath)
-            .withCompletionTolerance(0.15)
-            .withTimeout(8)
-            .deadlineFor(
-                intakeCoordinator.deployAndRunAUTO(),
-                superstructure.fixedShoot(() -> mainPath.getTargetPose())),
-        // new WaitCommand(0.5).deadlineFor(superstructure.recoverHopper()),
-        new WaitCommand(3).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
+        Commands.deadline(
+            autoCommands
+                .followPath(mainPath)
+                .withCompletionTolerance(0.15)
+                .withTimeout(Seconds.of(8)),
+            intakeCoordinator.deployAndRunAUTO(),
+            superstructure.fixedShoot(() -> mainPath.getTargetPose())),
+        // Optional hopper recovery can be added here if needed.
+        Commands.deadline(
+            Commands.waitSeconds(3), superstructure.shoot(), superstructure.turretTrackHub()),
         superstructure.stopShoot(),
         superstructure.prerollShooter(26),
         autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
-        autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15).withTimeout(8),
-        // new WaitCommand(0.5).deadlineFor(superstructure.recoverHopper()),
-        new WaitCommand(4).deadlineFor(superstructure.shoot(), superstructure.turretTrackHub()),
+        autoCommands
+            .followPath(cleanupPath)
+            .withCompletionTolerance(0.15)
+            .withTimeout(Seconds.of(8)),
+        // Optional hopper recovery can be added here if needed.
+        Commands.deadline(
+            Commands.waitSeconds(4), superstructure.shoot(), superstructure.turretTrackHub()),
         superstructure.stopShoot(),
         autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
         autoCommands.followPath(cleanupPath).withCompletionTolerance(0.15));
@@ -182,15 +183,17 @@ public class AutoRoutines {
 
     return Commands.sequence(
         autoCommands.resetPose(() -> mainPath.getStartingPose()),
-        autoCommands
-            .followPathWithActions(
+        Commands.deadline(
+            autoCommands.followPathWithActions(
                 mainPath,
                 List.of(
                     new AutoCommands.PathAction(1, 0.5, superstructure::feedShoot),
-                    new AutoCommands.PathAction(4, 1.0, superstructure::stopShoot)))
-            .deadlineFor(intakeCoordinator.deployAndRunAUTO(), superstructure.prerollShooter(30)),
-        autoCommands.driveTo(feedTargetPose).withMaxSpeed(2).deadlineFor(superstructure.shoot()),
-        Commands.waitSeconds(3).deadlineFor(superstructure.shoot()),
+                    new AutoCommands.PathAction(4, 1.0, superstructure::stopShoot))),
+            intakeCoordinator.deployAndRunAUTO(),
+            superstructure.prerollShooter(30)),
+        Commands.deadline(
+            autoCommands.driveTo(feedTargetPose).withMaxSpeed(2), superstructure.shoot()),
+        Commands.deadline(Commands.waitSeconds(3), superstructure.shoot()),
         superstructure.stopShoot(),
         superstructure.prerollShooter(30),
         autoCommands.driveTo(() -> cleanupDriveTarget).withWaypoint(4.75),
@@ -201,49 +204,50 @@ public class AutoRoutines {
   public Command leftAutoFeed(double midlineX) {
 
     Command redSide =
-        autoCommands
-            .followPath(leftToMiddleDepot.red())
-            .withCompletionTolerance(0.25)
-            .withTimeout(6.7)
-            .deadlineFor(
-                intakeCoordinator.deployAndRunAUTO(),
-                superstructure.fixedShoot(() -> leftToMiddleDepot.red().getTargetPose()));
+        Commands.deadline(
+            autoCommands
+                .followPath(leftToMiddleDepot.red())
+                .withCompletionTolerance(0.25)
+                .withTimeout(Seconds.of(6.7)),
+            intakeCoordinator.deployAndRunAUTO(),
+            superstructure.fixedShoot(() -> leftToMiddleDepot.red().getTargetPose()));
     Command blueSide =
-        autoCommands
-            .followPath(leftToMiddleDepot.blue())
-            .withCompletionTolerance(0.25)
-            .withTimeout(6.7)
-            .deadlineFor(
-                intakeCoordinator.deployAndRunAUTO(),
-                superstructure.fixedShoot(() -> leftToMiddleDepot.blue().getTargetPose()));
+        Commands.deadline(
+            autoCommands
+                .followPath(leftToMiddleDepot.blue())
+                .withCompletionTolerance(0.25)
+                .withTimeout(Seconds.of(6.7)),
+            intakeCoordinator.deployAndRunAUTO(),
+            superstructure.fixedShoot(() -> leftToMiddleDepot.blue().getTargetPose()));
 
     return Commands.sequence(
         autoCommands.resetPose(() -> leftToMiddleDepot.get().getStartingPose()),
         // Drive to midline, left of balls
-        Commands.either(redSide, blueSide, this::isRedAlliance).withTimeout(7.2),
-        Commands.waitSeconds(3)
-            .deadlineFor(superstructure.turretTrackHub().alongWith(superstructure.shoot())),
+        Commands.either(redSide, blueSide, this::isRedAlliance).withTimeout(Seconds.of(7.2)),
+        Commands.deadline(
+            Commands.waitSeconds(3),
+            Commands.parallel(superstructure.turretTrackHub(), superstructure.shoot())),
         superstructure.stopShoot(),
         // Clean up and shoot
         Commands.deadline(
-                Commands.sequence(
-                    autoCommands
-                        .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
-                        .withMaxSpeed(2.5)
-                        .withWaypoint(0.5),
-                    autoCommands
-                        .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
-                        .withMaxSpeed(1)
-                        .withWaypoint(0.75),
-                    autoCommands
-                        .driveTo(new ExtPose(2.5, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)))
-                        .withMaxSpeed(2.5)
-                        .withWaypoint(1)))
-            .deadlineFor(
-                superstructure.fixedShoot(
-                    new ExtPose(2.5, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)))),
-        Commands.waitSeconds(5)
-            .deadlineFor(superstructure.turretTrackHub().alongWith(superstructure.shoot())),
+            Commands.sequence(
+                autoCommands
+                    .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
+                    .withMaxSpeed(2.5)
+                    .withWaypoint(0.5),
+                autoCommands
+                    .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
+                    .withMaxSpeed(1)
+                    .withWaypoint(0.75),
+                autoCommands
+                    .driveTo(new ExtPose(2.5, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)))
+                    .withMaxSpeed(2.5)
+                    .withWaypoint(1)),
+            superstructure.fixedShoot(
+                new ExtPose(2.5, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(0)))),
+        Commands.deadline(
+            Commands.waitSeconds(5),
+            Commands.parallel(superstructure.turretTrackHub(), superstructure.shoot())),
         autoCommands
             .driveTo(new ExtPose(6, LEFT_TRENCH_CENTER, Rotation2d.kZero))
             .withMaxSpeed(3.5));
@@ -254,18 +258,18 @@ public class AutoRoutines {
         autoCommands.resetPose(() -> new ExtPose(3.573, 7.76, Rotation2d.fromDegrees(-180)).get()),
         intakeCoordinator.deployAndRunAUTO(),
         Commands.deadline(
-                Commands.sequence(
-                    autoCommands
-                        .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
-                        .withMaxSpeed(2.5)
-                        .withWaypoint(0.5),
-                    autoCommands
-                        .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
-                        .withMaxSpeed(1)))
-            .deadlineFor(
-                superstructure.fixedShoot(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))),
-        Commands.waitSeconds(12)
-            .deadlineFor(superstructure.turretTrackHub().alongWith(superstructure.shoot())),
+            Commands.sequence(
+                autoCommands
+                    .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
+                    .withMaxSpeed(2.5)
+                    .withWaypoint(0.5),
+                autoCommands
+                    .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
+                    .withMaxSpeed(1)),
+            superstructure.fixedShoot(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))),
+        Commands.deadline(
+            Commands.waitSeconds(12),
+            Commands.parallel(superstructure.turretTrackHub(), superstructure.shoot())),
         superstructure.stopShoot(),
         autoCommands
             .driveTo(new ExtPose(3.573, LEFT_TRENCH_CENTER, Rotation2d.fromDegrees(-180)))
@@ -284,24 +288,24 @@ public class AutoRoutines {
 
     return Commands.sequence(
         autoCommands.resetPose(() -> new ExtPose(3.573, 4.135, Rotation2d.fromDegrees(-180)).get()),
-        Commands.sequence(
+        Commands.deadline(
+            Commands.sequence(
                 intakeCoordinator.deployAndRunAUTO(),
                 Commands.deadline(
-                        Commands.sequence(
-                            autoCommands
-                                .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
-                                .withMaxSpeed(2.5)
-                                .withWaypoint(0.5),
-                            autoCommands
-                                .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
-                                .withMaxSpeed(1)))
-                    .deadlineFor(
-                        superstructure.fixedShoot(
-                            new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))),
-                Commands.waitSeconds(7)
-                    .deadlineFor(superstructure.turretTrackHub().alongWith(superstructure.shoot())))
-            .withDeadline(Commands.waitSeconds(11)) // Leave depot at 11
-        ,
+                    Commands.sequence(
+                        autoCommands
+                            .driveTo(new ExtPose(0.76, 7.0, Rotation2d.fromDegrees(-120)))
+                            .withMaxSpeed(2.5)
+                            .withWaypoint(0.5),
+                        autoCommands
+                            .driveTo(new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))
+                            .withMaxSpeed(1)),
+                    superstructure.fixedShoot(
+                        new ExtPose(0.76, 5.284, Rotation2d.fromDegrees(-120)))),
+                Commands.deadline(
+                    Commands.waitSeconds(7),
+                    Commands.parallel(superstructure.turretTrackHub(), superstructure.shoot()))),
+            Commands.waitSeconds(11)),
         superstructure.stopShoot(),
         driveToStartOfCleanup.withMaxSpeed(3.5).withEndTargetSpeed(1),
         Commands.either(

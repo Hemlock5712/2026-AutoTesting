@@ -5,11 +5,10 @@ import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Superstructure;
 import java.util.function.DoubleSupplier;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /**
  * Shoot-mode teleop drive command.
@@ -22,7 +21,7 @@ import java.util.function.DoubleSupplier;
  * <p>Bind to a button so the driver holds it while shooting. On release, the default OrbitDrive
  * resumes with no limits.
  */
-public class TurretDrive extends Command {
+public class TurretDrive extends CommandLifecycleAdapter {
 
   public static final double MAX_SHOOT_ACCEL = 6.5;
   public static final double MAX_SHOOT_JERK = 360; // m/s^3
@@ -33,11 +32,11 @@ public class TurretDrive extends Command {
   private final DoubleSupplier rotationalRateSupplier;
 
   // State tracking between execute cycles
-  private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
+  private ChassisVelocities lastCommandedVelocity = new ChassisVelocities();
   private double lastTime;
 
-  private final SwerveRequest.ApplyFieldSpeeds request =
-      new SwerveRequest.ApplyFieldSpeeds()
+  private final SwerveRequest.ApplyFieldVelocity request =
+      new SwerveRequest.ApplyFieldVelocity()
           .withDriveRequestType(DriveRequestType.Velocity)
           .withSteerRequestType(SteerRequestType.MotionMagicExpo)
           .withForwardPerspective(ForwardPerspectiveValue.OperatorPerspective)
@@ -56,11 +55,11 @@ public class TurretDrive extends Command {
       DoubleSupplier velocityX,
       DoubleSupplier velocityY,
       DoubleSupplier rotationalRate) {
+    super(swerve.getCommandMechanism());
     this.swerve = swerve;
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
     this.rotationalRateSupplier = rotationalRate;
-    addRequirements(swerve);
   }
 
   @Override
@@ -91,7 +90,7 @@ public class TurretDrive extends Command {
         MAX_SHOOT_JERK,
         MAX_SHOOT_JERK);
 
-    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
+    swerve.setControl(request.withVelocity(lastCommandedVelocity));
   }
 
   @Override

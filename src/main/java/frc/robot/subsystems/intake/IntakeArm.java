@@ -1,7 +1,7 @@
 package frc.robot.subsystems.intake;
 
-import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.Rotations;
+import static org.wpilib.units.Units.Degrees;
+import static org.wpilib.units.Units.Rotations;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
@@ -12,17 +12,16 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
+import frc.robot.utils.RobotMechanism;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.units.measure.Angle;
 
-public class IntakeArm extends SubsystemBase {
+public class IntakeArm extends RobotMechanism {
 
   protected final TalonFX arm = new TalonFX(22, TunerConstants.kCANBus);
   protected final CANcoder armEncoder = new CANcoder(24, TunerConstants.kCANBus);
@@ -37,7 +36,7 @@ public class IntakeArm extends SubsystemBase {
 
   private final StatusSignal<Angle> armPositionSignal = armEncoder.getPosition();
 
-  Alert motorConfigAlert = new Alert("Intake Arm Motor Configuration Failed", AlertType.kError);
+  Alert motorConfigAlert = new Alert("Intake Arm Motor Configuration Failed", Alert.Level.HIGH);
 
   public IntakeArm() {
     // Coast mode: Motor can be moved by hand when disabled (easier for testing)
@@ -66,9 +65,9 @@ public class IntakeArm extends SubsystemBase {
 
     arm.optimizeBusUtilization();
     armEncoder.optimizeBusUtilization();
+    addPeriodicCallback(this::periodic);
   }
 
-  @Override
   public void periodic() {
     long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(armPositionSignal);

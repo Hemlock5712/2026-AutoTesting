@@ -1,14 +1,13 @@
 package frc.robot.subsystems.turret;
 
-import static edu.wpi.first.units.Units.Rotations;
+import static org.wpilib.units.Units.Rotations;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.hardware.CANcoder;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.units.measure.Angle;
 
 /**
  * Calculates absolute turret position using Chinese Remainder Theorem from two encoders driven by a
@@ -77,7 +76,7 @@ public class DualEncoderCRT {
 
     this.inconsistentReadingAlert =
         new Alert(
-            "CRT: Encoder readings inconsistent - possible slip or failure", AlertType.kError);
+            "CRT: Encoder readings inconsistent - possible slip or failure", Alert.Level.HIGH);
   }
 
   /**

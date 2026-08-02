@@ -1,8 +1,8 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Translation2d;
 import java.util.Arrays;
 import java.util.List;
+import org.wpilib.math.geometry.Translation2d;
 
 /**
  * Arc-length parameterized Catmull-Rom spline path.

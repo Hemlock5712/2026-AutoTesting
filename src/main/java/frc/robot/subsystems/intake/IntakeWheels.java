@@ -8,20 +8,19 @@ import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
-import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.units.measure.Current;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.utils.RobotMechanism;
 import frc.robot.utils.TalonFXUtil;
 import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.system.Timer;
+import org.wpilib.units.measure.AngularVelocity;
+import org.wpilib.units.measure.Current;
 
-public class IntakeWheels extends SubsystemBase {
+public class IntakeWheels extends RobotMechanism {
 
   private enum AntiJamState {
     NORMAL,
@@ -34,13 +33,13 @@ public class IntakeWheels extends SubsystemBase {
 
   private static final boolean ANTI_JAM_ENABLED = true;
 
-  private final TalonFX wheel = new TalonFX(23, CANBus.roboRIO());
+  private final TalonFX wheel = new TalonFX(23, new CANBus());
   private final StatusSignal<AngularVelocity> wheelVelSignal = wheel.getVelocity();
   private final StatusSignal<Current> wheelStatorSignal = wheel.getStatorCurrent();
 
   private TalonFXConfiguration wheelConfig = new TalonFXConfiguration();
 
-  Alert motorConfigAlert = new Alert("Intake Wheel Motor Configuration Failed", AlertType.kError);
+  Alert motorConfigAlert = new Alert("Intake Wheel Motor Configuration Failed", Alert.Level.HIGH);
 
   VelocityVoltage voltageOut = new VelocityVoltage(0);
 
@@ -75,9 +74,9 @@ public class IntakeWheels extends SubsystemBase {
     wheelStatorSignal.setUpdateFrequency(50);
 
     wheel.optimizeBusUtilization();
+    addPeriodicCallback(this::periodic);
   }
 
-  @Override
   public void periodic() {
     long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(wheelVelSignal, wheelStatorSignal);

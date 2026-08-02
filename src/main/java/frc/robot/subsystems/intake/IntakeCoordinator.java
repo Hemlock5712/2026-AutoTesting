@@ -1,9 +1,9 @@
 package frc.robot.subsystems.intake;
 
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.utils.Commands;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.wpilib.command3.Command;
+import org.wpilib.framework.RobotBase;
 
 /**
  * Coordinates IntakeArm and IntakeWheels together.
@@ -37,7 +37,7 @@ public class IntakeCoordinator {
   }
 
   public Command stopBoth() {
-    return stopArm().alongWith(stopWheel());
+    return Commands.parallel(stopArm(), stopWheel());
   }
 
   // ==================== Delegated Wheel Commands ====================
@@ -55,7 +55,7 @@ public class IntakeCoordinator {
   }
 
   public Command straightUp() {
-    return wheels.stopWheel().andThen(arm.straightUp());
+    return Commands.sequence(wheels.stopWheel(), arm.straightUp());
   }
 
   // ==================== Coordinated Commands ====================

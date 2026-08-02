@@ -1,10 +1,9 @@
 package frc.robot.commands;
 
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import java.util.function.DoubleSupplier;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /**
  * Physics-based teleop drive command.
@@ -14,7 +13,7 @@ import java.util.function.DoubleSupplier;
  *
  * <p>Runs indefinitely until cancelled (typical teleop behavior).
  */
-public class OrbitDrive extends Command {
+public class OrbitDrive extends CommandLifecycleAdapter {
 
   private final CommandSwerveDrivetrain swerve;
   private final DoubleSupplier velocityXSupplier;
@@ -22,7 +21,7 @@ public class OrbitDrive extends Command {
   private final DoubleSupplier rotationalRateSupplier;
 
   private final AccelerationLimitedFieldSpeeds request = new AccelerationLimitedFieldSpeeds();
-  private final ChassisSpeeds targetSpeeds = new ChassisSpeeds();
+  private final ChassisVelocities targetSpeeds = new ChassisVelocities();
 
   /**
    * Creates an OrbitDrive command for teleop control.
@@ -37,11 +36,11 @@ public class OrbitDrive extends Command {
       DoubleSupplier velocityX,
       DoubleSupplier velocityY,
       DoubleSupplier rotationalRate) {
+    super(swerve.getCommandMechanism());
     this.swerve = swerve;
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
     this.rotationalRateSupplier = rotationalRate;
-    addRequirements(swerve);
   }
 
   @Override
@@ -56,14 +55,11 @@ public class OrbitDrive extends Command {
     double velY = velocityYSupplier.getAsDouble();
     double omega = rotationalRateSupplier.getAsDouble();
 
-    targetSpeeds.vxMetersPerSecond = velX;
-    targetSpeeds.vyMetersPerSecond = velY;
-    targetSpeeds.omegaRadiansPerSecond = omega;
+    targetSpeeds.vx = velX;
+    targetSpeeds.vy = velY;
+    targetSpeeds.omega = omega;
     AccelerationLimiter.normalizeSpeedsInPlace(targetSpeeds);
-    request.setTargetSpeeds(
-        targetSpeeds.vxMetersPerSecond,
-        targetSpeeds.vyMetersPerSecond,
-        targetSpeeds.omegaRadiansPerSecond);
+    request.setTargetSpeeds(targetSpeeds.vx, targetSpeeds.vy, targetSpeeds.omega);
   }
 
   @Override

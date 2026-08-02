@@ -1,7 +1,7 @@
 package frc.robot.utils;
 
-import edu.wpi.first.math.geometry.Translation2d;
 import frc.robot.commands.AccelerationLimiter;
+import org.wpilib.math.geometry.Translation2d;
 
 /**
  * Shared physics calculations for drive-to-point commands.

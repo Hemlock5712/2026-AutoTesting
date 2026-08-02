@@ -1,20 +1,19 @@
 package frc.robot.commands;
 
-import static edu.wpi.first.units.Units.Meters;
+import static org.wpilib.units.Units.Meters;
 
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.units.measure.Distance;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
 import java.util.function.Supplier;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.util.MathUtil;
+import org.wpilib.units.measure.Distance;
 
 /**
  * Drives to a single pose using physics-based motion control.
@@ -22,7 +21,7 @@ import java.util.function.Supplier;
  * <p>Uses real motor torque curves and friction limits to calculate achievable velocities. Finishes
  * when within position and rotation tolerances.
  */
-public class DriveToPoint extends Command {
+public class DriveToPoint extends CommandLifecycleAdapter {
 
   // Time buffer for braking calculations (accounts for system latency)
   private static final double BRAKING_REACTION_TIME = 0.1; // seconds
@@ -41,15 +40,15 @@ public class DriveToPoint extends Command {
   private boolean isWaypoint = false;
 
   // State tracking between execute cycles
-  private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
+  private ChassisVelocities lastCommandedVelocity = new ChassisVelocities();
   private double lastTime;
 
   // Cached values for isFinished() to avoid redundant calculations
   private double cachedDistance;
   private double cachedAngleError;
 
-  private final SwerveRequest.ApplyFieldSpeeds request =
-      new SwerveRequest.ApplyFieldSpeeds()
+  private final SwerveRequest.ApplyFieldVelocity request =
+      new SwerveRequest.ApplyFieldVelocity()
           .withDriveRequestType(DriveRequestType.Velocity)
           .withSteerRequestType(SteerRequestType.Position);
 
@@ -60,9 +59,9 @@ public class DriveToPoint extends Command {
    * @param goalPose Target pose in field coordinates
    */
   public DriveToPoint(CommandSwerveDrivetrain swerve, Supplier<Pose2d> goalPose) {
+    super(swerve.getCommandMechanism());
     this.swerve = swerve;
     this.goalPose = goalPose;
-    addRequirements(swerve);
   }
 
   @Override
@@ -97,10 +96,8 @@ public class DriveToPoint extends Command {
     cachedAngleError = Math.abs(angleError);
 
     // Calculate current velocities (needed for omega and translation calculations)
-    double currentSpeed =
-        Math.hypot(
-            lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
-    double currentOmega = lastCommandedVelocity.omegaRadiansPerSecond;
+    double currentSpeed = Math.hypot(lastCommandedVelocity.vx, lastCommandedVelocity.vy);
+    double currentOmega = lastCommandedVelocity.omega;
 
     double targetOmega = 0.0;
     if (Math.abs(angleError) >= rotationTolerance) {
@@ -113,8 +110,7 @@ public class DriveToPoint extends Command {
     Translation2d targetLinearVel = new Translation2d();
     if (distance >= positionTolerance) {
       Translation2d currentVelocity =
-          new Translation2d(
-              lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
+          new Translation2d(lastCommandedVelocity.vx, lastCommandedVelocity.vy);
 
       targetLinearVel =
           DriveToPointUtils.calculatePerAxisBrakingVelocity(
@@ -135,7 +131,7 @@ public class DriveToPoint extends Command {
     // Apply physics-based acceleration limiting (normalizes desired speeds internally)
     AccelerationLimiter.integrateVelocityInPlace(
         lastCommandedVelocity, targetLinearVel.getX(), targetLinearVel.getY(), targetOmega, dt);
-    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
+    swerve.setControl(request.withVelocity(lastCommandedVelocity));
   }
 
   @Override

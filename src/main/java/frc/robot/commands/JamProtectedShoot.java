@@ -1,12 +1,11 @@
 package frc.robot.commands;
 
-import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.hopper.Hopper;
 import java.util.function.BooleanSupplier;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.system.Timer;
 
-public class JamProtectedShoot extends Command {
+public class JamProtectedShoot extends CommandLifecycleAdapter {
 
   private enum State {
     NORMAL,
@@ -43,10 +42,9 @@ public class JamProtectedShoot extends Command {
    * @param isReadyToFeed Supplier that returns true when ready to feed (isHubReady or isFeedReady)
    */
   public JamProtectedShoot(Hopper hopper, BooleanSupplier isReadyToFeed) {
+    super(hopper);
     this.hopper = hopper;
     this.isReadyToFeed = isReadyToFeed;
-
-    addRequirements(hopper);
   }
 
   @Override

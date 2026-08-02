@@ -5,29 +5,32 @@ import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import edu.wpi.first.wpilibj.Notifier;
-import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Subsystem;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Mechanism;
+import org.wpilib.command3.Scheduler;
+import org.wpilib.driverstation.Alliance;
+import org.wpilib.driverstation.MatchState;
+import org.wpilib.driverstation.RobotState;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.kinematics.SwerveModuleVelocity;
+import org.wpilib.math.linalg.Matrix;
+import org.wpilib.math.numbers.N1;
+import org.wpilib.math.numbers.N3;
+import org.wpilib.system.Notifier;
+import org.wpilib.system.RobotController;
 
 /**
  * Class that extends the Phoenix 6 SwerveDrivetrain class and implements Subsystem so it can easily
  * be used in command-based projects.
  */
-public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Subsystem {
+public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain {
+  private final Mechanism commandMechanism = new Mechanism("Drivetrain");
   private static final double kSimLoopPeriod = 0.005; // 5 ms
   private Notifier m_simNotifier = null;
   private double m_lastSimTime;
@@ -41,6 +44,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
   // Updated at 250Hz via telemetry callback — volatile for cross-thread visibility
   private volatile SwerveDriveState cachedState = super.getStateCopy();
+  private boolean periodicRegistered;
 
   /**
    * Constructs a CTRE SwerveDrivetrain using the specified constants.
@@ -55,6 +59,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
       SwerveDrivetrainConstants drivetrainConstants, SwerveModuleConstants<?, ?, ?>... modules) {
     super(drivetrainConstants, modules);
     registerTelemetry(state -> cachedState = getStateCopy());
+    registerPeriodic();
     if (Utils.isSimulation()) {
       startSimThread();
     }
@@ -77,6 +82,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
       SwerveModuleConstants<?, ?, ?>... modules) {
     super(drivetrainConstants, odometryUpdateFrequency, modules);
     registerTelemetry(state -> cachedState = getStateCopy());
+    registerPeriodic();
     if (Utils.isSimulation()) {
       startSimThread();
     }
@@ -110,6 +116,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         visionStandardDeviation,
         modules);
     registerTelemetry(state -> cachedState = getStateCopy());
+    registerPeriodic();
     if (Utils.isSimulation()) {
       startSimThread();
     }
@@ -122,18 +129,31 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
    * @return Command to run
    */
   public Command applyRequest(Supplier<SwerveRequest> requestSupplier) {
-    return run(() -> this.setControl(requestSupplier.get()));
+    return commandMechanism
+        .runRepeatedly(() -> this.setControl(requestSupplier.get()))
+        .named("Drivetrain/ApplyRequest");
   }
 
-  @Override
+  private void registerPeriodic() {
+    if (!periodicRegistered) {
+      periodicRegistered = true;
+      Scheduler.getDefault().addPeriodic(this::periodic);
+    }
+  }
+
+  /** Mechanism used for Commands v3 ownership and default command scheduling. */
+  public Mechanism getCommandMechanism() {
+    return commandMechanism;
+  }
+
   public void periodic() {
     long _t = System.nanoTime();
-    if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
-      DriverStation.getAlliance()
+    if (!m_hasAppliedOperatorPerspective || RobotState.isDisabled()) {
+      MatchState.getAlliance()
           .ifPresent(
               allianceColor -> {
                 setOperatorPerspectiveForward(
-                    allianceColor == Alliance.Red
+                    allianceColor == Alliance.RED
                         ? kRedAlliancePerspectiveRotation
                         : kBlueAlliancePerspectiveRotation);
                 m_hasAppliedOperatorPerspective = true;
@@ -168,7 +188,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
    */
   @Override
   public void addVisionMeasurement(Pose2d visionRobotPoseMeters, double timestampSeconds) {
-    super.addVisionMeasurement(visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds));
+    super.addVisionMeasurement(visionRobotPoseMeters, (timestampSeconds));
   }
 
   /**
@@ -189,13 +209,12 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
       Pose2d visionRobotPoseMeters,
       double timestampSeconds,
       Matrix<N3, N1> visionMeasurementStdDevs) {
-    super.addVisionMeasurement(
-        visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds), visionMeasurementStdDevs);
+    super.addVisionMeasurement(visionRobotPoseMeters, (timestampSeconds), visionMeasurementStdDevs);
   }
 
   /**
    * Adds a vision measurement with a timestamp already in the currentTime domain. Use this when you
-   * have already converted the timestamp via {@link Utils#fpgaToCurrentTime}.
+   * have already converted the timestamp into Phoenix's current-time domain.
    */
   public void addVisionMeasurementCurrentTime(
       Pose2d visionRobotPoseMeters,
@@ -218,36 +237,36 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     return cachedState.Pose.getRotation();
   }
 
-  public SwerveModuleState[] getModuleStates() {
-    return cachedState.ModuleStates;
+  public SwerveModuleVelocity[] getModuleStates() {
+    return cachedState.ModuleVelocities;
   }
 
-  public SwerveModuleState[] getModuleTargets() {
+  public SwerveModuleVelocity[] getModuleTargets() {
     return cachedState.ModuleTargets;
   }
 
   @AutoLogOutput
-  public ChassisSpeeds getRobotSpeeds() {
-    return cachedState.Speeds;
+  public ChassisVelocities getRobotSpeeds() {
+    return cachedState.Velocity;
   }
 
   @AutoLogOutput
   public double translationSpeed() {
-    return Math.hypot(cachedState.Speeds.vxMetersPerSecond, cachedState.Speeds.vyMetersPerSecond);
+    return Math.hypot(cachedState.Velocity.vx, cachedState.Velocity.vy);
   }
 
   @AutoLogOutput
   public double rotationSpeed() {
-    return cachedState.Speeds.omegaRadiansPerSecond;
+    return cachedState.Velocity.omega;
   }
 
-  public ChassisSpeeds getFieldSpeeds() {
-    return ChassisSpeeds.fromRobotRelativeSpeeds(
-        cachedState.Speeds, cachedState.Pose.getRotation());
+  public ChassisVelocities getFieldSpeeds() {
+    return cachedState.Velocity.toFieldRelative(cachedState.Pose.getRotation());
   }
 
-  public ChassisSpeeds getTargetFieldSpeeds() {
-    return ChassisSpeeds.fromRobotRelativeSpeeds(
-        getKinematics().toChassisSpeeds(cachedState.ModuleTargets), cachedState.Pose.getRotation());
+  public ChassisVelocities getTargetFieldSpeeds() {
+    return getKinematics()
+        .toChassisVelocities(cachedState.ModuleTargets)
+        .toFieldRelative(cachedState.Pose.getRotation());
   }
 }

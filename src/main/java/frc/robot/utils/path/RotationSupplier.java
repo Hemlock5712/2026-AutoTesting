@@ -1,12 +1,12 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.util.MathUtil;
 
 /**
  * Supplies the desired target heading during path following.

@@ -1,25 +1,25 @@
 package frc.robot.subsystems.turret;
 
-import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static org.wpilib.units.Units.Degrees;
+import static org.wpilib.units.Units.Radians;
+import static org.wpilib.units.Units.RadiansPerSecond;
+import static org.wpilib.units.Units.Rotations;
+import static org.wpilib.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.signals.InvertedValue;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.wpilibj.simulation.BatterySim;
-import edu.wpi.first.wpilibj.simulation.RoboRioSim;
-import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.subsystems.Superstructure;
 import frc.robot.utils.MechanismUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.math.geometry.Pose3d;
+import org.wpilib.math.geometry.Rotation3d;
+import org.wpilib.math.geometry.Transform3d;
+import org.wpilib.math.geometry.Translation3d;
+import org.wpilib.math.system.DCMotor;
+import org.wpilib.simulation.BatterySim;
+import org.wpilib.simulation.RoboRioSim;
+import org.wpilib.simulation.SingleJointedArmSim;
+import org.wpilib.smartdashboard.SmartDashboard;
 
 /**
  * Simulation implementation of the turret subsystem.
@@ -119,9 +119,9 @@ public class TurretSIM extends Turret {
 
     // Publish the mechanism visualization to SmartDashboard
     SmartDashboard.putData("Turret Sim", turretMechanism.getMechanism());
+    addPeriodicCallback(this::simulationPeriodic);
   }
 
-  @Override
   public void simulationPeriodic() {
     // Feed motor voltage into physics simulation
     turretSim.setInput(leader.getMotorVoltage().getValueAsDouble());
@@ -131,12 +131,11 @@ public class TurretSIM extends Turret {
 
     // Simulate battery voltage sag based on current draw
     RoboRioSim.setVInVoltage(
-        BatterySim.calculateDefaultBatteryLoadedVoltage(turretSim.getCurrentDrawAmps()));
+        BatterySim.calculateDefaultBatteryLoadedVoltage(turretSim.getCurrentDraw()));
 
     // Get position and velocity from simulation (in rotations for TalonFX)
-    double mechanismPosition = Radians.of(turretSim.getAngleRads()).in(Rotations);
-    double mechanismVelocity =
-        RadiansPerSecond.of(turretSim.getVelocityRadPerSec()).in(RotationsPerSecond);
+    double mechanismPosition = Radians.of(turretSim.getAngle()).in(Rotations);
+    double mechanismVelocity = RadiansPerSecond.of(turretSim.getVelocity()).in(RotationsPerSecond);
 
     // Update TalonFX sim state (convert to rotor units)
     double rotorPosition = mechanismPosition * DualEncoderCRT.MOTOR_TO_MECHANISM_RATIO;
@@ -155,10 +154,9 @@ public class TurretSIM extends Turret {
     encoder2.getSimState().setRawPosition(encoder2Position);
 
     // Publish telemetry
-    Logger.recordOutput("Turret Sim/Current (A)", turretSim.getCurrentDrawAmps());
-    Logger.recordOutput("Turret Sim/Position (deg)", Math.toDegrees(turretSim.getAngleRads()));
-    Logger.recordOutput(
-        "Turret Sim/Velocity (deg/s)", Math.toDegrees(turretSim.getVelocityRadPerSec()));
+    Logger.recordOutput("Turret Sim/Current (A)", turretSim.getCurrentDraw());
+    Logger.recordOutput("Turret Sim/Position (deg)", Math.toDegrees(turretSim.getAngle()));
+    Logger.recordOutput("Turret Sim/Velocity (deg/s)", Math.toDegrees(turretSim.getVelocity()));
 
     // Turret base - rotates around Z-axis
     turretPose[0] =

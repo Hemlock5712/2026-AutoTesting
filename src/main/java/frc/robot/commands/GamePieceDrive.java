@@ -5,12 +5,11 @@ import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.LimelightHelpers;
 import java.util.function.DoubleSupplier;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /**
  * Physics-based drive command with vision-assisted game piece tracking.
@@ -20,7 +19,7 @@ import java.util.function.DoubleSupplier;
  *
  * <p>The correction strength scales with forward speed - faster driving means stronger correction.
  */
-public class GamePieceDrive extends Command {
+public class GamePieceDrive extends CommandLifecycleAdapter {
 
   // Default proportional gain for vision correction
   private static final double DEFAULT_VISION_KP = 0.5;
@@ -33,11 +32,11 @@ public class GamePieceDrive extends Command {
   private final double visionKp;
 
   // State tracking between execute cycles
-  private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
+  private ChassisVelocities lastCommandedVelocity = new ChassisVelocities();
   private double lastTime;
 
-  private final SwerveRequest.ApplyFieldSpeeds request =
-      new SwerveRequest.ApplyFieldSpeeds()
+  private final SwerveRequest.ApplyFieldVelocity request =
+      new SwerveRequest.ApplyFieldVelocity()
           .withDriveRequestType(DriveRequestType.Velocity)
           .withSteerRequestType(SteerRequestType.Position)
           .withForwardPerspective(ForwardPerspectiveValue.OperatorPerspective);
@@ -77,13 +76,13 @@ public class GamePieceDrive extends Command {
       DoubleSupplier rotationalRate,
       String limelightName,
       double visionKp) {
+    super(swerve.getCommandMechanism());
     this.swerve = swerve;
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
     this.rotationalRateSupplier = rotationalRate;
     this.limelightName = limelightName;
     this.visionKp = visionKp;
-    addRequirements(swerve);
   }
 
   @Override
@@ -111,10 +110,9 @@ public class GamePieceDrive extends Command {
       double strafeCorrection = -LimelightHelpers.getTX(limelightName) * visionKp;
 
       // Scale correction by total speed (no correction when stationary)
-      ChassisSpeeds robotSpeeds = swerve.getRobotSpeeds();
+      ChassisVelocities robotSpeeds = swerve.getRobotSpeeds();
       double speedScale =
-          Math.hypot(robotSpeeds.vxMetersPerSecond, robotSpeeds.vyMetersPerSecond)
-              / AccelerationLimiter.MAX_VELOCITY;
+          Math.hypot(robotSpeeds.vx, robotSpeeds.vy) / AccelerationLimiter.MAX_VELOCITY;
 
       // Convert robot-relative correction to field coordinates using primitive math
       double corrScaled = strafeCorrection * speedScale;
@@ -126,7 +124,7 @@ public class GamePieceDrive extends Command {
     // Apply physics-based acceleration limiting (normalizes desired speeds internally)
     AccelerationLimiter.integrateVelocityInPlace(lastCommandedVelocity, vx, vy, omega, dt);
 
-    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
+    swerve.setControl(request.withVelocity(lastCommandedVelocity));
   }
 
   @Override

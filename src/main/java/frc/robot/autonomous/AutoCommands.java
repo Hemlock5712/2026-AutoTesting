@@ -1,14 +1,11 @@
 package frc.robot.autonomous;
 
-import static edu.wpi.first.units.Units.Meters;
+import static org.wpilib.units.Units.Meters;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
 import frc.robot.commands.FollowPath;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.utils.Commands;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
 import frc.robot.utils.path.PathData;
@@ -21,6 +18,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.wpilib.command3.Command;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
 
 /**
  * Utility class containing reusable command patterns for autonomous routines.
@@ -93,8 +93,9 @@ public class AutoCommands {
             drivetrain, path, data.getVelocityProfile(), data.globalConstraints().getEndVelocity());
 
     if (!data.headingWaypoints().isEmpty()) {
-      cmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
+      cmd =
+          cmd.withRotationSupplier(
+              RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
     }
 
     return cmd;
@@ -113,8 +114,9 @@ public class AutoCommands {
     FollowPath cmd = new FollowPath(drivetrain, path, constraints, data.constraintZones());
 
     if (!data.headingWaypoints().isEmpty()) {
-      cmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
+      cmd =
+          cmd.withRotationSupplier(
+              RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
     }
 
     return cmd;
@@ -145,7 +147,8 @@ public class AutoCommands {
   }
 
   public Command resetPose(Supplier<Pose2d> pose) {
-    return drivetrain.runOnce(() -> drivetrain.resetPose(pose.get()));
+    return Commands.runOnce(
+        () -> drivetrain.resetPose(pose.get()), drivetrain.getCommandMechanism());
   }
 
   // ==================== Path Actions ====================
@@ -165,71 +168,34 @@ public class AutoCommands {
   private record ResolvedPathAction(
       int pointIndex, double triggerDistance, Supplier<Command> command, int insertionOrder) {}
 
-  static final class ActivePathActionRunner extends Command {
-    private final List<ScheduledPathAction> actions;
-    private final DoubleSupplier progressSupplier;
-    private int nextActionIndex = 0;
-    private Command activeCommand;
-    private boolean activeCommandInitialized = false;
-
-    ActivePathActionRunner(List<ScheduledPathAction> actions, DoubleSupplier progressSupplier) {
-      this.actions = List.copyOf(actions);
-      this.progressSupplier = progressSupplier;
-    }
-
-    @Override
-    public void execute() {
-      double progress = progressSupplier.getAsDouble();
-
-      while (nextActionIndex < actions.size()
-          && progress >= actions.get(nextActionIndex).triggerS()) {
-        scheduleReplacement(actions.get(nextActionIndex).commandSupplier().get());
-        nextActionIndex++;
-      }
-
-      runActiveCommand();
-    }
-
-    private void scheduleReplacement(Command nextCommand) {
-      if (activeCommand != null) {
-        activeCommand.end(true);
-      }
-
-      activeCommand = nextCommand;
-      activeCommandInitialized = false;
-    }
-
-    private void runActiveCommand() {
-      if (activeCommand == null) {
-        return;
-      }
-
-      if (!activeCommandInitialized) {
-        activeCommand.initialize();
-        activeCommandInitialized = true;
-      }
-
-      activeCommand.execute();
-      if (activeCommand.isFinished()) {
-        activeCommand.end(false);
-        activeCommand = null;
-        activeCommandInitialized = false;
-      }
-    }
-
-    @Override
-    public void end(boolean interrupted) {
-      if (activeCommand != null) {
-        activeCommand.end(true);
-        activeCommand = null;
-        activeCommandInitialized = false;
-      }
-    }
-
-    @Override
-    public boolean isFinished() {
-      return false;
-    }
+  /** Runs path actions as scheduler-owned child commands; no nested v2 lifecycle calls. */
+  static Command activePathActionRunner(
+      List<ScheduledPathAction> actions, DoubleSupplier progressSupplier) {
+    List<ScheduledPathAction> immutableActions = List.copyOf(actions);
+    return Command.noRequirements(
+            coroutine -> {
+              int nextActionIndex = 0;
+              Command activeCommand = null;
+              while (true) {
+                double progress = progressSupplier.getAsDouble();
+                while (nextActionIndex < immutableActions.size()
+                    && progress >= immutableActions.get(nextActionIndex).triggerS()) {
+                  if (activeCommand != null) {
+                    coroutine.scheduler().cancel(activeCommand);
+                  }
+                  activeCommand = immutableActions.get(nextActionIndex).commandSupplier().get();
+                  coroutine.fork(activeCommand);
+                  nextActionIndex++;
+                  coroutine.yield();
+                }
+                if (activeCommand != null
+                    && !coroutine.scheduler().isScheduledOrRunning(activeCommand)) {
+                  activeCommand = null;
+                }
+                coroutine.yield();
+              }
+            })
+        .named("ActivePathActionRunner");
   }
 
   record ScheduledPathAction(double triggerS, Supplier<Command> commandSupplier) {}
@@ -281,23 +247,24 @@ public class AutoCommands {
             pathData.getVelocityProfile(),
             pathData.globalConstraints().getEndVelocity());
     if (completionTolerance > 0) {
-      pathCmd.withCompletionTolerance(completionTolerance);
+      pathCmd = pathCmd.withCompletionTolerance(completionTolerance);
     }
 
     if (!pathData.headingWaypoints().isEmpty()) {
-      pathCmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, pathData.headingWaypoints()));
+      pathCmd =
+          pathCmd.withRotationSupplier(
+              RotationSupplier.interpolateAlongPath(path, pathData.headingWaypoints()));
     }
 
     List<ResolvedPathAction> resolvedActions = resolvePathActions(pathData, actions);
 
     if (resolvedActions.isEmpty()) {
-      return alongside.length == 0 ? pathCmd : pathCmd.deadlineFor(alongside);
+      return alongside.length == 0 ? pathCmd : Commands.deadline(pathCmd, alongside);
     }
 
     double[] projectedS = {0.0};
-    ActivePathActionRunner actionRunner =
-        new ActivePathActionRunner(
+    Command actionRunner =
+        activePathActionRunner(
             buildScheduledPathActions(path, resolvedActions),
             () -> updateProjectedS(path, projectedS));
 
@@ -305,7 +272,7 @@ public class AutoCommands {
     deadlineCommands[0] = actionRunner;
     System.arraycopy(alongside, 0, deadlineCommands, 1, alongside.length);
 
-    return pathCmd.deadlineFor(deadlineCommands);
+    return Commands.deadline(pathCmd, deadlineCommands);
   }
 
   List<ScheduledPathAction> buildScheduledPathActions(

@@ -1,21 +1,22 @@
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.Inches;
-import static edu.wpi.first.units.Units.Meters;
+import static org.wpilib.units.Units.Inches;
+import static org.wpilib.units.Units.Meters;
 
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.BallTrajectorySimulator;
 import frc.robot.utils.FieldInfo;
+import frc.robot.utils.RobotMechanism;
 import frc.robot.utils.Tunables;
 import frc.robot.utils.Tunables.TunableDouble;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.framework.RobotBase;
+import org.wpilib.math.geometry.Pose3d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.geometry.Translation3d;
 
 /**
  * Simulates multiple ball trajectories in flight and publishes to NetworkTables for visualization.
@@ -33,7 +34,7 @@ import org.littletonrobotics.junction.Logger;
  *   <li>Removes balls when they hit the ground
  * </ul>
  */
-public class BallPhysicsSimulation extends SubsystemBase {
+public class BallPhysicsSimulation extends RobotMechanism {
   // Ball properties (game-specific, passed to simulator)
   public static final double BALL_MASS_KG = 0.2268; // 0.5 lbs
   public static final double BALL_DIAMETER_M = 0.15; // 150 mm
@@ -96,9 +97,11 @@ public class BallPhysicsSimulation extends SubsystemBase {
             FieldInfo.HUB_POSITION.getX(),
             FieldInfo.HUB_POSITION.getY(),
             FieldInfo.HUB_HEIGHT.in(Meters));
+    if (RobotBase.isSimulation()) {
+      addPeriodicCallback(this::simulationPeriodic);
+    }
   }
 
-  @Override
   public void simulationPeriodic() {
 
     // Read tunable values from NetworkTables
@@ -303,9 +306,9 @@ public class BallPhysicsSimulation extends SubsystemBase {
     var robotSpeeds = drivetrain.getRobotSpeeds();
     Translation2d turretOffset =
         Superstructure.TURRET_TRANSFORM.getTranslation().rotateBy(drivetrain.getRotation());
-    double omega = robotSpeeds.omegaRadiansPerSecond;
-    robotVelX += robotSpeeds.vxMetersPerSecond - omega * turretOffset.getY();
-    robotVelY += robotSpeeds.vyMetersPerSecond + omega * turretOffset.getX();
+    double omega = robotSpeeds.omega;
+    robotVelX += robotSpeeds.vx - omega * turretOffset.getY();
+    robotVelY += robotSpeeds.vy + omega * turretOffset.getX();
 
     // Transform to field coordinates
     Rotation2d robotRotation = drivetrain.getRotation();

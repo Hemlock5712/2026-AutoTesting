@@ -1,18 +1,10 @@
 package frc.robot;
 
-import static edu.wpi.first.units.Units.MetersPerSecond;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static org.wpilib.units.Units.MetersPerSecond;
+import static org.wpilib.units.Units.RadiansPerSecond;
+import static org.wpilib.units.Units.RotationsPerSecond;
+import static org.wpilib.units.Units.Seconds;
 
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.filter.Debouncer.DebounceType;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.wpilibj.GenericHID.RumbleType;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AxisLockDrive;
@@ -26,9 +18,18 @@ import frc.robot.subsystems.Superstructure;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.subsystems.blocker.Blocker;
 import frc.robot.subsystems.intake.IntakeCoordinator;
+import frc.robot.utils.Commands;
 import frc.robot.utils.FieldInfo;
 import java.util.List;
 import java.util.function.Supplier;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.button.CommandGamepad;
+import org.wpilib.driverstation.GenericHID.RumbleType;
+import org.wpilib.math.filter.Debouncer.DebounceType;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.util.MathUtil;
+import org.wpilib.smartdashboard.SendableChooser;
+import org.wpilib.smartdashboard.SmartDashboard;
 
 /**
  * RobotContainer - Sets up all the robot's parts and controls.
@@ -64,7 +65,7 @@ public class RobotContainer {
   private double maxFeedSpeed = 3.0;
   private double maxShootAngularRate = maxAngularRate * 0.5;
 
-  private final CommandXboxController joystick = new CommandXboxController(0);
+  private final CommandGamepad joystick = new CommandGamepad(0);
 
   public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
@@ -128,18 +129,20 @@ public class RobotContainer {
     // Cached translation velocities - computed once per cycle in velocityX supplier
     double[] translationVel = {0, 0};
 
-    drivetrain.setDefaultCommand(
-        new OrbitDrive(
-            drivetrain,
-            () -> {
-              // Not the cleanest but calculate scaled joystick values
-              double[] scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
-              translationVel[0] = -scaled[0] * maxSpeed;
-              translationVel[1] = -scaled[1] * maxSpeed;
-              return translationVel[0];
-            },
-            () -> translationVel[1],
-            () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
+    drivetrain
+        .getCommandMechanism()
+        .setDefaultCommand(
+            new OrbitDrive(
+                drivetrain,
+                () -> {
+                  // Not the cleanest but calculate scaled joystick values
+                  double[] scaled = rescaleTranslation(joystick.getLeftY(), joystick.getLeftX());
+                  translationVel[0] = -scaled[0] * maxSpeed;
+                  translationVel[1] = -scaled[1] * maxSpeed;
+                  return translationVel[0];
+                },
+                () -> translationVel[1],
+                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
 
     // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
     joystick
@@ -167,7 +170,7 @@ public class RobotContainer {
                         drivetrain.getRotation()))); // Lock to closest 180
 
     joystick
-        .x()
+        .westFace()
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
@@ -192,7 +195,7 @@ public class RobotContainer {
     // 180
 
     joystick
-        .b()
+        .eastFace()
         .whileTrue(
             AxisLockDrive.lockY(
                 drivetrain,
@@ -220,7 +223,7 @@ public class RobotContainer {
     // Debounce prevents analog trigger noise from causing multiple toggles.
     joystick
         .rightTrigger(0.1)
-        .debounce(0.1, DebounceType.kFalling)
+        .debounce(Seconds.of(0.1), DebounceType.kFalling)
         .toggleOnTrue(
             Commands.parallel(
                 superstructure.jamProtectedShoot(),
@@ -247,12 +250,12 @@ public class RobotContainer {
 
     joystick.leftTrigger(0.5).onTrue(intakeCoordinator.deployAndRun());
 
-    joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    joystick.northFace().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
-    // joystick.y().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
+    // joystick.northFace().onTrue(superstructure.tuningShoot()).onFalse(superstructure.stopShoot());
 
     // joystick
-    //     .y()
+    //     .northFace()
     //     .whileTrue(
     //         new DriveToPoint(
     //                 drivetrain,
@@ -268,25 +271,28 @@ public class RobotContainer {
     joystick.start().onTrue(superstructure.recoverHopper()).onFalse(superstructure.stopHopper());
 
     joystick
-        .povLeft()
+        .dpadLeft()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.FORCE_LEFT)));
     joystick
-        .povRight()
+        .dpadRight()
         .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.FORCE_RIGHT)));
-    joystick.povDown().onTrue(intakeCoordinator.straightUp());
+    joystick.dpadDown().onTrue(intakeCoordinator.straightUp());
 
     // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
 
     // The blocker starts in its down state; each POV-up press toggles its target position.
     joystick
-        .povUp()
+        .dpadUp()
         .onTrue(
             Commands.either(
-                blocker.down().alongWith(intakeCoordinator.deployAndRun()),
+                Commands.parallel(blocker.down(), intakeCoordinator.deployAndRun()),
                 blocker.up(),
                 blocker::isUp));
 
-    joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
+    joystick
+        .southFace()
+        .onTrue(intakeCoordinator.reverseIntake())
+        .onFalse(intakeCoordinator.stopWheel());
   }
 
   public Command getAutonomousCommand() {
@@ -330,7 +336,8 @@ public class RobotContainer {
 
   /** Sets the rumble intensity on the driver controller (0.0 = off, 1.0 = full). */
   public void setRumble(double value) {
-    joystick.getHID().setRumble(RumbleType.kBothRumble, value);
+    joystick.getHID().setRumble(RumbleType.LEFT_RUMBLE, value);
+    joystick.getHID().setRumble(RumbleType.RIGHT_RUMBLE, value);
   }
 
   // private void addPathAutoOption(PathData path) {

@@ -5,16 +5,15 @@ import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
 import frc.robot.utils.FieldInfo;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.util.MathUtil;
 
 /**
  * Hybrid teleop command that locks field axes to preset coordinates.
@@ -31,7 +30,7 @@ import java.util.function.Supplier;
  * <p>Uses physics-based braking curves from DriveToPointUtils to ensure smooth deceleration and
  * zero end speed on locked axes.
  */
-public class AxisLockDrive extends Command {
+public class AxisLockDrive extends CommandLifecycleAdapter {
 
   // Braking reaction time buffer (matches DriveToPoint)
   private static final double BRAKING_REACTION_TIME = 0.1;
@@ -55,15 +54,15 @@ public class AxisLockDrive extends Command {
   private final Supplier<Rotation2d> lockedRotationTarget;
 
   // State tracking between execute cycles
-  private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
+  private ChassisVelocities lastCommandedVelocity = new ChassisVelocities();
   private double lastTime;
 
   // Heading lock state (for when rotation is not locked to a preset)
   private Rotation2d lockedHeading = Rotation2d.kZero;
   private boolean wasDriverRotating = false;
 
-  private final SwerveRequest.ApplyFieldSpeeds request =
-      new SwerveRequest.ApplyFieldSpeeds()
+  private final SwerveRequest.ApplyFieldVelocity request =
+      new SwerveRequest.ApplyFieldVelocity()
           .withDriveRequestType(DriveRequestType.Velocity)
           .withSteerRequestType(SteerRequestType.Position)
           .withForwardPerspective(ForwardPerspectiveValue.BlueAlliance);
@@ -89,6 +88,7 @@ public class AxisLockDrive extends Command {
       DoubleSupplier lockedXTarget,
       DoubleSupplier lockedYTarget,
       Supplier<Rotation2d> lockedRotationTarget) {
+    super(swerve.getCommandMechanism());
     this.swerve = swerve;
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
@@ -96,7 +96,6 @@ public class AxisLockDrive extends Command {
     this.lockedXTarget = lockedXTarget;
     this.lockedYTarget = lockedYTarget;
     this.lockedRotationTarget = lockedRotationTarget;
-    addRequirements(swerve);
   }
 
   /**
@@ -202,7 +201,7 @@ public class AxisLockDrive extends Command {
     AccelerationLimiter.integrateVelocityInPlace(
         lastCommandedVelocity, velX, velY, targetOmega, dt);
 
-    swerve.setControl(request.withSpeeds(lastCommandedVelocity));
+    swerve.setControl(request.withVelocity(lastCommandedVelocity));
   }
 
   /**
@@ -220,12 +219,10 @@ public class AxisLockDrive extends Command {
       return 0.0;
     }
 
-    double currentOmega = lastCommandedVelocity.omegaRadiansPerSecond;
+    double currentOmega = lastCommandedVelocity.omega;
 
     // Estimate current speed along this axis
-    double currentSpeed =
-        Math.hypot(
-            lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
+    double currentSpeed = Math.hypot(lastCommandedVelocity.vx, lastCommandedVelocity.vy);
 
     // Use braking curve to calculate target speed
     // angleError=0 and targetEndSpeed=0 since we want to stop at the target
@@ -253,15 +250,13 @@ public class AxisLockDrive extends Command {
     }
 
     // Calculate correction using physics-based approach
-    double currentSpeed =
-        Math.hypot(
-            lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
+    double currentSpeed = Math.hypot(lastCommandedVelocity.vx, lastCommandedVelocity.vy);
 
     return DriveToPointUtils.calculateTargetOmega(
         angleError,
         0.0, // Distance=0 disables time-sync for responsive correction
         currentSpeed,
-        lastCommandedVelocity.omegaRadiansPerSecond,
+        lastCommandedVelocity.omega,
         HEADING_LOCK_REACTION_TIME);
   }
 
@@ -276,7 +271,7 @@ public class AxisLockDrive extends Command {
    */
   private double calculateHeadingLockedOmega(double requestedOmega) {
     // Track heading while driver rotates or robot is still spinning from intentional momentum
-    double measuredOmega = swerve.getRobotSpeeds().omegaRadiansPerSecond;
+    double measuredOmega = swerve.getRobotSpeeds().omega;
     boolean isSpinningFromMomentum =
         wasDriverRotating && Math.abs(measuredOmega) >= HEADING_LOCK_OMEGA_THRESHOLD;
 
@@ -302,16 +297,10 @@ public class AxisLockDrive extends Command {
     }
 
     // Calculate correction using physics-based approach
-    double currentSpeed =
-        Math.hypot(
-            lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
+    double currentSpeed = Math.hypot(lastCommandedVelocity.vx, lastCommandedVelocity.vy);
 
     return DriveToPointUtils.calculateTargetOmega(
-        angleError,
-        0.0,
-        currentSpeed,
-        lastCommandedVelocity.omegaRadiansPerSecond,
-        HEADING_LOCK_REACTION_TIME);
+        angleError, 0.0, currentSpeed, lastCommandedVelocity.omega, HEADING_LOCK_REACTION_TIME);
   }
 
   @Override

@@ -4,25 +4,24 @@
 
 package frc.robot.subsystems;
 
-import com.ctre.phoenix6.Utils;
-import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.VecBuilder;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
+import frc.robot.utils.RobotMechanism;
 import java.util.List;
 import java.util.Optional;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.driverstation.RobotState;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Transform2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.linalg.Matrix;
+import org.wpilib.math.linalg.VecBuilder;
+import org.wpilib.math.numbers.N1;
+import org.wpilib.math.numbers.N3;
 
-public class Limelight extends SubsystemBase {
+public class Limelight extends RobotMechanism {
 
   // --- Standard Deviation Formula ---
   // Formula: coefficient * pow(avgTagDist, 1.2) / pow(tagCount, 2.0)
@@ -93,14 +92,14 @@ public class Limelight extends SubsystemBase {
       LimelightHelpers.setPipelineIndex(cameras[i].name, DEFAULT_PIPELINE);
     }
     LimelightHelpers.Flush();
+    addPeriodicCallback(this::periodic);
   }
 
-  @Override
   public void periodic() {
     long _t = System.nanoTime();
     // Read drivetrain state once for all cameras
-    ChassisSpeeds speeds = m_drivetrain.getRobotSpeeds();
-    cachedOmegaDegPerSec = Math.toDegrees(speeds.omegaRadiansPerSecond);
+    ChassisVelocities speeds = m_drivetrain.getRobotSpeeds();
+    cachedOmegaDegPerSec = Math.toDegrees(speeds.omega);
     double yawDegrees = m_drivetrain.getPose().getRotation().getDegrees();
 
     // Set orientation for all cameras, then flush once
@@ -155,7 +154,7 @@ public class Limelight extends SubsystemBase {
         refTimestamp = validEstimates[i].timestampSeconds;
       }
     }
-    double refTimeCurrent = Utils.fpgaToCurrentTime(refTimestamp);
+    double refTimeCurrent = (refTimestamp);
     Optional<Pose2d> odomAtRefOpt = m_drivetrain.samplePoseAt(refTimeCurrent);
 
     // Inverse-variance weighted fusion of time-synchronized poses
@@ -168,7 +167,7 @@ public class Limelight extends SubsystemBase {
 
       // Sync: project older camera poses forward to the reference timestamp
       if (odomAtRefOpt.isPresent() && Math.abs(pe.timestampSeconds - refTimestamp) > 1e-6) {
-        double camTimeCurrent = Utils.fpgaToCurrentTime(pe.timestampSeconds);
+        double camTimeCurrent = (pe.timestampSeconds);
         Optional<Pose2d> odomAtCamOpt = m_drivetrain.samplePoseAt(camTimeCurrent);
         if (odomAtCamOpt.isPresent()) {
           Transform2d odomDelta = new Transform2d(odomAtCamOpt.get(), odomAtRefOpt.get());
@@ -247,7 +246,7 @@ public class Limelight extends SubsystemBase {
 
     // Use MegaTag2 for single tag estimates when not disabled
     // (disabled gyro may not be seeded correctly yet)
-    if (poseEstimate.tagCount == 1 && !DriverStation.isDisabled()) {
+    if (poseEstimate.tagCount == 1 && !RobotState.isDisabled()) {
       // Check MT2-specific angular velocity threshold before requesting MT2
       if (isRotatingTooFastForMT2()) {
         return null;

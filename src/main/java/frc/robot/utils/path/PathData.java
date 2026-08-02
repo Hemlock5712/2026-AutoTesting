@@ -1,10 +1,10 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import java.util.IdentityHashMap;
 import java.util.List;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
 
 /**
  * Complete path data including control points, heading waypoints, and constraints.

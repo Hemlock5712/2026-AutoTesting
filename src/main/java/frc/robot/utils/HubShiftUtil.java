@@ -1,9 +1,10 @@
 package frc.robot.utils;
 
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import edu.wpi.first.wpilibj.Timer;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.driverstation.Alliance;
+import org.wpilib.driverstation.MatchState;
+import org.wpilib.driverstation.RobotState;
+import org.wpilib.system.Timer;
 
 /**
  * Tracks whether our alliance's hub is currently active based on the shift schedule. Call {@link
@@ -36,8 +37,8 @@ public class HubShiftUtil {
 
   /** Updates the cached active state. Call from robotPeriodic. */
   public static void update() {
-    if (!DriverStation.isTeleopEnabled()) {
-      hubActive = DriverStation.isAutonomousEnabled();
+    if (!RobotState.isTeleopEnabled()) {
+      hubActive = RobotState.isAutonomousEnabled();
       return;
     }
 
@@ -89,22 +90,22 @@ public class HubShiftUtil {
 
   private static boolean[] getSchedule() {
     Alliance firstActive = getFirstActiveAlliance();
-    Alliance ours = DriverStation.getAlliance().orElse(Alliance.Blue);
+    Alliance ours = MatchState.getAlliance().orElse(Alliance.BLUE);
     return (firstActive == ours) ? firstActiveSchedule : firstInactiveSchedule;
   }
 
   static Alliance getFirstActiveAlliance() {
-    Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+    Alliance alliance = MatchState.getAlliance().orElse(Alliance.BLUE);
 
     // Check FMS game data
-    String message = DriverStation.getGameSpecificMessage();
+    String message = MatchState.getGameData().orElse("");
     if (!message.isEmpty()) {
       char ch = message.charAt(0);
-      if (ch == 'R') return Alliance.Blue;
-      if (ch == 'B') return Alliance.Red;
+      if (ch == 'R') return Alliance.BLUE;
+      if (ch == 'B') return Alliance.RED;
     }
 
     // Default: opposite alliance goes first
-    return (alliance == Alliance.Blue) ? Alliance.Red : Alliance.Blue;
+    return (alliance == Alliance.BLUE) ? Alliance.RED : Alliance.BLUE;
   }
 }

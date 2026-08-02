@@ -4,12 +4,6 @@ import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.commands.FollowPath.CenterOfRotationZone;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.path.PathData;
@@ -22,6 +16,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.util.MathUtil;
 
 /**
  * Distance-based path following command for swerve drive.
@@ -33,7 +32,7 @@ import org.littletonrobotics.junction.Logger;
  * <p>All output is fed through {@link AccelerationLimiter#integrateVelocity} to enforce friction
  * circle, motor torque, and jerk limits.
  */
-public class FollowPath extends Command {
+public class FollowPath extends CommandLifecycleAdapter {
 
   private final CommandSwerveDrivetrain swerve;
   private final SplinePath path;
@@ -95,7 +94,7 @@ public class FollowPath extends Command {
 
   // State tracking between execute cycles (same pattern as
   // DriveToPoint/OrbitDrive)
-  private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
+  private ChassisVelocities lastCommandedVelocity = new ChassisVelocities();
   private double lastTime;
   private double lastCrossTrackError;
   private double lastProjectedS;
@@ -105,8 +104,8 @@ public class FollowPath extends Command {
   private final double[] logEditorTarget = new double[2];
   private final double[] logEditorClosest = new double[2];
 
-  private final SwerveRequest.ApplyFieldSpeeds request =
-      new SwerveRequest.ApplyFieldSpeeds()
+  private final SwerveRequest.ApplyFieldVelocity request =
+      new SwerveRequest.ApplyFieldVelocity()
           .withDriveRequestType(DriveRequestType.Velocity)
           .withSteerRequestType(SteerRequestType.MotionMagicExpo);
 
@@ -145,11 +144,11 @@ public class FollowPath extends Command {
       SplinePath path,
       VelocityConstraints constraints,
       List<PathData.ConstraintZone> constraintZones) {
+    super(swerve.getCommandMechanism());
     this.swerve = swerve;
     this.path = path;
     this.velocityProfile = new VelocityProfile(path, constraints, constraintZones);
     this.endVelocity = constraints.getEndVelocity();
-    addRequirements(swerve);
   }
 
   /**
@@ -166,11 +165,11 @@ public class FollowPath extends Command {
       SplinePath path,
       VelocityProfile velocityProfile,
       double endVelocity) {
+    super(swerve.getCommandMechanism());
     this.swerve = swerve;
     this.path = path;
     this.velocityProfile = velocityProfile;
     this.endVelocity = endVelocity;
-    addRequirements(swerve);
   }
 
   /**
@@ -460,11 +459,9 @@ public class FollowPath extends Command {
     Translation2d tangent = proj.tangent();
 
     // Step 2: Adaptive lookahead — further ahead when moving faster
-    double currentSpeed =
-        Math.hypot(
-            lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
+    double currentSpeed = Math.hypot(lastCommandedVelocity.vx, lastCommandedVelocity.vy);
     double lookaheadDist =
-        MathUtil.clamp(lookaheadK * currentSpeed + lookaheadMin, lookaheadMin, lookaheadMax);
+        Math.max(lookaheadMin, Math.min(lookaheadMax, lookaheadK * currentSpeed + lookaheadMin));
 
     // Curvature cap: prevent chord from deviating too far from the arc
     double kappa = Math.abs(path.getCurvature(sRobot));
@@ -554,10 +551,9 @@ public class FollowPath extends Command {
     double limitedVx = vxUnlimited ? 0 : vx;
     double limitedVy = vyUnlimited ? 0 : vy;
     double limitedOmega = omegaUnlimited ? 0 : omega;
-    double currentVxForLimiter = vxUnlimited ? 0 : lastCommandedVelocity.vxMetersPerSecond;
-    double currentVyForLimiter = vyUnlimited ? 0 : lastCommandedVelocity.vyMetersPerSecond;
-    double currentOmegaForLimiter =
-        omegaUnlimited ? 0 : lastCommandedVelocity.omegaRadiansPerSecond;
+    double currentVxForLimiter = vxUnlimited ? 0 : lastCommandedVelocity.vx;
+    double currentVyForLimiter = vyUnlimited ? 0 : lastCommandedVelocity.vy;
+    double currentOmegaForLimiter = omegaUnlimited ? 0 : lastCommandedVelocity.omega;
 
     // Integrate with primitive overload (normalizes desired internally, zero
     // allocations)
@@ -572,9 +568,9 @@ public class FollowPath extends Command {
         dt);
 
     // Inject raw unlimited values back into the output
-    if (vxUnlimited) lastCommandedVelocity.vxMetersPerSecond = vx;
-    if (vyUnlimited) lastCommandedVelocity.vyMetersPerSecond = vy;
-    if (omegaUnlimited) lastCommandedVelocity.omegaRadiansPerSecond = omega;
+    if (vxUnlimited) lastCommandedVelocity.vx = vx;
+    if (vyUnlimited) lastCommandedVelocity.vy = vy;
+    if (omegaUnlimited) lastCommandedVelocity.omega = omega;
 
     // Apply center of rotation if within a configured zone
     Translation2d activeCenter = Translation2d.kZero;
@@ -584,7 +580,8 @@ public class FollowPath extends Command {
         break;
       }
     }
-    swerve.setControl(request.withCenterOfRotation(activeCenter).withSpeeds(lastCommandedVelocity));
+    swerve.setControl(
+        request.withCenterOfRotation(activeCenter).withVelocity(lastCommandedVelocity));
     lastCrossTrackError = crossTrackError;
     lastProjectedS = sRobot;
 
@@ -682,8 +679,7 @@ public class FollowPath extends Command {
     }
     Translation2d tangent = path.getTangent(path.getTotalLength());
     double alongPath =
-        lastCommandedVelocity.vxMetersPerSecond * tangent.getX()
-            + lastCommandedVelocity.vyMetersPerSecond * tangent.getY();
+        lastCommandedVelocity.vx * tangent.getX() + lastCommandedVelocity.vy * tangent.getY();
     boolean headingOk = lastHeadingError <= rotationTolerance;
     return nearEnd && alongPath < completionVelocityTolerance && headingOk;
   }
