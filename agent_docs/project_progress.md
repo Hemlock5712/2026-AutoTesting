@@ -1,32 +1,36 @@
-# Completed deployment: WPILib 2027 alpha 6 and Commands v3
+# Completed deployment: native Commands v3 coroutines
 
 ## Outcome
 
-The project is upgraded to WPILib/GradleRIO `2027.0.0-alpha-6`, Java 25, Gradle 9.4.1, the SystemCore deployment target, and the Java Commands v3 framework. Commands v2 dependencies and production imports have been removed.
+All seven stateful robot command classes directly implement Commands v3 `Command` and express their behavior through native `run(Coroutine)` control flow. The lifecycle adapter and its adapter-specific tests have been removed.
 
 ## Completed phases
 
 | ID | Phase | Owner | Status |
 | --- | --- | --- | --- |
-| WP27-1 | Inventory the build, command API surface, and official alpha 6 contracts | main + explorer | complete |
-| WP27-2 | Upgrade the toolchain/dependencies and migrate production code | executor_luna | complete |
-| WP27-3 | Add deterministic migration tests and run focused/full regression gates | independent verifier | complete |
-| WP27-4 | Repair lifecycle, JVM-runtime, and Phoenix vendordep defects | executor_luna + independent verifier | complete |
-| WP27-5 | Review integration boundaries and update durable documentation | main + doc-writer | complete |
+| C3-1 | Convert manual drivetrain commands | executor_luna A | complete |
+| C3-2 | Convert autonomous motion commands | executor_luna B | complete |
+| C3-3 | Convert game-piece commands | executor_luna C | complete |
+| C3-4 | Remove the adapter, replace focused tests, and independently review semantics | main + independent verifier | complete |
+| C3-5 | Repair Scheduler edge cases, run the full build, review, and reconcile docs | executors + main | complete |
 
 ## Verification evidence
 
-- Focused Commands v3 suite: 11/11 tests passed with the bundled Java 25 runtime.
-- Full gate: `JAVA_HOME=/Users/bacon/wpilib/2027_alpha5/jdk ./gradlew build --no-daemon` passed after the final production and test changes.
-- The full gate included dependency prefetch, Spotless, tests, and `shadowJar` creation.
-- Runtime dependency and source-residue audits found Commands v3 alpha 6 and no Commands v2 dependency or production imports.
-- `git diff --check` passed.
+- The committed alpha-6 baseline is checkpoint `67e391f` (`Upgrade to WPILib 2027 alpha 6 and Commands v3`).
+- Production integration compile passed with the bundled Java 25 runtime.
+- Focused `NativeCommandArchitectureTest`: 2/2 tests passed after the final production changes.
+- Full `JAVA_HOME=/Users/bacon/wpilib/2027_alpha5/jdk ./gradlew build --no-daemon`: 9/9 tests passed after the final production changes.
+- The full gate included dependency prefetch, Spotless, tests, and shaded JAR creation.
+- Residue searches find seven direct implementations and no production lifecycle adapter or legacy lifecycle declarations.
+- `git diff --check` passes.
 
-## Known constraints
+## Design result
 
-- WPILib and Phoenix are alpha releases. The project carries the required Java continuation module-opening flags for deploy, tests, and desktop simulation.
-- Phoenix `26.50.0-alpha-1` advertises unavailable SystemCore software-simulation JNI ZIPs; those `linuxsystemcore` entries are excluded while the two real hardware JNI entries remain enabled.
-- Java emits non-blocking restricted-native-access warnings from the current Gradle native platform library.
+- Continuous commands perform per-run setup, execute one control iteration per scheduler cycle, and yield explicitly.
+- Finite commands evaluate completion after their control iteration and perform natural cleanup before returning.
+- Every command declares its name and mechanism requirements directly and uses `onCancel()` for safe interruption.
+- Runtime failures stop hardware and rethrow; `Error` is not intercepted because alpha-6 does not remove commands for that path and a later cancellation could otherwise repeat cleanup.
+- Reusable commands reset mutable run state at the beginning of each schedule.
 
 ## Blockers
 
@@ -34,4 +38,4 @@ None.
 
 ## Next action
 
-Perform a SystemCore hardware smoke test before field use: deploy, enable each mechanism, exercise controller bindings and cancellation cleanup, and confirm `/home/systemcore/logs` output.
+Perform a SystemCore hardware smoke test before field use. The native coroutine conversion remains uncommitted so it can be reviewed as a separate logical change from checkpoint `67e391f`.

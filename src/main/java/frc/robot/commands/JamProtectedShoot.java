@@ -1,11 +1,15 @@
 package frc.robot.commands;
 
 import frc.robot.subsystems.hopper.Hopper;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.system.Timer;
 
-public class JamProtectedShoot extends CommandLifecycleAdapter {
+public class JamProtectedShoot implements Command {
 
   private enum State {
     NORMAL,
@@ -28,6 +32,8 @@ public class JamProtectedShoot extends CommandLifecycleAdapter {
       java.util.Arrays.stream(State.values()).map(Enum::name).toArray(String[]::new);
 
   private final Hopper hopper;
+  private final Set<Mechanism> requirements;
+  private final String name;
   private final BooleanSupplier isReadyToFeed;
 
   private State state = State.NORMAL;
@@ -42,13 +48,14 @@ public class JamProtectedShoot extends CommandLifecycleAdapter {
    * @param isReadyToFeed Supplier that returns true when ready to feed (isHubReady or isFeedReady)
    */
   public JamProtectedShoot(Hopper hopper, BooleanSupplier isReadyToFeed) {
-    super(hopper);
     this.hopper = hopper;
+    this.requirements = Set.of(hopper);
+    this.name = getClass().getSimpleName();
     this.isReadyToFeed = isReadyToFeed;
   }
 
   @Override
-  public void initialize() {
+  public void run(Coroutine coroutine) {
     state = State.NORMAL;
     sidewaysTimer.stop();
     sidewaysTimer.reset();
@@ -56,10 +63,24 @@ public class JamProtectedShoot extends CommandLifecycleAdapter {
     kickerTimer.reset();
     recoveryTimer.stop();
     recoveryTimer.reset();
+
+    try {
+      while (true) {
+        updateControl();
+        coroutine.yield();
+      }
+    } catch (RuntimeException ex) {
+      safeStop();
+      throw ex;
+    }
   }
 
   @Override
-  public void execute() {
+  public void onCancel() {
+    safeStop();
+  }
+
+  private void updateControl() {
     Logger.recordOutput("JamProtection/State", STATE_NAMES[state.ordinal()]);
     Logger.recordOutput("JamProtection/IsReadyToFeed", isReadyToFeed.getAsBoolean());
 
@@ -170,8 +191,7 @@ public class JamProtectedShoot extends CommandLifecycleAdapter {
     }
   }
 
-  @Override
-  public void end(boolean interrupted) {
+  private void safeStop() {
     // Clean up timers
     sidewaysTimer.stop();
     kickerTimer.stop();
@@ -182,8 +202,12 @@ public class JamProtectedShoot extends CommandLifecycleAdapter {
   }
 
   @Override
-  public boolean isFinished() {
-    // This command runs until cancelled externally
-    return false;
+  public String name() {
+    return name;
+  }
+
+  @Override
+  public Set<Mechanism> requirements() {
+    return requirements;
   }
 }

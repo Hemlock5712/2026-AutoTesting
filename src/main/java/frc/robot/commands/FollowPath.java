@@ -14,8 +14,12 @@ import frc.robot.utils.path.VelocityConstraints;
 import frc.robot.utils.path.VelocityProfile;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Translation2d;
@@ -32,17 +36,22 @@ import org.wpilib.math.util.MathUtil;
  * <p>All output is fed through {@link AccelerationLimiter#integrateVelocity} to enforce friction
  * circle, motor torque, and jerk limits.
  */
-public class FollowPath extends CommandLifecycleAdapter {
+public class FollowPath implements Command {
 
   private final CommandSwerveDrivetrain swerve;
+  private final Set<Mechanism> requirements;
+  private final String name;
   private final SplinePath path;
   private final VelocityProfile velocityProfile;
 
   // Rotation supplier: returns target heading in radians. Null = hold current
   // heading.
   private RotationSupplier rotationSupplier;
+  // Per-run supplier. The configured supplier must remain untouched so a reused command captures a
+  // fresh current heading on each schedule.
+  private RotationSupplier activeRotationSupplier;
 
-  // Rotation tolerance for isFinished() (radians). Default = don't check heading.
+  // Rotation tolerance for hasReachedGoal() (radians). Default = don't check heading.
   private double rotationTolerance = Double.POSITIVE_INFINITY;
   private double lastHeadingError;
 
@@ -144,8 +153,9 @@ public class FollowPath extends CommandLifecycleAdapter {
       SplinePath path,
       VelocityConstraints constraints,
       List<PathData.ConstraintZone> constraintZones) {
-    super(swerve.getCommandMechanism());
     this.swerve = swerve;
+    this.requirements = Set.of(swerve.getCommandMechanism());
+    this.name = getClass().getSimpleName();
     this.path = path;
     this.velocityProfile = new VelocityProfile(path, constraints, constraintZones);
     this.endVelocity = constraints.getEndVelocity();
@@ -165,8 +175,9 @@ public class FollowPath extends CommandLifecycleAdapter {
       SplinePath path,
       VelocityProfile velocityProfile,
       double endVelocity) {
-    super(swerve.getCommandMechanism());
     this.swerve = swerve;
+    this.requirements = Set.of(swerve.getCommandMechanism());
+    this.name = getClass().getSimpleName();
     this.path = path;
     this.velocityProfile = velocityProfile;
     this.endVelocity = endVelocity;
@@ -399,43 +410,73 @@ public class FollowPath extends CommandLifecycleAdapter {
     return this;
   }
 
-  // ---- Command lifecycle ----
+  // ---- Command execution ----
 
   @Override
-  public void initialize() {
-    // Start from current velocity for smooth transitions (same as
-    // OrbitDrive/DriveToPoint)
-    lastCommandedVelocity = swerve.getFieldSpeeds();
-    lastTime = Utils.getCurrentTimeSeconds();
-    lastCrossTrackError = 0;
+  public void run(Coroutine coroutine) {
+    try {
+      // Start from current velocity for smooth transitions (same as DriveToPoint).
+      lastCommandedVelocity = swerve.getFieldSpeeds();
+      lastTime = Utils.getCurrentTimeSeconds();
+      lastCrossTrackError = 0;
 
-    // Default: hold the robot's current heading (swerve should not rotate unless
-    // told to)
-    if (rotationSupplier == null) {
-      Rotation2d currentHeading = swerve.getPose().getRotation();
-      rotationSupplier = RotationSupplier.holdHeading(currentHeading);
+      // Default to holding the robot's current heading. Keep this per-run supplier separate from
+      // the
+      // configured supplier so reusing an instance captures a fresh heading every time.
+      if (rotationSupplier == null) {
+        Rotation2d currentHeading = swerve.getPose().getRotation();
+        activeRotationSupplier = RotationSupplier.holdHeading(currentHeading);
+      } else {
+        activeRotationSupplier = rotationSupplier;
+      }
+      lastHeadingError = 0;
+
+      // Pre-compute arc-length ranges for center-of-rotation zones.
+      corZoneStartS = new double[centerOfRotationZones.size()];
+      corZoneEndS = new double[centerOfRotationZones.size()];
+      for (int i = 0; i < centerOfRotationZones.size(); i++) {
+        corZoneStartS[i] =
+            path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).startWaypointIndex());
+        corZoneEndS[i] =
+            path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).endWaypointIndex());
+      }
+
+      // Always start at the beginning of the path and defer reference-path logging until the first
+      // control iteration so autonomous startup is not blocked by path sampling.
+      lastProjectedS = 0.0;
+      referencePathLogged = false;
+
+      while (true) {
+        updatePathFollowing();
+        if (hasReachedGoal()) {
+          break;
+        }
+        coroutine.yield();
+      }
+    } catch (RuntimeException ex) {
+      // Preserve safe hardware state when scheduler execution fails.
+      stopMotionAndClearPathLog();
+      throw ex;
     }
-    lastHeadingError = 0;
-
-    // Pre-compute arc-length ranges for center of rotation zones
-    corZoneStartS = new double[centerOfRotationZones.size()];
-    corZoneEndS = new double[centerOfRotationZones.size()];
-    for (int i = 0; i < centerOfRotationZones.size(); i++) {
-      corZoneStartS[i] =
-          path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).startWaypointIndex());
-      corZoneEndS[i] =
-          path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).endWaypointIndex());
-    }
-
-    // Always start at the beginning of the path
-    lastProjectedS = 0.0;
-
-    // Defer reference path logging to first execute() to avoid blocking auto start
-    referencePathLogged = false;
+    stopMotionAndClearPathLog();
   }
 
   @Override
-  public void execute() {
+  public void onCancel() {
+    stopMotionAndClearPathLog();
+  }
+
+  @Override
+  public String name() {
+    return name;
+  }
+
+  @Override
+  public Set<Mechanism> requirements() {
+    return requirements;
+  }
+
+  private void updatePathFollowing() {
     double currentTime = Utils.getCurrentTimeSeconds();
     double dt = currentTime - lastTime;
     lastTime = currentTime;
@@ -517,8 +558,8 @@ public class FollowPath extends CommandLifecycleAdapter {
     double omega;
     if (overrideOmega != null) {
       omega = overrideOmega.getAsDouble();
-    } else if (rotationSupplier != null) {
-      double targetHeading = rotationSupplier.getTargetHeading(robotPose, sRobot, tangent);
+    } else if (activeRotationSupplier != null) {
+      double targetHeading = activeRotationSupplier.getTargetHeading(robotPose, sRobot, tangent);
       double headingError =
           MathUtil.angleModulus(targetHeading - robotPose.getRotation().getRadians());
       lastHeadingError = Math.abs(headingError);
@@ -609,8 +650,7 @@ public class FollowPath extends CommandLifecycleAdapter {
     Logger.recordOutput("PathEditor/Progress", progress);
   }
 
-  @Override
-  public void end(boolean interrupted) {
+  private void stopMotionAndClearPathLog() {
     swerve.setControl(new SwerveRequest.Idle());
 
     // Clear logged path on end so it doesn't persist in AdvantageScope
@@ -671,8 +711,7 @@ public class FollowPath extends CommandLifecycleAdapter {
     return Math.copySign(omega, headingError);
   }
 
-  @Override
-  public boolean isFinished() {
+  private boolean hasReachedGoal() {
     boolean nearEnd = lastProjectedS >= path.getTotalLength() - completionTolerance;
     if (endVelocity > 0) {
       return nearEnd;

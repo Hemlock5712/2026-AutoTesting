@@ -8,7 +8,11 @@ import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
+import java.util.Set;
 import java.util.function.Supplier;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
@@ -21,7 +25,7 @@ import org.wpilib.units.measure.Distance;
  * <p>Uses real motor torque curves and friction limits to calculate achievable velocities. Finishes
  * when within position and rotation tolerances.
  */
-public class DriveToPoint extends CommandLifecycleAdapter {
+public class DriveToPoint implements Command {
 
   // Time buffer for braking calculations (accounts for system latency)
   private static final double BRAKING_REACTION_TIME = 0.1; // seconds
@@ -30,6 +34,8 @@ public class DriveToPoint extends CommandLifecycleAdapter {
   private static final double WAYPOINT_TOLERANCE = 0.25; // meters
 
   private final CommandSwerveDrivetrain swerve;
+  private final Set<Mechanism> requirements;
+  private final String name;
   private Supplier<Pose2d> goalPose;
 
   // Configurable tolerances
@@ -43,7 +49,7 @@ public class DriveToPoint extends CommandLifecycleAdapter {
   private ChassisVelocities lastCommandedVelocity = new ChassisVelocities();
   private double lastTime;
 
-  // Cached values for isFinished() to avoid redundant calculations
+  // Cached values for hasReachedGoal() to avoid redundant calculations
   private double cachedDistance;
   private double cachedAngleError;
 
@@ -59,25 +65,56 @@ public class DriveToPoint extends CommandLifecycleAdapter {
    * @param goalPose Target pose in field coordinates
    */
   public DriveToPoint(CommandSwerveDrivetrain swerve, Supplier<Pose2d> goalPose) {
-    super(swerve.getCommandMechanism());
     this.swerve = swerve;
+    this.requirements = Set.of(swerve.getCommandMechanism());
+    this.name = getClass().getSimpleName();
     this.goalPose = goalPose;
   }
 
   @Override
-  public void initialize() {
-    // Start from current velocity for smooth transitions
-    lastCommandedVelocity = swerve.getFieldSpeeds();
-    lastTime = Utils.getCurrentTimeSeconds();
+  public void run(Coroutine coroutine) {
+    try {
+      // Start from current velocity for smooth transitions.
+      lastCommandedVelocity = swerve.getFieldSpeeds();
+      lastTime = Utils.getCurrentTimeSeconds();
 
-    // Initialize cached values to infinity so isFinished() returns false before first execute()
-    cachedDistance = Double.POSITIVE_INFINITY;
-    cachedAngleError = Double.POSITIVE_INFINITY;
+      // Initialize cached values so the first control iteration always runs before completion is
+      // evaluated (matching the legacy command lifecycle).
+      cachedDistance = Double.POSITIVE_INFINITY;
+      cachedAngleError = Double.POSITIVE_INFINITY;
+
+      while (true) {
+        updateMotionControl();
+        if (hasReachedGoal()) {
+          break;
+        }
+        coroutine.yield();
+      }
+    } catch (RuntimeException ex) {
+      // Preserve safe hardware state when scheduler execution fails.
+      stopMotion();
+      throw ex;
+    }
+    stopMotion();
   }
 
   @Override
-  public void execute() {
-    // Calculate time since last execute
+  public void onCancel() {
+    stopMotion();
+  }
+
+  @Override
+  public String name() {
+    return name;
+  }
+
+  @Override
+  public Set<Mechanism> requirements() {
+    return requirements;
+  }
+
+  private void updateMotionControl() {
+    // Calculate time since the last control iteration.
     double currentTime = Utils.getCurrentTimeSeconds();
     double dt = currentTime - lastTime;
     lastTime = currentTime;
@@ -91,7 +128,7 @@ public class DriveToPoint extends CommandLifecycleAdapter {
         MathUtil.angleModulus(
             goalPose.get().getRotation().minus(currentPose.getRotation()).getRadians());
 
-    // Cache values for isFinished() to avoid redundant calculations
+    // Cache values for hasReachedGoal() to avoid redundant calculations
     cachedDistance = distance;
     cachedAngleError = Math.abs(angleError);
 
@@ -134,13 +171,11 @@ public class DriveToPoint extends CommandLifecycleAdapter {
     swerve.setControl(request.withVelocity(lastCommandedVelocity));
   }
 
-  @Override
-  public void end(boolean interrupted) {
+  private void stopMotion() {
     swerve.setControl(new SwerveRequest.Idle());
   }
 
-  @Override
-  public boolean isFinished() {
+  private boolean hasReachedGoal() {
     // Waypoints finish on position only — rotation continues into the next command
     if (isWaypoint) {
       return cachedDistance < positionTolerance;

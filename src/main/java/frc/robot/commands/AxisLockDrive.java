@@ -8,8 +8,12 @@ import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.DriveToPointUtils;
 import frc.robot.utils.FieldInfo;
+import java.util.Set;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
@@ -30,7 +34,7 @@ import org.wpilib.math.util.MathUtil;
  * <p>Uses physics-based braking curves from DriveToPointUtils to ensure smooth deceleration and
  * zero end speed on locked axes.
  */
-public class AxisLockDrive extends CommandLifecycleAdapter {
+public class AxisLockDrive implements Command {
 
   // Braking reaction time buffer (matches DriveToPoint)
   private static final double BRAKING_REACTION_TIME = 0.1;
@@ -44,6 +48,8 @@ public class AxisLockDrive extends CommandLifecycleAdapter {
   private static final double HEADING_LOCK_DEADBAND = Math.toRadians(3);
 
   private final CommandSwerveDrivetrain swerve;
+  private final Set<Mechanism> requirements;
+  private final String name;
   private final DoubleSupplier velocityXSupplier;
   private final DoubleSupplier velocityYSupplier;
   private final DoubleSupplier rotationalRateSupplier;
@@ -88,8 +94,9 @@ public class AxisLockDrive extends CommandLifecycleAdapter {
       DoubleSupplier lockedXTarget,
       DoubleSupplier lockedYTarget,
       Supplier<Rotation2d> lockedRotationTarget) {
-    super(swerve.getCommandMechanism());
     this.swerve = swerve;
+    this.requirements = Set.of(swerve.getCommandMechanism());
+    this.name = getClass().getSimpleName();
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
     this.rotationalRateSupplier = rotationalRate;
@@ -149,59 +156,65 @@ public class AxisLockDrive extends CommandLifecycleAdapter {
   }
 
   @Override
-  public void initialize() {
+  public void run(Coroutine coroutine) {
     // Start from current velocity for smooth transitions
     lastCommandedVelocity = swerve.getFieldSpeeds();
     lastTime = Utils.getCurrentTimeSeconds();
     lockedHeading = swerve.getRotation();
     wasDriverRotating = false;
-  }
 
-  @Override
-  public void execute() {
-    // Calculate time since last execute
-    double currentTime = Utils.getCurrentTimeSeconds();
-    double dt = currentTime - lastTime;
-    lastTime = currentTime;
+    try {
+      while (true) {
+        // Calculate time since last execute
+        double currentTime = Utils.getCurrentTimeSeconds();
+        double dt = currentTime - lastTime;
+        lastTime = currentTime;
 
-    // Get current pose
-    Pose2d currentPose = swerve.getPose();
+        // Get current pose
+        Pose2d currentPose = swerve.getPose();
 
-    // Get driver inputs and flip for BlueAlliance perspective
-    // This ensures "forward on joystick" = positive field X on both alliances
-    double[] flippedInputs =
-        FieldInfo.flipJoystick(velocityXSupplier.getAsDouble(), velocityYSupplier.getAsDouble());
-    double flippedOmega = FieldInfo.flipJoystickRotation(rotationalRateSupplier.getAsDouble());
+        // Get driver inputs and flip for BlueAlliance perspective
+        // This ensures "forward on joystick" = positive field X on both alliances
+        double[] flippedInputs =
+            FieldInfo.flipJoystick(
+                velocityXSupplier.getAsDouble(), velocityYSupplier.getAsDouble());
+        double flippedOmega = FieldInfo.flipJoystickRotation(rotationalRateSupplier.getAsDouble());
 
-    // Calculate X velocity (locked or driver-controlled)
-    double velX;
-    if (lockedXTarget != null) {
-      velX = calculateLockedAxisVelocity(currentPose.getX(), lockedXTarget.getAsDouble());
-    } else {
-      velX = flippedInputs[0];
+        // Calculate X velocity (locked or driver-controlled)
+        double velX;
+        if (lockedXTarget != null) {
+          velX = calculateLockedAxisVelocity(currentPose.getX(), lockedXTarget.getAsDouble());
+        } else {
+          velX = flippedInputs[0];
+        }
+
+        // Calculate Y velocity (locked or driver-controlled)
+        double velY;
+        if (lockedYTarget != null) {
+          velY = calculateLockedAxisVelocity(currentPose.getY(), lockedYTarget.getAsDouble());
+        } else {
+          velY = flippedInputs[1];
+        }
+
+        // Calculate rotation (locked, heading lock, or driver-controlled)
+        double targetOmega;
+        if (lockedRotationTarget != null) {
+          targetOmega = calculateLockedRotationOmega(currentPose.getRotation());
+        } else {
+          targetOmega = calculateHeadingLockedOmega(flippedOmega);
+        }
+
+        // Apply physics-based acceleration limiting (normalizes desired speeds internally)
+        AccelerationLimiter.integrateVelocityInPlace(
+            lastCommandedVelocity, velX, velY, targetOmega, dt);
+
+        swerve.setControl(request.withVelocity(lastCommandedVelocity));
+        coroutine.yield();
+      }
+    } catch (RuntimeException ex) {
+      stop();
+      throw ex;
     }
-
-    // Calculate Y velocity (locked or driver-controlled)
-    double velY;
-    if (lockedYTarget != null) {
-      velY = calculateLockedAxisVelocity(currentPose.getY(), lockedYTarget.getAsDouble());
-    } else {
-      velY = flippedInputs[1];
-    }
-
-    // Calculate rotation (locked, heading lock, or driver-controlled)
-    double targetOmega;
-    if (lockedRotationTarget != null) {
-      targetOmega = calculateLockedRotationOmega(currentPose.getRotation());
-    } else {
-      targetOmega = calculateHeadingLockedOmega(flippedOmega);
-    }
-
-    // Apply physics-based acceleration limiting (normalizes desired speeds internally)
-    AccelerationLimiter.integrateVelocityInPlace(
-        lastCommandedVelocity, velX, velY, targetOmega, dt);
-
-    swerve.setControl(request.withVelocity(lastCommandedVelocity));
   }
 
   /**
@@ -304,12 +317,21 @@ public class AxisLockDrive extends CommandLifecycleAdapter {
   }
 
   @Override
-  public void end(boolean interrupted) {
+  public void onCancel() {
+    stop();
+  }
+
+  private void stop() {
     swerve.setControl(new SwerveRequest.Idle());
   }
 
   @Override
-  public boolean isFinished() {
-    return false; // Teleop command runs until cancelled
+  public String name() {
+    return name;
+  }
+
+  @Override
+  public Set<Mechanism> requirements() {
+    return requirements;
   }
 }

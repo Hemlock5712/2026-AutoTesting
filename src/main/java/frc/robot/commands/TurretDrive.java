@@ -7,7 +7,11 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Superstructure;
+import java.util.Set;
 import java.util.function.DoubleSupplier;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.math.kinematics.ChassisVelocities;
 
 /**
@@ -21,12 +25,14 @@ import org.wpilib.math.kinematics.ChassisVelocities;
  * <p>Bind to a button so the driver holds it while shooting. On release, the default OrbitDrive
  * resumes with no limits.
  */
-public class TurretDrive extends CommandLifecycleAdapter {
+public class TurretDrive implements Command {
 
   public static final double MAX_SHOOT_ACCEL = 6.5;
   public static final double MAX_SHOOT_JERK = 360; // m/s^3
 
   private final CommandSwerveDrivetrain swerve;
+  private final Set<Mechanism> requirements;
+  private final String name;
   private final DoubleSupplier velocityXSupplier;
   private final DoubleSupplier velocityYSupplier;
   private final DoubleSupplier rotationalRateSupplier;
@@ -55,51 +61,66 @@ public class TurretDrive extends CommandLifecycleAdapter {
       DoubleSupplier velocityX,
       DoubleSupplier velocityY,
       DoubleSupplier rotationalRate) {
-    super(swerve.getCommandMechanism());
     this.swerve = swerve;
+    this.requirements = Set.of(swerve.getCommandMechanism());
+    this.name = getClass().getSimpleName();
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
     this.rotationalRateSupplier = rotationalRate;
   }
 
   @Override
-  public void initialize() {
+  public void run(Coroutine coroutine) {
     lastCommandedVelocity = swerve.getFieldSpeeds();
     lastTime = Utils.getCurrentTimeSeconds();
+
+    try {
+      while (true) {
+        double currentTime = Utils.getCurrentTimeSeconds();
+        double dt = currentTime - lastTime;
+        lastTime = currentTime;
+
+        // Get driver inputs
+        double velX = velocityXSupplier.getAsDouble();
+        double velY = velocityYSupplier.getAsDouble();
+        double omega = rotationalRateSupplier.getAsDouble();
+
+        // Apply shoot-mode acceleration and jerk limits (normalizes desired speeds internally)
+        AccelerationLimiter.integrateVelocityInPlace(
+            lastCommandedVelocity,
+            velX,
+            velY,
+            omega,
+            dt,
+            MAX_SHOOT_ACCEL,
+            MAX_SHOOT_JERK,
+            MAX_SHOOT_JERK);
+
+        swerve.setControl(request.withVelocity(lastCommandedVelocity));
+        coroutine.yield();
+      }
+    } catch (RuntimeException ex) {
+      stop();
+      throw ex;
+    }
   }
 
   @Override
-  public void execute() {
-    double currentTime = Utils.getCurrentTimeSeconds();
-    double dt = currentTime - lastTime;
-    lastTime = currentTime;
-
-    // Get driver inputs
-    double velX = velocityXSupplier.getAsDouble();
-    double velY = velocityYSupplier.getAsDouble();
-    double omega = rotationalRateSupplier.getAsDouble();
-
-    // Apply shoot-mode acceleration and jerk limits (normalizes desired speeds internally)
-    AccelerationLimiter.integrateVelocityInPlace(
-        lastCommandedVelocity,
-        velX,
-        velY,
-        omega,
-        dt,
-        MAX_SHOOT_ACCEL,
-        MAX_SHOOT_JERK,
-        MAX_SHOOT_JERK);
-
-    swerve.setControl(request.withVelocity(lastCommandedVelocity));
+  public void onCancel() {
+    stop();
   }
 
-  @Override
-  public void end(boolean interrupted) {
+  private void stop() {
     swerve.setControl(new SwerveRequest.Idle());
   }
 
   @Override
-  public boolean isFinished() {
-    return false;
+  public String name() {
+    return name;
+  }
+
+  @Override
+  public Set<Mechanism> requirements() {
+    return requirements;
   }
 }

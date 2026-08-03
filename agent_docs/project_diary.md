@@ -2,12 +2,16 @@
 
 ## WPILib 2027 alpha-6 / Commands v3 migration
 
-The project moved from the 2026 toolchain to Java 25, Gradle 9.4.1, and GradleRIO `2027.0.0-alpha-6`. SystemCore is the deployment target: deployable Java and static files use the SystemCore GradleRIO target and `/home/systemcore/{deploy,logs}` paths. Desktop support was deliberately retained so the existing native simulation GUI and Driver Station workflow remain available during the hardware-target migration.
+The project moved to Java 25, Gradle 9.4.1, GradleRIO `2027.0.0-alpha-6`, and SystemCore deployment. Deployable Java, static files, and logs use the SystemCore target and `/home/systemcore/{deploy,logs}` paths. Desktop simulation remains enabled.
 
-Commands v3 was adopted as the scheduling model rather than preserving a parallel Commands v2 dependency. Its coroutine scheduler and mechanism-owned requirements are integrated at the robot lifecycle boundary (`Robot.robotPeriodic`) and in container/subsystem defaults. Three small local compatibility surfaces keep migration risk bounded: `Commands` preserves common factory/composition call shapes, `RobotMechanism` centralizes mechanism-owned one-shot/repeating work, and `CommandLifecycleAdapter` preserves legacy command lifecycle implementations while guaranteeing end cleanup on normal completion, cancellation, or failure.
+Commands v3 is the sole scheduling model. The scheduler and mechanism-owned requirements integrate at the robot lifecycle boundary, controller bindings, subsystem defaults, and autonomous compositions. Local `Commands` and `RobotMechanism` helpers keep common factory and mechanism patterns concise.
 
-The continuation runtime needs JVM access to `jdk.internal.vm` and `java.lang`; the two `--add-opens` flags are therefore applied consistently to deployed Java, tests, and JavaExec tasks. This is a runtime compatibility requirement, not a production command behavior change.
+The initial migration used a lifecycle bridge to preserve v2 command shapes while establishing a compiling alpha-6 baseline. It was deliberately removed after verification. All seven stateful command classes now express setup, control loops, completion, yields, and cleanup directly in their coroutine bodies. This makes rescheduling state and cancellation behavior visible in the owning class and avoids shared hidden lifecycle state.
 
-Phoenix 6 `26.50.0-alpha-1` introduced a platform mismatch for the new target: its software-simulation libraries are published for desktop platforms, not Linux SystemCore. The vendordep keeps `swsim` desktop-only and adds `linuxsystemcore` only to the hardware-simulation JNI entries. That narrow workaround lets SystemCore resolve the available Phoenix native libraries without disabling desktop simulation.
+Failure cleanup catches `RuntimeException`, stops the affected hardware, and rethrows. It intentionally does not catch `Error`: alpha-6 removes failed commands only for `RuntimeException`, so catching and rethrowing an `Error` could leave a command registered and allow later cancellation to repeat cleanup.
 
-The migration gate was a clean full `./gradlew build --no-daemon` with 11/11 tests passing and no remaining Commands v2 residue. The durable implementation surface is now the v3 scheduler/mechanism model plus the three helpers above.
+The continuation runtime needs JVM access to `jdk.internal.vm` and `java.lang`; the two `--add-opens` flags apply consistently to deployed Java, tests, and simulation tasks.
+
+Phoenix 6 `26.50.0-alpha-1` advertises unavailable SystemCore software-simulation JNI artifacts. The vendordep keeps those entries desktop-only while retaining the real SystemCore hardware JNI entries.
+
+The native conversion gate is a focused architecture test plus a clean Java 25 `./gradlew build --no-daemon`; the verified result is 9/9 tests passing with no production lifecycle-bridge residue.

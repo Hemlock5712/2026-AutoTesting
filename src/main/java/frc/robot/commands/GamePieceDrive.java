@@ -7,7 +7,11 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.LimelightHelpers;
+import java.util.Set;
 import java.util.function.DoubleSupplier;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
 
@@ -19,12 +23,14 @@ import org.wpilib.math.kinematics.ChassisVelocities;
  *
  * <p>The correction strength scales with forward speed - faster driving means stronger correction.
  */
-public class GamePieceDrive extends CommandLifecycleAdapter {
+public class GamePieceDrive implements Command {
 
   // Default proportional gain for vision correction
   private static final double DEFAULT_VISION_KP = 0.5;
 
   private final CommandSwerveDrivetrain swerve;
+  private final Set<Mechanism> requirements;
+  private final String name;
   private final DoubleSupplier velocityXSupplier;
   private final DoubleSupplier velocityYSupplier;
   private final DoubleSupplier rotationalRateSupplier;
@@ -76,8 +82,9 @@ public class GamePieceDrive extends CommandLifecycleAdapter {
       DoubleSupplier rotationalRate,
       String limelightName,
       double visionKp) {
-    super(swerve.getCommandMechanism());
     this.swerve = swerve;
+    this.requirements = Set.of(swerve.getCommandMechanism());
+    this.name = getClass().getSimpleName();
     this.velocityXSupplier = velocityX;
     this.velocityYSupplier = velocityY;
     this.rotationalRateSupplier = rotationalRate;
@@ -86,14 +93,28 @@ public class GamePieceDrive extends CommandLifecycleAdapter {
   }
 
   @Override
-  public void initialize() {
+  public void run(Coroutine coroutine) {
     // Start from current velocity for smooth transitions
     lastCommandedVelocity = swerve.getFieldSpeeds();
     lastTime = Utils.getCurrentTimeSeconds();
+
+    try {
+      while (true) {
+        updateDriveControl();
+        coroutine.yield();
+      }
+    } catch (RuntimeException ex) {
+      stop();
+      throw ex;
+    }
   }
 
   @Override
-  public void execute() {
+  public void onCancel() {
+    stop();
+  }
+
+  private void updateDriveControl() {
     // Calculate time since last execute
     double currentTime = Utils.getCurrentTimeSeconds();
     double dt = currentTime - lastTime;
@@ -127,13 +148,17 @@ public class GamePieceDrive extends CommandLifecycleAdapter {
     swerve.setControl(request.withVelocity(lastCommandedVelocity));
   }
 
-  @Override
-  public void end(boolean interrupted) {
+  private void stop() {
     swerve.setControl(new SwerveRequest.Idle());
   }
 
   @Override
-  public boolean isFinished() {
-    return false; // Teleop command runs until cancelled
+  public String name() {
+    return name;
+  }
+
+  @Override
+  public Set<Mechanism> requirements() {
+    return requirements;
   }
 }
