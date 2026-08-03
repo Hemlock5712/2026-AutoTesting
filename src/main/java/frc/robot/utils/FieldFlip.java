@@ -1,9 +1,9 @@
 package frc.robot.utils;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import frc.robot.utils.geometry.ExtTranslation;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
 
 /**
  * Utility class for flipping field locations across lines of symmetry. {@link FieldInfo} is

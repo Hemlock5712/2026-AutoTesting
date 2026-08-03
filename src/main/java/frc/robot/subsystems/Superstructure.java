@@ -1,23 +1,11 @@
 package frc.robot.subsystems;
 
-import static edu.wpi.first.units.Units.Meters;
-import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static org.wpilib.units.Units.Meters;
+import static org.wpilib.units.Units.Rotations;
+import static org.wpilib.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Twist2d;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.AccelerationLimiter;
 import frc.robot.commands.JamProtectedShoot;
 import frc.robot.subsystems.hopper.Hopper;
@@ -26,6 +14,7 @@ import frc.robot.subsystems.shooter.ShooterLookup;
 import frc.robot.subsystems.shooter.ShooterSIM;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretSIM;
+import frc.robot.utils.Commands;
 import frc.robot.utils.FeedTargetSelector;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.Tunables;
@@ -34,6 +23,17 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.driverstation.RobotState;
+import org.wpilib.framework.RobotBase;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Pose3d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Rotation3d;
+import org.wpilib.math.geometry.Transform2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.geometry.Twist2d;
+import org.wpilib.math.util.MathUtil;
 
 /**
  * Superstructure - Controls the Arm and Flywheel together.
@@ -232,11 +232,11 @@ public class Superstructure {
 
   /** Tuning mode: override flywheel/hood with dashboard tunables. */
   public Command tuningShoot() {
-    return shooter
-        .runShooterTestModeDeg(() -> targetFlywheelVelocity.get(), () -> targetHoodAngle.get())
-        .alongWith(Commands.runOnce(() -> isShooting = true))
-        .alongWith(
-            Commands.sequence(Commands.waitUntil(() -> shooter.isAtTarget()), hopper.start()));
+    return Commands.parallel(
+        shooter.runShooterTestModeDeg(
+            () -> targetFlywheelVelocity.get(), () -> targetHoodAngle.get()),
+        Commands.runOnce(() -> isShooting = true),
+        Commands.sequence(Commands.waitUntil(() -> shooter.isAtTarget()), hopper.start()));
   }
 
   /** Core shoot logic: runs shooter, then feeds when ready. */
@@ -244,7 +244,7 @@ public class Superstructure {
     return Commands.parallel(
         shooterCommand,
         Commands.runOnce(() -> isShooting = true),
-        Commands.either(hopper.start(), hopper.stop(), readyToFeed).repeatedly());
+        Commands.repeatedly(Commands.either(hopper.start(), hopper.stop(), readyToFeed)));
   }
 
   public Command spinUpShooter() {
@@ -277,7 +277,8 @@ public class Superstructure {
         turret.trackHubCommand(() -> 0.0),
         Commands.sequence(
             Commands.runOnce(() -> isShooting = true),
-            Commands.either(hopper.start(), hopper.stop(), () -> isFeedReady()).repeatedly()));
+            Commands.repeatedly(
+                Commands.either(hopper.start(), hopper.stop(), () -> isFeedReady()))));
   }
 
   private boolean isHubReady() {
@@ -336,21 +337,21 @@ public class Superstructure {
    * stops when leaving them. Run alongside TurretDrive in RobotContainer.
    */
   public Command autoShootMode() {
-    return Commands.sequence(
-            Commands.runOnce(() -> isAutoShootEnabled = true),
+    Command shootCycle =
+        Commands.repeatedly(
             Commands.sequence(
-                    spinUpShooter().until(this::shouldShoot),
-                    shoot().until(() -> !shouldShoot()),
-                    Commands.runOnce(() -> isShooting = false),
-                    hopper.stop())
-                .repeatedly())
-        .finallyDo(
-            () -> {
-              isAutoShootEnabled = false;
-              isShooting = false;
-              shooter.stopMotors();
-              hopper.setVelocity(RotationsPerSecond.of(0), RotationsPerSecond.of(0));
-            });
+                Commands.until(spinUpShooter(), this::shouldShoot),
+                Commands.until(shoot(), () -> !shouldShoot()),
+                Commands.runOnce(() -> isShooting = false),
+                hopper.stop()));
+    return Commands.finallyDo(
+        Commands.sequence(Commands.runOnce(() -> isAutoShootEnabled = true), shootCycle),
+        () -> {
+          isAutoShootEnabled = false;
+          isShooting = false;
+          shooter.stopMotors();
+          hopper.setVelocity(RotationsPerSecond.of(0), RotationsPerSecond.of(0));
+        });
   }
 
   public Command stopShoot() {
@@ -367,19 +368,19 @@ public class Superstructure {
    * @return Command that aims and fires at the target, cleaning up on end/interrupt
    */
   public Command passToLocation(Translation2d blueAllianceTarget) {
-    return Commands.parallel(
+    return Commands.finallyDo(
+        Commands.parallel(
             shooter.runDynamicFeed(this::getFlywheelDistance, this::getHoodDistance),
             Commands.runOnce(
                 () -> {
                   passTargetOverride = blueAllianceTarget;
                   isShooting = true;
                 }),
-            hopper.start())
-        .finallyDo(
-            () -> {
-              passTargetOverride = null;
-              isShooting = false;
-            });
+            hopper.start()),
+        () -> {
+          passTargetOverride = null;
+          isShooting = false;
+        });
   }
 
   // Hopper commands
@@ -408,15 +409,18 @@ public class Superstructure {
     double delay = (Utils.getCurrentTimeSeconds() - state.Timestamp) + swmPoseDelay.get();
     swmDelay = delay;
 
-    advanceTwist.dx = state.Speeds.vxMetersPerSecond * delay;
-    advanceTwist.dy = state.Speeds.vyMetersPerSecond * delay;
-    advanceTwist.dtheta = state.Speeds.omegaRadiansPerSecond * delay;
-    Pose2d advancedPose = state.Pose.exp(advanceTwist);
-    // Inline field speed rotation to avoid ChassisSpeeds allocation
+    advanceTwist.dx = state.Velocity.vx * delay;
+    advanceTwist.dy = state.Velocity.vy * delay;
+    advanceTwist.dtheta = state.Velocity.omega * delay;
+    Pose2d advancedPose =
+        state.Pose.transformBy(
+            new Transform2d(
+                advanceTwist.dx, advanceTwist.dy, Rotation2d.fromRadians(advanceTwist.dtheta)));
+    // Inline field speed rotation to avoid ChassisVelocities allocation
     double cos = advancedPose.getRotation().getCos();
     double sin = advancedPose.getRotation().getSin();
-    double fieldVx = state.Speeds.vxMetersPerSecond * cos - state.Speeds.vyMetersPerSecond * sin;
-    double fieldVy = state.Speeds.vxMetersPerSecond * sin + state.Speeds.vyMetersPerSecond * cos;
+    double fieldVx = state.Velocity.vx * cos - state.Velocity.vy * sin;
+    double fieldVy = state.Velocity.vx * sin + state.Velocity.vy * cos;
 
     // Use targetPosition field directly (avoids getTargetPosition() Pose2d
     // allocation)
@@ -433,7 +437,7 @@ public class Superstructure {
 
     // --- Step 2: Turret velocity on the field ---
     // v_turret = v_center + omega x r_{center->turret}
-    double omega = state.Speeds.omegaRadiansPerSecond;
+    double omega = state.Velocity.omega;
     double velX = fieldVx - omega * offsetY;
     double velY = fieldVy + omega * offsetX;
 
@@ -559,7 +563,7 @@ public class Superstructure {
   private boolean isUnderaTrench(SwerveDriveState state) {
     double cos = state.Pose.getRotation().getCos();
     double sin = state.Pose.getRotation().getSin();
-    double fieldVx = state.Speeds.vxMetersPerSecond * cos - state.Speeds.vyMetersPerSecond * sin;
+    double fieldVx = state.Velocity.vx * cos - state.Velocity.vy * sin;
     return FieldInfo.isUnderaTrench(turretPose.getTranslation(), fieldVx);
   }
 
@@ -600,11 +604,11 @@ public class Superstructure {
 
   private FeedTargetSelector.FeedSelection resolveFeedTarget(Pose2d robotPose) {
     Translation2d leftFeedTarget =
-        DriverStation.isAutonomous()
+        RobotState.isAutonomous()
             ? FieldInfo.LEFT_FEED_POSITION_AUTO.get()
             : FieldInfo.LEFT_FEED_POSITION.get();
     Translation2d rightFeedTarget =
-        DriverStation.isAutonomous()
+        RobotState.isAutonomous()
             ? FieldInfo.RIGHT_FEED_POSITION_AUTO.get()
             : FieldInfo.RIGHT_FEED_POSITION.get();
 
@@ -618,7 +622,7 @@ public class Superstructure {
 
     FeedMode effectiveMode = FieldInfo.isInOpponentZone(robotPose) ? FeedMode.AUTO : teleopFeedMode;
 
-    return DriverStation.isAutonomous()
+    return RobotState.isAutonomous()
         ? FeedTargetSelector.selectAutoTarget(
             robotPose.getTranslation(), leftFeedTarget, rightFeedTarget)
         : FeedTargetSelector.selectTeleopTarget(

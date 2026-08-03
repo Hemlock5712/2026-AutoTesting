@@ -1,17 +1,17 @@
 package frc.robot.subsystems.shooter;
 
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N2;
-import edu.wpi.first.math.system.LinearSystem;
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.system.plant.LinearSystemId;
-import edu.wpi.first.wpilibj.simulation.BatterySim;
-import edu.wpi.first.wpilibj.simulation.DCMotorSim;
-import edu.wpi.first.wpilibj.simulation.RoboRioSim;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.utils.MechanismUtil;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.math.numbers.N1;
+import org.wpilib.math.numbers.N2;
+import org.wpilib.math.system.DCMotor;
+import org.wpilib.math.system.LinearSystem;
+import org.wpilib.math.system.Models;
+import org.wpilib.simulation.BatterySim;
+import org.wpilib.simulation.DCMotorSim;
+import org.wpilib.simulation.RoboRioSim;
+import org.wpilib.smartdashboard.SmartDashboard;
 
 /**
  * Simulation implementation of the flywheel subsystem.
@@ -69,7 +69,7 @@ public class ShooterSIM extends Shooter {
     TalonFXUtil.applyConfigWithRetries(flywheel, config);
 
     LinearSystem<N2, N1, N2> linearSystem =
-        LinearSystemId.createDCMotorSystem(
+        Models.singleJointedArmFromPhysicalConstants(
             dcMotor, FLYWHEEL_MOI, GEAR_RATIO); // Direct drive (1:1 ratio)
     // Initialize the physics simulation (no gravity for flywheels)
     shooterSim = new DCMotorSim(linearSystem, dcMotor);
@@ -79,6 +79,7 @@ public class ShooterSIM extends Shooter {
 
     // Publish the mechanism visualization to SmartDashboard
     SmartDashboard.putData("Flywheel Sim", flywheelMechanism.getMechanism());
+    addPeriodicCallback(this::simulationPeriodic);
   }
 
   /**
@@ -95,7 +96,6 @@ public class ShooterSIM extends Shooter {
    *   <li>Publishes telemetry data to SmartDashboard
    * </ul>
    */
-  @Override
   public void simulationPeriodic() {
     // Feed the motor voltage from the controller into the physics simulation
     shooterSim.setInput(flywheel.getMotorVoltage().getValueAsDouble());
@@ -105,10 +105,10 @@ public class ShooterSIM extends Shooter {
 
     // Simulate battery voltage sag based on current draw
     RoboRioSim.setVInVoltage(
-        BatterySim.calculateDefaultBatteryLoadedVoltage(shooterSim.getCurrentDrawAmps()));
+        BatterySim.calculateDefaultBatteryLoadedVoltage(shooterSim.getCurrentDraw()));
 
     // Get current flywheel velocity in radians per second
-    double velocityRadPerSec = shooterSim.getAngularVelocityRadPerSec();
+    double velocityRadPerSec = shooterSim.getAngularVelocity();
 
     // Convert flywheel velocity to motor velocity (accounting for gear ratio)
     double motorVelocity = velocityRadPerSec * RAD_TO_ROTATIONS * GEAR_RATIO;
@@ -117,7 +117,7 @@ public class ShooterSIM extends Shooter {
     flywheel.getSimState().setRotorVelocity(motorVelocity);
 
     // Use the actual position from physics simulation (more accurate than integration)
-    double flywheelPositionRad = shooterSim.getAngularPositionRad();
+    double flywheelPositionRad = shooterSim.getAngularPosition();
     double motorPosition = flywheelPositionRad * RAD_TO_ROTATIONS * GEAR_RATIO;
     flywheel.getSimState().setRawRotorPosition(motorPosition);
 
@@ -125,7 +125,7 @@ public class ShooterSIM extends Shooter {
     updateVisualization(velocityRadPerSec);
 
     // Publish sim-specific telemetry (other values are auto-logged from base class)
-    Logger.recordOutput("Flywheel Sim/Current (A)", shooterSim.getCurrentDrawAmps());
+    Logger.recordOutput("Flywheel Sim/Current (A)", shooterSim.getCurrentDraw());
   }
 
   /**

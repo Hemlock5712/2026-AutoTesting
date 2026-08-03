@@ -4,8 +4,8 @@
 
 package frc.robot.subsystems.shooter;
 
-import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.Rotations;
+import static org.wpilib.units.Units.Degrees;
+import static org.wpilib.units.Units.Rotations;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -22,23 +22,22 @@ import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.filter.Debouncer.DebounceType;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.utils.Commands;
+import frc.robot.utils.RobotMechanism;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.math.filter.Debouncer;
+import org.wpilib.math.filter.Debouncer.DebounceType;
+import org.wpilib.units.measure.Angle;
+import org.wpilib.units.measure.AngularVelocity;
 
-public class Shooter extends SubsystemBase {
+public class Shooter extends RobotMechanism {
   private static final double MAX_RADIAL_MISS_M = 0.25; // tune empirically
   private static final double FEED_RADIAL_MISS_M = 2.0;
   private static final double MIN_FLYWHEEL_TOLERANCE_RPS = 2.0;
@@ -80,7 +79,7 @@ public class Shooter extends SubsystemBase {
   private final StatusSignal<Angle> hoodPositionSignal;
   private final StatusSignal<AngularVelocity> hoodVelocitySignal;
 
-  Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", AlertType.kError);
+  Alert motorConfigAlert = new Alert("Shooter Motor Configuration Failed", Alert.Level.HIGH);
 
   private final Debouncer atHubSpeed = new Debouncer(0.25, DebounceType.kFalling);
   private final Debouncer atFeedSpeed = new Debouncer(0.5, DebounceType.kFalling);
@@ -156,9 +155,9 @@ public class Shooter extends SubsystemBase {
     hood.optimizeBusUtilization();
     hoodEncoder.optimizeBusUtilization();
     follower.optimizeBusUtilization();
+    addPeriodicCallback(this::periodic);
   }
 
-  @Override
   public void periodic() {
     long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(flywheelVelocitySignal, hoodPositionSignal, hoodVelocitySignal);

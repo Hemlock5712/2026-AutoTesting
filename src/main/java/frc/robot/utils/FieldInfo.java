@@ -1,20 +1,21 @@
 package frc.robot.utils;
 
-import static edu.wpi.first.units.Units.Inches;
-import static edu.wpi.first.units.Units.Meters;
+import static org.wpilib.units.Units.Inches;
+import static org.wpilib.units.Units.Meters;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rectangle2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.units.measure.Distance;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.utils.geometry.ExtTranslation;
 import java.util.List;
 import java.util.Optional;
+import org.wpilib.driverstation.Alliance;
+import org.wpilib.driverstation.DriverStationErrors;
+import org.wpilib.driverstation.MatchState;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rectangle2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.units.measure.Distance;
+import org.wpilib.vision.apriltag.AprilTagFieldLayout;
+import org.wpilib.vision.apriltag.AprilTagFields;
 
 public final class FieldInfo {
 
@@ -52,7 +53,7 @@ public final class FieldInfo {
       layout = new AprilTagFieldLayout(List.of(), 0.0, 0.0);
       symmetryType = SymmetryType.MIRROR;
 
-      DriverStation.reportError(
+      DriverStationErrors.reportError(
           "Failed to load layout from field \"" + field.name() + "\": " + e.getMessage(), true);
     }
   }
@@ -65,7 +66,7 @@ public final class FieldInfo {
       layout = new AprilTagFieldLayout(List.of(), 0.0, 0.0);
       symmetryType = SymmetryType.MIRROR;
 
-      DriverStation.reportError(
+      DriverStationErrors.reportError(
           "[AprilTags] Unable to load layout from resource \""
               + resourcePath
               + "\": "
@@ -122,7 +123,7 @@ public final class FieldInfo {
     if (alliance.isEmpty()) {
       return new int[] {};
     }
-    return alliance.get() == Alliance.Blue ? BLUE_ALLIANCE_TAGS : RED_ALLIANCE_TAGS;
+    return alliance.get() == Alliance.BLUE ? BLUE_ALLIANCE_TAGS : RED_ALLIANCE_TAGS;
   }
 
   // ==================== Field Positions (Blue Alliance Coordinates)
@@ -196,9 +197,9 @@ public final class FieldInfo {
    */
   public static boolean shouldFlip() {
     if (cachedShouldFlip != null) return cachedShouldFlip;
-    Optional<Alliance> alliance = DriverStation.getAlliance();
+    Optional<Alliance> alliance = MatchState.getAlliance();
     if (alliance.isPresent()) {
-      cachedShouldFlip = alliance.get() == Alliance.Red;
+      cachedShouldFlip = alliance.get() == Alliance.RED;
       return cachedShouldFlip;
     }
     return false;

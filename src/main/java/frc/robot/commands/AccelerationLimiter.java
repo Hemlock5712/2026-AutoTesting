@@ -1,10 +1,10 @@
 package frc.robot.commands;
 
-import static edu.wpi.first.units.Units.MetersPerSecond;
+import static org.wpilib.units.Units.MetersPerSecond;
 
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.Motor;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /**
  * Physics-based acceleration limiter for swerve drive.
@@ -62,13 +62,14 @@ public final class AccelerationLimiter {
   /**
    * Returns the last limited acceleration computed by {@link #integrateVelocity}.
    *
-   * <p>The returned ChassisSpeeds represents acceleration (m/s^2 and rad/s^2), not velocity. It is
-   * in the same frame as the inputs to integrateVelocity (field-relative for all current callers).
+   * <p>The returned ChassisVelocities represents acceleration (m/s^2 and rad/s^2), not velocity. It
+   * is in the same frame as the inputs to integrateVelocity (field-relative for all current
+   * callers).
    *
-   * @return Last limited acceleration as ChassisSpeeds (fields are m/s^2 and rad/s^2)
+   * @return Last limited acceleration as ChassisVelocities (fields are m/s^2 and rad/s^2)
    */
-  public static ChassisSpeeds getLastAcceleration() {
-    return new ChassisSpeeds(lastAccelVx, lastAccelVy, lastAccelOmega);
+  public static ChassisVelocities getLastAcceleration() {
+    return new ChassisVelocities(lastAccelVx, lastAccelVy, lastAccelOmega);
   }
 
   /** Returns the X component of the last limited acceleration (m/s^2). */
@@ -272,10 +273,9 @@ public final class AccelerationLimiter {
    * @param speeds The chassis speeds to normalize
    * @return Normalized speeds where no module exceeds max velocity
    */
-  public static ChassisSpeeds normalizeSpeeds(ChassisSpeeds speeds) {
-    double translationSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-    double maxModuleSpeed =
-        translationSpeed + Math.abs(speeds.omegaRadiansPerSecond) * DRIVE_BASE_RADIUS;
+  public static ChassisVelocities normalizeSpeeds(ChassisVelocities speeds) {
+    double translationSpeed = Math.hypot(speeds.vx, speeds.vy);
+    double maxModuleSpeed = translationSpeed + Math.abs(speeds.omega) * DRIVE_BASE_RADIUS;
 
     if (maxModuleSpeed > MAX_VELOCITY) {
       return speeds.times(MAX_VELOCITY / maxModuleSpeed);
@@ -286,21 +286,20 @@ public final class AccelerationLimiter {
   /**
    * Normalizes speeds in place so no swerve module exceeds max velocity.
    *
-   * <p>Same logic as {@link #normalizeSpeeds(ChassisSpeeds)} but mutates the input object instead
-   * of allocating a new one. Use this on hot paths (e.g., 250Hz odometry thread).
+   * <p>Same logic as {@link #normalizeSpeeds(ChassisVelocities)} but mutates the input object
+   * instead of allocating a new one. Use this on hot paths (e.g., 250Hz odometry thread).
    *
    * @param speeds The chassis speeds to normalize (mutated in place)
    */
-  public static void normalizeSpeedsInPlace(ChassisSpeeds speeds) {
-    double translationSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-    double maxModuleSpeed =
-        translationSpeed + Math.abs(speeds.omegaRadiansPerSecond) * DRIVE_BASE_RADIUS;
+  public static void normalizeSpeedsInPlace(ChassisVelocities speeds) {
+    double translationSpeed = Math.hypot(speeds.vx, speeds.vy);
+    double maxModuleSpeed = translationSpeed + Math.abs(speeds.omega) * DRIVE_BASE_RADIUS;
 
     if (maxModuleSpeed > MAX_VELOCITY) {
       double scale = MAX_VELOCITY / maxModuleSpeed;
-      speeds.vxMetersPerSecond *= scale;
-      speeds.vyMetersPerSecond *= scale;
-      speeds.omegaRadiansPerSecond *= scale;
+      speeds.vx *= scale;
+      speeds.vy *= scale;
+      speeds.omega *= scale;
     }
   }
 
@@ -319,16 +318,16 @@ public final class AccelerationLimiter {
    * @param dt Time step in seconds
    */
   public static void integrateVelocityInPlace(
-      ChassisSpeeds currentAndOutput,
+      ChassisVelocities currentAndOutput,
       double desiredVx,
       double desiredVy,
       double desiredOmega,
       double dt) {
     integrateVelocityCore(
         currentAndOutput,
-        currentAndOutput.vxMetersPerSecond,
-        currentAndOutput.vyMetersPerSecond,
-        currentAndOutput.omegaRadiansPerSecond,
+        currentAndOutput.vx,
+        currentAndOutput.vy,
+        currentAndOutput.omega,
         desiredVx,
         desiredVy,
         desiredOmega,
@@ -341,10 +340,10 @@ public final class AccelerationLimiter {
   /**
    * Integrates velocity in place with an external acceleration cap.
    *
-   * @see #integrateVelocityInPlace(ChassisSpeeds, double, double, double, double)
+   * @see #integrateVelocityInPlace(ChassisVelocities, double, double, double, double)
    */
   public static void integrateVelocityInPlace(
-      ChassisSpeeds currentAndOutput,
+      ChassisVelocities currentAndOutput,
       double desiredVx,
       double desiredVy,
       double desiredOmega,
@@ -352,9 +351,9 @@ public final class AccelerationLimiter {
       double maxAccel) {
     integrateVelocityCore(
         currentAndOutput,
-        currentAndOutput.vxMetersPerSecond,
-        currentAndOutput.vyMetersPerSecond,
-        currentAndOutput.omegaRadiansPerSecond,
+        currentAndOutput.vx,
+        currentAndOutput.vy,
+        currentAndOutput.omega,
         desiredVx,
         desiredVy,
         desiredOmega,
@@ -367,10 +366,10 @@ public final class AccelerationLimiter {
   /**
    * Integrates velocity in place with acceleration and jerk limits.
    *
-   * @see #integrateVelocityInPlace(ChassisSpeeds, double, double, double, double)
+   * @see #integrateVelocityInPlace(ChassisVelocities, double, double, double, double)
    */
   public static void integrateVelocityInPlace(
-      ChassisSpeeds currentAndOutput,
+      ChassisVelocities currentAndOutput,
       double desiredVx,
       double desiredVy,
       double desiredOmega,
@@ -380,9 +379,9 @@ public final class AccelerationLimiter {
       double maxOmegaJerk) {
     integrateVelocityCore(
         currentAndOutput,
-        currentAndOutput.vxMetersPerSecond,
-        currentAndOutput.vyMetersPerSecond,
-        currentAndOutput.omegaRadiansPerSecond,
+        currentAndOutput.vx,
+        currentAndOutput.vy,
+        currentAndOutput.omega,
         desiredVx,
         desiredVy,
         desiredOmega,
@@ -398,7 +397,7 @@ public final class AccelerationLimiter {
    * <p>For cases where the current velocity differs from the output object (e.g., FollowPath
    * zeroing unlimited axes). Normalizes desired speeds internally.
    *
-   * @param output Pre-allocated ChassisSpeeds to write the result into
+   * @param output Pre-allocated ChassisVelocities to write the result into
    * @param curVx Current X velocity
    * @param curVy Current Y velocity
    * @param curOmega Current angular velocity
@@ -408,7 +407,7 @@ public final class AccelerationLimiter {
    * @param dt Time step in seconds
    */
   public static void integrateVelocity(
-      ChassisSpeeds output,
+      ChassisVelocities output,
       double curVx,
       double curVy,
       double curOmega,
@@ -439,7 +438,7 @@ public final class AccelerationLimiter {
    * integrates, and normalizes the output — all using primitives.
    */
   private static void integrateVelocityCore(
-      ChassisSpeeds output,
+      ChassisVelocities output,
       double curVx,
       double curVy,
       double curOmega,
@@ -493,9 +492,9 @@ public final class AccelerationLimiter {
     lastAccelOmega = ACCEL_RESULT[2];
 
     // Integrate to get next velocity: current + limitedAccel * dt
-    output.vxMetersPerSecond = curVx + ACCEL_RESULT[0] * dt;
-    output.vyMetersPerSecond = curVy + ACCEL_RESULT[1] * dt;
-    output.omegaRadiansPerSecond = curOmega + ACCEL_RESULT[2] * dt;
+    output.vx = curVx + ACCEL_RESULT[0] * dt;
+    output.vy = curVy + ACCEL_RESULT[1] * dt;
+    output.omega = curOmega + ACCEL_RESULT[2] * dt;
     normalizeSpeedsInPlace(output);
   }
 }

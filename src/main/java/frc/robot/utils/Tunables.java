@@ -1,15 +1,5 @@
 package frc.robot.utils;
 
-import edu.wpi.first.networktables.BooleanEntry;
-import edu.wpi.first.networktables.DoubleEntry;
-import edu.wpi.first.networktables.FloatEntry;
-import edu.wpi.first.networktables.IntegerEntry;
-import edu.wpi.first.networktables.NetworkTable;
-import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.networktables.StringEntry;
-import edu.wpi.first.util.function.BooleanConsumer;
-import edu.wpi.first.util.function.FloatConsumer;
-import edu.wpi.first.wpilibj.DriverStation;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,6 +7,16 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
+import org.wpilib.driverstation.DriverStationErrors;
+import org.wpilib.networktables.BooleanEntry;
+import org.wpilib.networktables.DoubleEntry;
+import org.wpilib.networktables.FloatEntry;
+import org.wpilib.networktables.IntegerEntry;
+import org.wpilib.networktables.NetworkTable;
+import org.wpilib.networktables.NetworkTableInstance;
+import org.wpilib.networktables.StringEntry;
+import org.wpilib.util.function.BooleanConsumer;
+import org.wpilib.util.function.FloatConsumer;
 
 /**
  * The Tunables class is used to construct tunable properties of the robot to be modified live via
@@ -119,7 +119,7 @@ public final class Tunables {
       }
 
       if (!initialized) {
-        DriverStation.reportWarning(
+        DriverStationErrors.reportWarning(
             "[Tunables] Unable to find TunableHandler for type \""
                 + obj.getClass().getSimpleName()
                 + "\"",

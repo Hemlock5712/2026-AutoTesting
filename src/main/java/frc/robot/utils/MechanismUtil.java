@@ -1,11 +1,10 @@
 package frc.robot.utils;
 
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
-import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.smartdashboard.MechanismRoot2d;
-import edu.wpi.first.wpilibj.util.Color;
-import edu.wpi.first.wpilibj.util.Color8Bit;
+import org.wpilib.math.util.Units;
+import org.wpilib.smartdashboard.Mechanism2d;
+import org.wpilib.smartdashboard.MechanismLigament2d;
+import org.wpilib.smartdashboard.MechanismRoot2d;
+import org.wpilib.util.Color8Bit;
 
 /**
  * Utility class for creating and managing Mechanism2d visualizations.
@@ -53,10 +52,10 @@ public class MechanismUtil {
     private static final double PIVOT_SIZE = 5.0;
 
     /** Color of arm when not at target position */
-    private static final Color8Bit MOVING_COLOR = new Color8Bit(Color.kYellow);
+    private static final Color8Bit MOVING_COLOR = new Color8Bit(255, 255, 0);
 
     /** Color of arm when at target position */
-    private static final Color8Bit AT_TARGET_COLOR = new Color8Bit(Color.kGreen);
+    private static final Color8Bit AT_TARGET_COLOR = new Color8Bit(0, 255, 0);
 
     /**
      * Angle offset to convert from unit circle coordinates to mechanism ligament coordinates.
@@ -92,19 +91,18 @@ public class MechanismUtil {
       MechanismLigament2d armBase =
           root.append(
               new MechanismLigament2d(
-                  "Base", BASE_WIDTH, 0, BASE_HEIGHT, new Color8Bit(Color.kDarkGray)));
+                  "Base", BASE_WIDTH, 0, BASE_HEIGHT, new Color8Bit(64, 64, 64)));
 
       // Tower extending upward from base (vertical, gray)
       MechanismLigament2d tower =
           armBase.append(
               new MechanismLigament2d(
-                  "Tower", TOWER_HEIGHT, 90, BASE_HEIGHT / 2, new Color8Bit(Color.kGray)));
+                  "Tower", TOWER_HEIGHT, 90, BASE_HEIGHT / 2, new Color8Bit(128, 128, 128)));
 
       // Pivot point at top of tower (small black circle)
       MechanismLigament2d pivot =
           tower.append(
-              new MechanismLigament2d(
-                  "Pivot", PIVOT_SIZE, 0, PIVOT_SIZE, new Color8Bit(Color.kBlack)));
+              new MechanismLigament2d("Pivot", PIVOT_SIZE, 0, PIVOT_SIZE, new Color8Bit(0, 0, 0)));
 
       // The arm itself (starts yellow, will turn green when at target)
       armLigament =
@@ -174,10 +172,10 @@ public class MechanismUtil {
     private static final double ARM_WIDTH = 10.0;
 
     /** Color of turret when not at target position */
-    private static final Color8Bit MOVING_COLOR = new Color8Bit(Color.kYellow);
+    private static final Color8Bit MOVING_COLOR = new Color8Bit(255, 255, 0);
 
     /** Color of turret when at target position */
-    private static final Color8Bit AT_TARGET_COLOR = new Color8Bit(Color.kGreen);
+    private static final Color8Bit AT_TARGET_COLOR = new Color8Bit(0, 255, 0);
 
     // ==================== Visualization Components ====================
 
@@ -203,7 +201,7 @@ public class MechanismUtil {
       turretArm =
           root.append(
                   new MechanismLigament2d(
-                      "Base", BASE_LENGTH, 0, BASE_WIDTH, new Color8Bit(Color.kDarkGray)))
+                      "Base", BASE_LENGTH, 0, BASE_WIDTH, new Color8Bit(64, 64, 64)))
               .append(new MechanismLigament2d("TurretArm", armLength, 0, ARM_WIDTH, MOVING_COLOR));
     }
 
@@ -261,10 +259,10 @@ public class MechanismUtil {
     private static final int NUM_SPOKES = 4;
 
     /** Color of flywheel when not spinning or slow */
-    private static final Color8Bit IDLE_COLOR = new Color8Bit(Color.kRed);
+    private static final Color8Bit IDLE_COLOR = new Color8Bit(255, 0, 0);
 
     /** Color of flywheel when spinning at target speed */
-    private static final Color8Bit ACTIVE_COLOR = new Color8Bit(Color.kGreen);
+    private static final Color8Bit ACTIVE_COLOR = new Color8Bit(0, 255, 0);
 
     // ==================== Visualization Components ====================
 

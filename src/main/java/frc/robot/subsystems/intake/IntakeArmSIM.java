@@ -1,20 +1,20 @@
 package frc.robot.subsystems.intake;
 
-import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static org.wpilib.units.Units.Degrees;
+import static org.wpilib.units.Units.Radians;
+import static org.wpilib.units.Units.RadiansPerSecond;
+import static org.wpilib.units.Units.Rotations;
+import static org.wpilib.units.Units.RotationsPerSecond;
 
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.simulation.BatterySim;
-import edu.wpi.first.wpilibj.simulation.RoboRioSim;
-import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.utils.MechanismUtil;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.math.system.DCMotor;
+import org.wpilib.math.util.Units;
+import org.wpilib.simulation.BatterySim;
+import org.wpilib.simulation.RoboRioSim;
+import org.wpilib.simulation.SingleJointedArmSim;
+import org.wpilib.smartdashboard.SmartDashboard;
 
 public class IntakeArmSIM extends IntakeArm {
 
@@ -56,19 +56,18 @@ public class IntakeArmSIM extends IntakeArm {
 
     armMechanism = new MechanismUtil.ArmMechanism("Arm", ARM_VISUAL_LENGTH);
     SmartDashboard.putData("Arm Sim", armMechanism.getMechanism());
+    addPeriodicCallback(this::simulationPeriodic);
   }
 
-  @Override
   public void simulationPeriodic() {
     armSim.setInput(arm.getMotorVoltage().getValueAsDouble());
     armSim.update(SIM_PERIOD_SECONDS);
 
     RoboRioSim.setVInVoltage(
-        BatterySim.calculateDefaultBatteryLoadedVoltage(armSim.getCurrentDrawAmps()));
+        BatterySim.calculateDefaultBatteryLoadedVoltage(armSim.getCurrentDraw()));
 
-    double encoderPosition = Radians.of(armSim.getAngleRads()).in(Rotations);
-    double encoderVelocity =
-        RadiansPerSecond.of(armSim.getVelocityRadPerSec()).in(RotationsPerSecond);
+    double encoderPosition = Radians.of(armSim.getAngle()).in(Rotations);
+    double encoderVelocity = RadiansPerSecond.of(armSim.getVelocity()).in(RotationsPerSecond);
 
     armEncoder.getSimState().setRawPosition(encoderPosition);
     armEncoder.getSimState().setVelocity(encoderVelocity);
@@ -80,7 +79,7 @@ public class IntakeArmSIM extends IntakeArm {
 
     updateVisualization();
 
-    Logger.recordOutput("Arm Sim Current (A)", armSim.getCurrentDrawAmps());
+    Logger.recordOutput("Arm Sim Current (A)", armSim.getCurrentDraw());
   }
 
   private void updateVisualization() {

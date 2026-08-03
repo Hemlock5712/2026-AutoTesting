@@ -4,12 +4,6 @@ import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.commands.FollowPath.CenterOfRotationZone;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.path.PathData;
@@ -20,8 +14,17 @@ import frc.robot.utils.path.VelocityConstraints;
 import frc.robot.utils.path.VelocityProfile;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.util.MathUtil;
 
 /**
  * Distance-based path following command for swerve drive.
@@ -33,17 +36,22 @@ import org.littletonrobotics.junction.Logger;
  * <p>All output is fed through {@link AccelerationLimiter#integrateVelocity} to enforce friction
  * circle, motor torque, and jerk limits.
  */
-public class FollowPath extends Command {
+public class FollowPath implements Command {
 
   private final CommandSwerveDrivetrain swerve;
+  private final Set<Mechanism> requirements;
+  private final String name;
   private final SplinePath path;
   private final VelocityProfile velocityProfile;
 
   // Rotation supplier: returns target heading in radians. Null = hold current
   // heading.
   private RotationSupplier rotationSupplier;
+  // Per-run supplier. The configured supplier must remain untouched so a reused command captures a
+  // fresh current heading on each schedule.
+  private RotationSupplier activeRotationSupplier;
 
-  // Rotation tolerance for isFinished() (radians). Default = don't check heading.
+  // Rotation tolerance for hasReachedGoal() (radians). Default = don't check heading.
   private double rotationTolerance = Double.POSITIVE_INFINITY;
   private double lastHeadingError;
 
@@ -95,7 +103,7 @@ public class FollowPath extends Command {
 
   // State tracking between execute cycles (same pattern as
   // DriveToPoint/OrbitDrive)
-  private ChassisSpeeds lastCommandedVelocity = new ChassisSpeeds();
+  private ChassisVelocities lastCommandedVelocity = new ChassisVelocities();
   private double lastTime;
   private double lastCrossTrackError;
   private double lastProjectedS;
@@ -105,8 +113,8 @@ public class FollowPath extends Command {
   private final double[] logEditorTarget = new double[2];
   private final double[] logEditorClosest = new double[2];
 
-  private final SwerveRequest.ApplyFieldSpeeds request =
-      new SwerveRequest.ApplyFieldSpeeds()
+  private final SwerveRequest.ApplyFieldVelocity request =
+      new SwerveRequest.ApplyFieldVelocity()
           .withDriveRequestType(DriveRequestType.Velocity)
           .withSteerRequestType(SteerRequestType.MotionMagicExpo);
 
@@ -146,10 +154,11 @@ public class FollowPath extends Command {
       VelocityConstraints constraints,
       List<PathData.ConstraintZone> constraintZones) {
     this.swerve = swerve;
+    this.requirements = Set.of(swerve.getCommandMechanism());
+    this.name = getClass().getSimpleName();
     this.path = path;
     this.velocityProfile = new VelocityProfile(path, constraints, constraintZones);
     this.endVelocity = constraints.getEndVelocity();
-    addRequirements(swerve);
   }
 
   /**
@@ -167,10 +176,11 @@ public class FollowPath extends Command {
       VelocityProfile velocityProfile,
       double endVelocity) {
     this.swerve = swerve;
+    this.requirements = Set.of(swerve.getCommandMechanism());
+    this.name = getClass().getSimpleName();
     this.path = path;
     this.velocityProfile = velocityProfile;
     this.endVelocity = endVelocity;
-    addRequirements(swerve);
   }
 
   /**
@@ -400,43 +410,73 @@ public class FollowPath extends Command {
     return this;
   }
 
-  // ---- Command lifecycle ----
+  // ---- Command execution ----
 
   @Override
-  public void initialize() {
-    // Start from current velocity for smooth transitions (same as
-    // OrbitDrive/DriveToPoint)
-    lastCommandedVelocity = swerve.getFieldSpeeds();
-    lastTime = Utils.getCurrentTimeSeconds();
-    lastCrossTrackError = 0;
+  public void run(Coroutine coroutine) {
+    try {
+      // Start from current velocity for smooth transitions (same as DriveToPoint).
+      lastCommandedVelocity = swerve.getFieldSpeeds();
+      lastTime = Utils.getCurrentTimeSeconds();
+      lastCrossTrackError = 0;
 
-    // Default: hold the robot's current heading (swerve should not rotate unless
-    // told to)
-    if (rotationSupplier == null) {
-      Rotation2d currentHeading = swerve.getPose().getRotation();
-      rotationSupplier = RotationSupplier.holdHeading(currentHeading);
+      // Default to holding the robot's current heading. Keep this per-run supplier separate from
+      // the
+      // configured supplier so reusing an instance captures a fresh heading every time.
+      if (rotationSupplier == null) {
+        Rotation2d currentHeading = swerve.getPose().getRotation();
+        activeRotationSupplier = RotationSupplier.holdHeading(currentHeading);
+      } else {
+        activeRotationSupplier = rotationSupplier;
+      }
+      lastHeadingError = 0;
+
+      // Pre-compute arc-length ranges for center-of-rotation zones.
+      corZoneStartS = new double[centerOfRotationZones.size()];
+      corZoneEndS = new double[centerOfRotationZones.size()];
+      for (int i = 0; i < centerOfRotationZones.size(); i++) {
+        corZoneStartS[i] =
+            path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).startWaypointIndex());
+        corZoneEndS[i] =
+            path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).endWaypointIndex());
+      }
+
+      // Always start at the beginning of the path and defer reference-path logging until the first
+      // control iteration so autonomous startup is not blocked by path sampling.
+      lastProjectedS = 0.0;
+      referencePathLogged = false;
+
+      while (true) {
+        updatePathFollowing();
+        if (hasReachedGoal()) {
+          break;
+        }
+        coroutine.yield();
+      }
+    } catch (RuntimeException ex) {
+      // Preserve safe hardware state when scheduler execution fails.
+      stopMotionAndClearPathLog();
+      throw ex;
     }
-    lastHeadingError = 0;
-
-    // Pre-compute arc-length ranges for center of rotation zones
-    corZoneStartS = new double[centerOfRotationZones.size()];
-    corZoneEndS = new double[centerOfRotationZones.size()];
-    for (int i = 0; i < centerOfRotationZones.size(); i++) {
-      corZoneStartS[i] =
-          path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).startWaypointIndex());
-      corZoneEndS[i] =
-          path.getArcLengthAtWaypointIndex(centerOfRotationZones.get(i).endWaypointIndex());
-    }
-
-    // Always start at the beginning of the path
-    lastProjectedS = 0.0;
-
-    // Defer reference path logging to first execute() to avoid blocking auto start
-    referencePathLogged = false;
+    stopMotionAndClearPathLog();
   }
 
   @Override
-  public void execute() {
+  public void onCancel() {
+    stopMotionAndClearPathLog();
+  }
+
+  @Override
+  public String name() {
+    return name;
+  }
+
+  @Override
+  public Set<Mechanism> requirements() {
+    return requirements;
+  }
+
+  private void updatePathFollowing() {
     double currentTime = Utils.getCurrentTimeSeconds();
     double dt = currentTime - lastTime;
     lastTime = currentTime;
@@ -460,11 +500,9 @@ public class FollowPath extends Command {
     Translation2d tangent = proj.tangent();
 
     // Step 2: Adaptive lookahead — further ahead when moving faster
-    double currentSpeed =
-        Math.hypot(
-            lastCommandedVelocity.vxMetersPerSecond, lastCommandedVelocity.vyMetersPerSecond);
+    double currentSpeed = Math.hypot(lastCommandedVelocity.vx, lastCommandedVelocity.vy);
     double lookaheadDist =
-        MathUtil.clamp(lookaheadK * currentSpeed + lookaheadMin, lookaheadMin, lookaheadMax);
+        Math.max(lookaheadMin, Math.min(lookaheadMax, lookaheadK * currentSpeed + lookaheadMin));
 
     // Curvature cap: prevent chord from deviating too far from the arc
     double kappa = Math.abs(path.getCurvature(sRobot));
@@ -520,8 +558,8 @@ public class FollowPath extends Command {
     double omega;
     if (overrideOmega != null) {
       omega = overrideOmega.getAsDouble();
-    } else if (rotationSupplier != null) {
-      double targetHeading = rotationSupplier.getTargetHeading(robotPose, sRobot, tangent);
+    } else if (activeRotationSupplier != null) {
+      double targetHeading = activeRotationSupplier.getTargetHeading(robotPose, sRobot, tangent);
       double headingError =
           MathUtil.angleModulus(targetHeading - robotPose.getRotation().getRadians());
       lastHeadingError = Math.abs(headingError);
@@ -554,10 +592,9 @@ public class FollowPath extends Command {
     double limitedVx = vxUnlimited ? 0 : vx;
     double limitedVy = vyUnlimited ? 0 : vy;
     double limitedOmega = omegaUnlimited ? 0 : omega;
-    double currentVxForLimiter = vxUnlimited ? 0 : lastCommandedVelocity.vxMetersPerSecond;
-    double currentVyForLimiter = vyUnlimited ? 0 : lastCommandedVelocity.vyMetersPerSecond;
-    double currentOmegaForLimiter =
-        omegaUnlimited ? 0 : lastCommandedVelocity.omegaRadiansPerSecond;
+    double currentVxForLimiter = vxUnlimited ? 0 : lastCommandedVelocity.vx;
+    double currentVyForLimiter = vyUnlimited ? 0 : lastCommandedVelocity.vy;
+    double currentOmegaForLimiter = omegaUnlimited ? 0 : lastCommandedVelocity.omega;
 
     // Integrate with primitive overload (normalizes desired internally, zero
     // allocations)
@@ -572,9 +609,9 @@ public class FollowPath extends Command {
         dt);
 
     // Inject raw unlimited values back into the output
-    if (vxUnlimited) lastCommandedVelocity.vxMetersPerSecond = vx;
-    if (vyUnlimited) lastCommandedVelocity.vyMetersPerSecond = vy;
-    if (omegaUnlimited) lastCommandedVelocity.omegaRadiansPerSecond = omega;
+    if (vxUnlimited) lastCommandedVelocity.vx = vx;
+    if (vyUnlimited) lastCommandedVelocity.vy = vy;
+    if (omegaUnlimited) lastCommandedVelocity.omega = omega;
 
     // Apply center of rotation if within a configured zone
     Translation2d activeCenter = Translation2d.kZero;
@@ -584,7 +621,8 @@ public class FollowPath extends Command {
         break;
       }
     }
-    swerve.setControl(request.withCenterOfRotation(activeCenter).withSpeeds(lastCommandedVelocity));
+    swerve.setControl(
+        request.withCenterOfRotation(activeCenter).withVelocity(lastCommandedVelocity));
     lastCrossTrackError = crossTrackError;
     lastProjectedS = sRobot;
 
@@ -612,8 +650,7 @@ public class FollowPath extends Command {
     Logger.recordOutput("PathEditor/Progress", progress);
   }
 
-  @Override
-  public void end(boolean interrupted) {
+  private void stopMotionAndClearPathLog() {
     swerve.setControl(new SwerveRequest.Idle());
 
     // Clear logged path on end so it doesn't persist in AdvantageScope
@@ -674,16 +711,14 @@ public class FollowPath extends Command {
     return Math.copySign(omega, headingError);
   }
 
-  @Override
-  public boolean isFinished() {
+  private boolean hasReachedGoal() {
     boolean nearEnd = lastProjectedS >= path.getTotalLength() - completionTolerance;
     if (endVelocity > 0) {
       return nearEnd;
     }
     Translation2d tangent = path.getTangent(path.getTotalLength());
     double alongPath =
-        lastCommandedVelocity.vxMetersPerSecond * tangent.getX()
-            + lastCommandedVelocity.vyMetersPerSecond * tangent.getY();
+        lastCommandedVelocity.vx * tangent.getX() + lastCommandedVelocity.vy * tangent.getY();
     boolean headingOk = lastHeadingError <= rotationTolerance;
     return nearEnd && alongPath < completionVelocityTolerance && headingOk;
   }

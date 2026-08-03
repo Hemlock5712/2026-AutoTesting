@@ -1,7 +1,5 @@
 package frc.robot.utils;
 
-import edu.wpi.first.util.function.BooleanConsumer;
-import edu.wpi.first.util.function.FloatConsumer;
 import frc.robot.utils.Tunables.Tunable;
 import frc.robot.utils.Tunables.TunableBoolean;
 import frc.robot.utils.Tunables.TunableDouble;
@@ -12,6 +10,8 @@ import frc.robot.utils.Tunables.TunableString;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
+import org.wpilib.util.function.BooleanConsumer;
+import org.wpilib.util.function.FloatConsumer;
 
 /** A TunableTable represents a nested table of tunable values in the NetworkTables tree. */
 public final class TunableTable {

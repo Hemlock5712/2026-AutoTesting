@@ -6,7 +6,7 @@ import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /**
  * Custom SwerveRequest that applies physics-based acceleration limiting on the 250Hz odometry
@@ -14,12 +14,12 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
  *
  * <p>Target speeds are set from the command thread via volatile writes. The {@link #apply} method
  * runs on the odometry thread with consistent ~4ms dt, applying motor torque and friction circle
- * limits before delegating to {@link SwerveRequest.ApplyFieldSpeeds}.
+ * limits before delegating to {@link SwerveRequest.ApplyFieldVelocity}.
  */
 public class AccelerationLimitedFieldSpeeds implements SwerveRequest {
 
-  private final SwerveRequest.ApplyFieldSpeeds innerRequest =
-      new SwerveRequest.ApplyFieldSpeeds()
+  private final SwerveRequest.ApplyFieldVelocity innerRequest =
+      new SwerveRequest.ApplyFieldVelocity()
           .withDriveRequestType(DriveRequestType.Velocity)
           .withSteerRequestType(SteerRequestType.MotionMagicExpo)
           .withForwardPerspective(ForwardPerspectiveValue.OperatorPerspective);
@@ -33,7 +33,7 @@ public class AccelerationLimitedFieldSpeeds implements SwerveRequest {
   private volatile boolean needsInit = true;
 
   // Odometry-thread-only state (no synchronization needed, pre-allocated to avoid GC)
-  private final ChassisSpeeds limited = new ChassisSpeeds();
+  private final ChassisVelocities limited = new ChassisVelocities();
   private final double[] accelResult = new double[3];
 
   private static final double MIN_DT = 1e-9;
@@ -63,12 +63,11 @@ public class AccelerationLimitedFieldSpeeds implements SwerveRequest {
 
     // On init, seed from current field speeds for smooth transitions
     if (needsInit) {
-      ChassisSpeeds fieldSpeeds =
-          ChassisSpeeds.fromRobotRelativeSpeeds(
-              parameters.currentChassisSpeed, parameters.currentPose.getRotation());
-      limited.vxMetersPerSecond = fieldSpeeds.vxMetersPerSecond;
-      limited.vyMetersPerSecond = fieldSpeeds.vyMetersPerSecond;
-      limited.omegaRadiansPerSecond = fieldSpeeds.omegaRadiansPerSecond;
+      ChassisVelocities fieldSpeeds =
+          parameters.currentChassisVelocity.toFieldRelative(parameters.currentPose.getRotation());
+      limited.vx = fieldSpeeds.vx;
+      limited.vy = fieldSpeeds.vy;
+      limited.omega = fieldSpeeds.omega;
       needsInit = false;
     }
 
@@ -78,19 +77,12 @@ public class AccelerationLimitedFieldSpeeds implements SwerveRequest {
     double tOmega = targetOmega;
 
     // Compute desired acceleration: (target - current) / dt
-    double accelX = (tVx - limited.vxMetersPerSecond) / dt;
-    double accelY = (tVy - limited.vyMetersPerSecond) / dt;
-    double accelOmega = (tOmega - limited.omegaRadiansPerSecond) / dt;
+    double accelX = (tVx - limited.vx) / dt;
+    double accelY = (tVy - limited.vy) / dt;
+    double accelOmega = (tOmega - limited.omega) / dt;
 
     // Apply motor torque limit then friction circle limit
-    applyMotorLimit(
-        accelX,
-        accelY,
-        accelOmega,
-        limited.vxMetersPerSecond,
-        limited.vyMetersPerSecond,
-        limited.omegaRadiansPerSecond,
-        accelResult);
+    applyMotorLimit(accelX, accelY, accelOmega, limited.vx, limited.vy, limited.omega, accelResult);
     applyFrictionLimit(
         accelResult[0],
         accelResult[1],
@@ -99,15 +91,15 @@ public class AccelerationLimitedFieldSpeeds implements SwerveRequest {
         accelResult);
 
     // Integrate: next = current + limitedAccel * dt
-    limited.vxMetersPerSecond += accelResult[0] * dt;
-    limited.vyMetersPerSecond += accelResult[1] * dt;
-    limited.omegaRadiansPerSecond += accelResult[2] * dt;
+    limited.vx += accelResult[0] * dt;
+    limited.vy += accelResult[1] * dt;
+    limited.omega += accelResult[2] * dt;
 
     // Normalize to prevent module saturation
     AccelerationLimiter.normalizeSpeedsInPlace(limited);
 
     // Delegate to inner request for module control
-    return innerRequest.withSpeeds(limited).apply(parameters, modules);
+    return innerRequest.withVelocity(limited).apply(parameters, modules);
   }
 
   // --- Inlined pure math from AccelerationLimiter (thread-safe instance methods) ---

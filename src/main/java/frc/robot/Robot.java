@@ -4,12 +4,6 @@
 
 package frc.robot;
 
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.IterativeRobotBase;
-import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.Watchdog;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.HubShiftUtil;
@@ -19,6 +13,14 @@ import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Scheduler;
+import org.wpilib.driverstation.DriverStationErrors;
+import org.wpilib.driverstation.MatchState;
+import org.wpilib.driverstation.RobotState;
+import org.wpilib.framework.IterativeRobotBase;
+import org.wpilib.system.RobotController;
+import org.wpilib.system.Watchdog;
 
 public class Robot extends LoggedRobot {
 
@@ -38,7 +40,7 @@ public class Robot extends LoggedRobot {
   public Robot() {
     Logger.recordMetadata("2026Robot", "2026-AutoTesting");
     if (isReal()) {
-      Logger.addDataReceiver(new WPILOGWriter("/home/lvuser/logs"));
+      Logger.addDataReceiver(new WPILOGWriter("/home/systemcore/logs"));
       Logger.addDataReceiver(new NT4Publisher());
     } else {
       // Logger.addDataReceiver(new WPILOGWriter());
@@ -57,9 +59,8 @@ public class Robot extends LoggedRobot {
       Watchdog watchdog = (Watchdog) watchdogField.get(this);
       watchdog.setTimeout(loopOverrunWarning);
     } catch (Exception e) {
-      DriverStation.reportWarning("Failed to disable loop overrun warnings", false);
+      DriverStationErrors.reportWarning("Failed to disable loop overrun warnings", false);
     }
-    CommandScheduler.getInstance().setPeriod(loopOverrunWarning);
   }
 
   @Override
@@ -69,7 +70,7 @@ public class Robot extends LoggedRobot {
     m_robotContainer.getSuperstructure().update();
     long afterSuper = System.nanoTime();
 
-    CommandScheduler.getInstance().run();
+    Scheduler.getDefault().run();
     long afterScheduler = System.nanoTime();
 
     Tunables.update();
@@ -98,7 +99,7 @@ public class Robot extends LoggedRobot {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
     if (m_autonomousCommand != null) {
-      CommandScheduler.getInstance().schedule(m_autonomousCommand);
+      Scheduler.getDefault().schedule(m_autonomousCommand);
     }
   }
 
@@ -111,23 +112,23 @@ public class Robot extends LoggedRobot {
   @Override
   public void teleopInit() {
     if (m_autonomousCommand != null) {
-      m_autonomousCommand.cancel();
+      Scheduler.getDefault().cancel(m_autonomousCommand);
     }
 
     FieldInfo.resetAllianceCache();
     HubShiftUtil.initialize();
 
-    int station = DriverStation.getLocation().orElse(1);
+    int station = MatchState.getLocation().orElse(1);
     if (station <= 2) {
       m_robotContainer.getSuperstructure().setTeleopFeedMode(FeedMode.FORCE_LEFT);
     } else {
       m_robotContainer.getSuperstructure().setTeleopFeedMode(FeedMode.FORCE_RIGHT);
     }
 
-    if (DriverStation.isFMSAttached()) {
-      CommandScheduler.getInstance().schedule(m_robotContainer.fmsInitCommand());
+    if (RobotState.isFMSAttached()) {
+      Scheduler.getDefault().schedule(m_robotContainer.fmsInitCommand());
     } else {
-      CommandScheduler.getInstance().schedule(m_robotContainer.stopCommand());
+      Scheduler.getDefault().schedule(m_robotContainer.stopCommand());
     }
   }
 
@@ -149,15 +150,15 @@ public class Robot extends LoggedRobot {
   }
 
   @Override
-  public void testInit() {
-    CommandScheduler.getInstance().cancelAll();
+  public void utilityInit() {
+    Scheduler.getDefault().cancelAll();
   }
 
   @Override
-  public void testPeriodic() {}
+  public void utilityPeriodic() {}
 
   @Override
-  public void testExit() {}
+  public void utilityExit() {}
 
   public static boolean isHubActive() {
     return HubShiftUtil.isHubActive();

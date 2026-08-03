@@ -1,6 +1,6 @@
 package frc.robot.subsystems.hopper;
 
-import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static org.wpilib.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -10,19 +10,18 @@ import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.CANrange;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
-import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.units.measure.Current;
-import edu.wpi.first.units.measure.Distance;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
+import frc.robot.utils.RobotMechanism;
 import frc.robot.utils.TalonFXUtil;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.units.measure.AngularVelocity;
+import org.wpilib.units.measure.Current;
+import org.wpilib.units.measure.Distance;
 
-public class Hopper extends SubsystemBase {
+public class Hopper extends RobotMechanism {
 
   // Ball detection thresholds (in meters)
   private static final double SIDEWAYS_BALL_THRESHOLD_M = 0.19; // 203mm
@@ -46,9 +45,9 @@ public class Hopper extends SubsystemBase {
 
   protected TalonFXConfiguration sideConfig = new TalonFXConfiguration();
 
-  Alert motorConfigAlert = new Alert("Main Motor Configuration Failed", AlertType.kError);
+  Alert motorConfigAlert = new Alert("Main Motor Configuration Failed", Alert.Level.HIGH);
 
-  Alert sideMotorConfigAlert = new Alert("Side Motor Configuration Failed", AlertType.kError);
+  Alert sideMotorConfigAlert = new Alert("Side Motor Configuration Failed", Alert.Level.HIGH);
 
   private final VelocityVoltage mainVelocityOut = new VelocityVoltage(0);
   private final VelocityVoltage sideVelocityOut = new VelocityVoltage(0);
@@ -88,9 +87,9 @@ public class Hopper extends SubsystemBase {
     side.optimizeBusUtilization();
     sidewaysRange.optimizeBusUtilization();
     kickerRange.optimizeBusUtilization();
+    addPeriodicCallback(this::periodic);
   }
 
-  @Override
   public void periodic() {
     long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(mainStatorSignal, mainVelSignal, sideVelSignal);

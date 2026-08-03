@@ -1,6 +1,6 @@
 package frc.robot.utils.path;
 
-import edu.wpi.first.math.geometry.Translation2d;
+import org.wpilib.math.geometry.Translation2d;
 
 /**
  * Result of projecting a point onto a spline path.

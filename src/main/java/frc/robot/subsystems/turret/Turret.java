@@ -1,6 +1,6 @@
 package frc.robot.subsystems.turret;
 
-import static edu.wpi.first.units.Units.Rotations;
+import static org.wpilib.units.Units.Rotations;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
@@ -11,21 +11,20 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.filter.Debouncer.DebounceType;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.generated.TunerConstants;
+import frc.robot.utils.RobotMechanism;
 import frc.robot.utils.TalonFXUtil;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.command3.Command;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.math.filter.Debouncer;
+import org.wpilib.math.filter.Debouncer.DebounceType;
+import org.wpilib.units.measure.Angle;
+import org.wpilib.units.measure.AngularVelocity;
 
-public class Turret extends SubsystemBase {
+public class Turret extends RobotMechanism {
   // Motor
   protected final TalonFX leader = new TalonFX(DualEncoderCRT.MOTOR_ID, TunerConstants.kCANBus);
 
@@ -54,8 +53,8 @@ public class Turret extends SubsystemBase {
   private final StatusSignal<AngularVelocity> velocitySignal;
 
   // Alerts
-  Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", AlertType.kError);
-  Alert crtInitAlert = new Alert("Turret CRT Position Initialization Failed", AlertType.kWarning);
+  Alert motorConfigAlert = new Alert("Turret Motor Configuration Failed", Alert.Level.HIGH);
+  Alert crtInitAlert = new Alert("Turret CRT Position Initialization Failed", Alert.Level.MEDIUM);
 
   public Turret() {
     // Initialize CRT calculator using default constants
@@ -76,6 +75,7 @@ public class Turret extends SubsystemBase {
     leader.optimizeBusUtilization();
     encoder1.optimizeBusUtilization();
     encoder2.optimizeBusUtilization();
+    addPeriodicCallback(this::periodic);
   }
 
   /** Configure motor with FusedCANcoder feedback (encoder 1 fused with internal rotor). */
@@ -125,7 +125,6 @@ public class Turret extends SubsystemBase {
   // Cached primitive values updated in periodic()
   private double cachedPositionRot;
 
-  @Override
   public void periodic() {
     long _t = System.nanoTime();
     BaseStatusSignal.refreshAll(positionSignal, velocitySignal);

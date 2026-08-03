@@ -1,10 +1,10 @@
 package frc.robot.utils;
 
-import static edu.wpi.first.units.Units.Meters;
+import static org.wpilib.units.Units.Meters;
 
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.units.measure.Distance;
 import frc.robot.subsystems.Superstructure.FeedMode;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.units.measure.Distance;
 
 public final class FeedTargetSelector {
   public static final Distance CLEAR_PATH_SENTINEL = Meters.of(1000.0);

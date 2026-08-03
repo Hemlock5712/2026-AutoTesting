@@ -1,6 +1,6 @@
 package frc.robot.subsystems.shooter;
 
-import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
+import org.wpilib.math.interpolation.InterpolatingDoubleTreeMap;
 
 public class ShooterLookup {
   private static final InterpolatingDoubleTreeMap flywheelMap = new InterpolatingDoubleTreeMap();
