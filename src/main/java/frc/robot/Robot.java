@@ -10,6 +10,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Watchdog;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.config.ParadeConfig;
 import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.HubShiftUtil;
@@ -37,6 +38,7 @@ public class Robot extends LoggedRobot {
 
   public Robot() {
     Logger.recordMetadata("2026Robot", "2026-AutoTesting");
+    Logger.recordMetadata("ParadeMode", Boolean.toString(ParadeConfig.ENABLED));
     if (isReal()) {
       Logger.addDataReceiver(new WPILOGWriter("/home/lvuser/logs"));
       Logger.addDataReceiver(new NT4Publisher());

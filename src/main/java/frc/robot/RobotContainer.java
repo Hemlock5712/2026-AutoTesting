@@ -1,6 +1,5 @@
 package frc.robot;
 
-import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
@@ -15,10 +14,12 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
+import frc.robot.commands.AccelerationLimiter;
 import frc.robot.commands.AxisLockDrive;
 import frc.robot.commands.FaceVelocityDrive;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.commands.TurretDrive;
+import frc.robot.config.ParadeConfig;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.BallPhysicsSimulation;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
@@ -55,14 +56,14 @@ import java.util.function.Supplier;
 public class RobotContainer {
   private static final double JOYSTICK_DEADBAND = 0.05;
 
-  private double maxSpeed =
-      TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
+  private double maxSpeed = AccelerationLimiter.MAX_VELOCITY;
   private double maxAngularRate =
-      RotationsPerSecond.of(1)
-          .in(RadiansPerSecond); // 1 of a rotation per second max angular velocity
+      ParadeConfig.ENABLED
+          ? ParadeConfig.MAX_ANGULAR_SPEED_RADIANS_PER_SECOND
+          : RotationsPerSecond.of(1).in(RadiansPerSecond);
 
-  private double maxShootSpeed = 1.0;
-  private double maxFeedSpeed = 3.0;
+  private double maxShootSpeed = Math.min(1.0, maxSpeed);
+  private double maxFeedSpeed = Math.min(3.0, maxSpeed);
   private double maxShootAngularRate = maxAngularRate * 0.5;
 
   private final CommandXboxController joystick = new CommandXboxController(0);

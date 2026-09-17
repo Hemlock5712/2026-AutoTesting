@@ -15,6 +15,7 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.config.ParadeConfig;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
@@ -33,7 +34,8 @@ public class Limelight extends SubsystemBase {
   // Scaling: XY = 0.01 * (0.1/0.003) ≈ 0.333, Theta = 0.03 * (0.1/0.002) = 1.5
 
   private static final double XY_STD_DEV_COEFFICIENT = 0.333;
-  private static final double ROTATION_STD_DEV_COEFFICIENT = 1.5;
+  private static final double ROTATION_STD_DEV_COEFFICIENT =
+      ParadeConfig.ENABLED ? ParadeConfig.VISION_ROTATION_STD_DEV_COEFFICIENT : 1.5;
   private static final double MEGATAG2_ROTATION_STD_DEV = Double.POSITIVE_INFINITY;
 
   // Cap effective tag count to prevent over-trusting 3+ tags.
@@ -43,7 +45,7 @@ public class Limelight extends SubsystemBase {
 
   // Toggle between synced inverse-variance fusion (true) and simple per-camera measurements (false)
   private static final boolean USE_FUSED_VISION = true;
-  private static final int DEFAULT_PIPELINE = 0;
+  private static final int PIPELINE = ParadeConfig.ENABLED ? ParadeConfig.LIMELIGHT_PIPELINE : 0;
 
   // --- Rejection Thresholds ---
   private static final double MAX_AMBIGUITY = 0.3;
@@ -90,7 +92,7 @@ public class Limelight extends SubsystemBase {
     validRotStdDevs = new double[cameraCount];
     for (int i = 0; i < cameraCount; i++) {
       cameras[i] = new CameraState(cameraNames.get(i));
-      LimelightHelpers.setPipelineIndex(cameras[i].name, DEFAULT_PIPELINE);
+      LimelightHelpers.setPipelineIndex(cameras[i].name, PIPELINE);
     }
     LimelightHelpers.Flush();
   }
@@ -245,9 +247,12 @@ public class Limelight extends SubsystemBase {
       return null;
     }
 
-    // Use MegaTag2 for single tag estimates when not disabled
-    // (disabled gyro may not be seeded correctly yet)
-    if (poseEstimate.tagCount == 1 && !DriverStation.isDisabled()) {
+    // Competition mode uses MegaTag2 for enabled single-tag estimates. Parade mode retains
+    // MegaTag1 because MT2 consumes the gyro heading and cannot independently correct it as the
+    // trailer turns.
+    if (poseEstimate.tagCount == 1
+        && !DriverStation.isDisabled()
+        && !(ParadeConfig.ENABLED && ParadeConfig.FORCE_MEGATAG1)) {
       // Check MT2-specific angular velocity threshold before requesting MT2
       if (isRotatingTooFastForMT2()) {
         return null;
@@ -259,7 +264,7 @@ public class Limelight extends SubsystemBase {
       poseEstimate = megaTag2;
     }
 
-    // For multi-tag MT1, check the stricter angular velocity threshold
+    // For every MT1 estimate, check the stricter angular velocity threshold.
     if (!poseEstimate.isMegaTag2 && isRotatingTooFastForMT1()) {
       return null;
     }

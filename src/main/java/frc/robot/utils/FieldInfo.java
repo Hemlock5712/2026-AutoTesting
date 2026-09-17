@@ -12,6 +12,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import frc.robot.config.ParadeConfig;
 import frc.robot.utils.geometry.ExtTranslation;
 import java.util.List;
 import java.util.Optional;
@@ -134,7 +135,8 @@ public final class FieldInfo {
   /** Hub/target position for turret tracking (blue alliance coordinates). */
   public static final Translation2d HUB_POSITION = new Translation2d(4.625594 + 0.152, 4.034);
 
-  public static final Distance HUB_HEIGHT = Meters.of(1.828);
+  public static final Distance HUB_HEIGHT =
+      Meters.of(1.828 - (ParadeConfig.ENABLED ? ParadeConfig.HUB_HEIGHT_OFFSET_METERS : 0.0));
 
   public static final ExtTranslation RIGHT_FEED_POSITION = new ExtTranslation(1, 2);
   public static final ExtTranslation LEFT_FEED_POSITION = FieldFlip.overWidth(RIGHT_FEED_POSITION);

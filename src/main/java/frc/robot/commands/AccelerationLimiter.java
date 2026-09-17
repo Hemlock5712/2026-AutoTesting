@@ -3,6 +3,7 @@ package frc.robot.commands;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.config.ParadeConfig;
 import frc.robot.generated.TunerConstants;
 import frc.robot.utils.Motor;
 
@@ -28,10 +29,18 @@ public final class AccelerationLimiter {
       Math.hypot(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY);
 
   // Maximum robot velocity from TunerX configuration
-  public static final double MAX_VELOCITY = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
+  public static final double MAX_VELOCITY =
+      ParadeConfig.ENABLED
+          ? Math.min(
+              TunerConstants.kSpeedAt12Volts.in(MetersPerSecond),
+              ParadeConfig.MAX_LINEAR_SPEED_METERS_PER_SECOND)
+          : TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
 
   // Friction coefficient of 1.0 assumes good tread on carpet. Max acceleration = coefficient * g
-  public static final double MAX_FRICTION_ACCEL = 1.1 * GRAVITY;
+  public static final double MAX_FRICTION_ACCEL =
+      ParadeConfig.ENABLED
+          ? ParadeConfig.MAX_ACCELERATION_METERS_PER_SECOND_SQUARED
+          : 1.1 * GRAVITY;
 
   // Robot parameters for motor torque calculations
   static final Motor MOTOR = Motor.KRAKEN_X60_FOC;
@@ -273,13 +282,23 @@ public final class AccelerationLimiter {
    * @return Normalized speeds where no module exceeds max velocity
    */
   public static ChassisSpeeds normalizeSpeeds(ChassisSpeeds speeds) {
+    double omega = speeds.omegaRadiansPerSecond;
+    if (ParadeConfig.ENABLED) {
+      omega =
+          Math.max(
+              -ParadeConfig.MAX_ANGULAR_SPEED_RADIANS_PER_SECOND,
+              Math.min(ParadeConfig.MAX_ANGULAR_SPEED_RADIANS_PER_SECOND, omega));
+    }
+
     double translationSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-    double maxModuleSpeed =
-        translationSpeed + Math.abs(speeds.omegaRadiansPerSecond) * DRIVE_BASE_RADIUS;
+    double maxModuleSpeed = translationSpeed + Math.abs(omega) * DRIVE_BASE_RADIUS;
 
     if (maxModuleSpeed > MAX_VELOCITY) {
-      return speeds.times(MAX_VELOCITY / maxModuleSpeed);
+      double scale = MAX_VELOCITY / maxModuleSpeed;
+      return new ChassisSpeeds(
+          speeds.vxMetersPerSecond * scale, speeds.vyMetersPerSecond * scale, omega * scale);
     }
+    speeds.omegaRadiansPerSecond = omega;
     return speeds;
   }
 
@@ -292,6 +311,14 @@ public final class AccelerationLimiter {
    * @param speeds The chassis speeds to normalize (mutated in place)
    */
   public static void normalizeSpeedsInPlace(ChassisSpeeds speeds) {
+    if (ParadeConfig.ENABLED) {
+      speeds.omegaRadiansPerSecond =
+          Math.max(
+              -ParadeConfig.MAX_ANGULAR_SPEED_RADIANS_PER_SECOND,
+              Math.min(
+                  ParadeConfig.MAX_ANGULAR_SPEED_RADIANS_PER_SECOND, speeds.omegaRadiansPerSecond));
+    }
+
     double translationSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
     double maxModuleSpeed =
         translationSpeed + Math.abs(speeds.omegaRadiansPerSecond) * DRIVE_BASE_RADIUS;
