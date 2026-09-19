@@ -13,7 +13,6 @@ import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.config.ParadeConfig;
 import frc.robot.utils.FieldInfo;
@@ -250,18 +249,21 @@ public class Limelight extends SubsystemBase {
     // Competition mode uses MegaTag2 for enabled single-tag estimates. Parade mode retains
     // MegaTag1 because MT2 consumes the gyro heading and cannot independently correct it as the
     // trailer turns.
-    if (poseEstimate.tagCount == 1
-        && !DriverStation.isDisabled()
-        && !(ParadeConfig.ENABLED && ParadeConfig.FORCE_MEGATAG1)) {
-      // Check MT2-specific angular velocity threshold before requesting MT2
-      if (isRotatingTooFastForMT2()) {
-        return null;
-      }
-      PoseEstimate megaTag2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(camera.name);
-      if (!LimelightHelpers.validPoseEstimate(megaTag2)) {
-        return null;
-      }
-      poseEstimate = megaTag2;
+    // if (poseEstimate.tagCount == 1
+    //     && !DriverStation.isDisabled()
+    //     && !(ParadeConfig.ENABLED && ParadeConfig.FORCE_MEGATAG1)) {
+    //   // Check MT2-specific angular velocity threshold before requesting MT2
+    //   if (isRotatingTooFastForMT2()) {
+    //     return null;
+    //   }
+    //   PoseEstimate megaTag2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(camera.name);
+    //   if (!LimelightHelpers.validPoseEstimate(megaTag2)) {
+    //     return null;
+    //   }
+    //   poseEstimate = megaTag2;
+    // }
+    if (!LimelightHelpers.validPoseEstimate(poseEstimate)) {
+      return null;
     }
 
     // For every MT1 estimate, check the stricter angular velocity threshold.

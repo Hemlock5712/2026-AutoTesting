@@ -5,7 +5,6 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer.DebounceType;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -15,7 +14,6 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.autonomous.AutoCommands;
 import frc.robot.autonomous.AutoRoutines;
 import frc.robot.commands.AccelerationLimiter;
-import frc.robot.commands.AxisLockDrive;
 import frc.robot.commands.FaceVelocityDrive;
 import frc.robot.commands.OrbitDrive;
 import frc.robot.commands.TurretDrive;
@@ -25,10 +23,7 @@ import frc.robot.subsystems.BallPhysicsSimulation;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.Superstructure;
-import frc.robot.subsystems.Superstructure.FeedMode;
-import frc.robot.subsystems.blocker.Blocker;
 import frc.robot.subsystems.intake.IntakeCoordinator;
-import frc.robot.utils.FieldInfo;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -77,13 +72,10 @@ public class RobotContainer {
 
   private final IntakeCoordinator intakeCoordinator = new IntakeCoordinator();
 
-  private final Blocker blocker = new Blocker();
-
   // Vision cameras for tracking robot position
   public final Limelight limelight =
       new Limelight(
-          List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr"),
-          drivetrain);
+          List.of("limelight-br", "limelight-bl", "limelight-fl", "limelight-fr"), drivetrain);
 
   // Create ball physics simulation if in simulation mode
   public final BallPhysicsSimulation ballPhysicsSimulation =
@@ -142,81 +134,6 @@ public class RobotContainer {
             },
             () -> translationVel[1],
             () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate));
-
-    // AxisLockDrive - Lock Y axis to reef center, driver controls X, rotation free
-    joystick
-        .leftBumper()
-        .whileTrue(
-            AxisLockDrive.lockY(
-                drivetrain,
-                () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
-                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
-                () -> FieldInfo.flipY(FieldInfo.axisLockYLeft()),
-                () ->
-                    AutoRoutines.snapToNearest180Degrees(
-                        drivetrain.getRotation()))); // Lock to closest 180
-
-    joystick
-        .rightBumper()
-        .whileTrue(
-            AxisLockDrive.lockY(
-                drivetrain,
-                () -> -rescaleInputs(joystick.getLeftY()) * maxSpeed, // Driver controls X
-                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
-                () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_RIGHT),
-                () ->
-                    AutoRoutines.snapToNearest180Degrees(
-                        drivetrain.getRotation()))); // Lock to closest 180
-
-    joystick
-        .x()
-        .whileTrue(
-            AxisLockDrive.lockY(
-                drivetrain,
-                () ->
-                    bumpIsInAllianceZone
-                        ? (Math.abs(rescaleInputs(joystick.getLeftY())) > 0.2 ? maxSpeed / 3 : 0)
-                        : (Math.abs(rescaleInputs(joystick.getLeftY())) > 0.2
-                            ? -maxSpeed / 3
-                            : 0), // Driver controls X
-                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
-                () -> FieldInfo.flipY(FieldInfo.axisLockYTrenchLeft()),
-                () -> Rotation2d.fromDegrees(bumpIsInAllianceZone ? 135 : 45)
-                /* AutoRoutines.snapToNearest180Degrees(drivetrain.getRotation()) */ ))
-        .onTrue(
-            Commands.runOnce(
-                () ->
-                    bumpIsInAllianceZone =
-                        FieldInfo.flipX(drivetrain.getPose().getX())
-                            < FieldInfo.ALLIANCE_ZONE_X)); // Lock
-    // to
-    // closest
-    // 180
-
-    joystick
-        .b()
-        .whileTrue(
-            AxisLockDrive.lockY(
-                drivetrain,
-                () ->
-                    bumpIsInAllianceZone
-                        ? (Math.abs(rescaleInputs(joystick.getLeftY())) > 0.2 ? maxSpeed / 3 : 0)
-                        : (Math.abs(rescaleInputs(joystick.getLeftY())) > 0.2
-                            ? -maxSpeed / 3
-                            : 0), // Driver controls X
-                () -> -rescaleInputs(joystick.getRightX()) * maxAngularRate,
-                () -> FieldInfo.flipY(FieldInfo.AXIS_LOCK_Y_TRENCH_RIGHT),
-                () -> Rotation2d.fromDegrees(bumpIsInAllianceZone ? -135 : -45)
-                /* AutoRoutines.snapToNearest180Degrees(drivetrain.getRotation()) */ ))
-        .onTrue(
-            Commands.runOnce(
-                () ->
-                    bumpIsInAllianceZone =
-                        FieldInfo.flipX(drivetrain.getPose().getX())
-                            < FieldInfo.ALLIANCE_ZONE_X)); // Lock
-    // to
-    // closest
-    // 180
 
     // Right trigger toggles auto-shoot mode on/off.
     // Debounce prevents analog trigger noise from causing multiple toggles.
@@ -284,24 +201,9 @@ public class RobotContainer {
 
     joystick.start().onTrue(superstructure.recoverHopper()).onFalse(superstructure.stopHopper());
 
-    joystick
-        .povLeft()
-        .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.FORCE_LEFT)));
-    joystick
-        .povRight()
-        .onTrue(Commands.runOnce(() -> superstructure.setTeleopFeedMode(FeedMode.FORCE_RIGHT)));
     joystick.povDown().onTrue(intakeCoordinator.straightUp());
 
     // joystick.back().onTrue(Commands.runOnce(() -> limelightMM.));
-
-    // The blocker starts in its down state; each POV-up press toggles its target position.
-    joystick
-        .povUp()
-        .onTrue(
-            Commands.either(
-                blocker.down().alongWith(intakeCoordinator.deployAndRun()),
-                blocker.up(),
-                blocker::isUp));
 
     joystick.a().onTrue(intakeCoordinator.reverseIntake()).onFalse(intakeCoordinator.stopWheel());
   }
