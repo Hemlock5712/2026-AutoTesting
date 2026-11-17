@@ -1,0 +1,24 @@
+{
+  "schema": 3,
+  "headingMode": "hold",
+  "waypoints": [
+    { "x": -4.69583, "y": 3.54734, "tangentDegrees": -1.80873, "tangentScale": 0.5, "headingDegrees": -180 },
+    { "x": -2.48739, "y": 3.4776, "tangentDegrees": -3.63295, "tangentScale": 0.4, "headingDegrees": -180 },
+    { "x": -0.30221, "y": 3.26838, "tangentDegrees": -27.18111, "tangentScale": 1.04, "headingDegrees": -90 },
+    { "x": 0.09299, "y": 2.15254, "tangentDegrees": -85.33314, "tangentScale": 1.35 },
+    { "x": -0.02325, "y": -0.14888, "tangentDegrees": -111.68919, "tangentScale": 1.96, "headingDegrees": -90 },
+    { "x": -0.72065, "y": 0.10683, "tangentDegrees": 103.10911, "tangentScale": 0.54, "headingDegrees": 95 },
+    { "x": -0.81363, "y": 3.24513, "tangentDegrees": 135.57477, "tangentScale": 0.81, "headingDegrees": -180 },
+    { "x": -4.23089, "y": 3.54734, "tangentDegrees": 174.94612, "tangentScale": 0.75, "headingDegrees": -180 }
+  ],
+  "rotationTargets": [],
+  "facePointZones": [],
+  "constraintZones": [
+    { "fromWaypoint": 2, "toWaypoint": 6, "maxMetersPerSecond": 2.5, "maxMetersPerSecondSquared": 10.791 }
+  ],
+  "events": [],
+  "maxMetersPerSecond": 5.10331,
+  "maxMetersPerSecondSquared": 10.791,
+  "startMetersPerSecond": 1,
+  "endMetersPerSecond": 0
+}

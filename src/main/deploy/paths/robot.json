@@ -1,0 +1,19 @@
+{
+  "massKg": 60,
+  "momentOfInertiaKgM2": 6,
+  "moduleRadiusMeters": 0.39064,
+  "wheelRadiusMeters": 0.04991,
+  "driveGearRatio": 6.026785714285714,
+  "driveMotorCount": 4,
+  "statorCurrentLimitAmps": 150,
+  "frictionCoefficient": 1.1,
+  "tractionShare": 1.0,
+  "centerOfMassHeightMeters": 0.2,
+  "maxWheelMetersPerSecond": 4.91228,
+  "motor": {
+    "nominalVolts": 12,
+    "stallTorqueNewtonMeters": 9.362,
+    "stallCurrentAmps": 476.1,
+    "freeSpeedRadPerSec": 605.8038
+  }
+}

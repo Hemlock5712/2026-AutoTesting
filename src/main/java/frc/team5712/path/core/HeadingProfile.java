@@ -1,0 +1,265 @@
+package frc.team5712.path.core;
+
+import java.util.List;
+
+/**
+ * The robot's planned heading as a function of distance along the path, with its first two
+ * derivatives so the velocity profile can budget for the spin.
+ *
+ * <p><b>In plain words.</b> Which way the robot faces at each point along the path. It holds a
+ * heading, faces where it is driving, or turns smoothly from one rotation target to the next, and
+ * it can be pulled to face a point (a face-point zone). <b>You can treat it as a black box:</b> a
+ * distance {@code s} goes in, a heading (and how fast it is turning) comes out. The layers below
+ * say exactly how.
+ *
+ * <p>Layers, bottom to top:
+ *
+ * <ol>
+ *   <li><b>Base.</b> With no rotation targets, {@link HeadingMode#HOLD} (the default) holds the
+ *       direction the path starts out in; {@link HeadingMode#FACE_TRAVEL} faces the direction of
+ *       travel (θ = tangent angle, dθ/ds = κ, d²θ/ds² = dκ/ds). With targets, the heading holds the
+ *       first target before it, the last after it, and between two targets turns the shortest way
+ *       with a quintic over the whole stretch. At the first and the last target, and wherever the
+ *       turn reverses, the spin stops there (dθ/ds = 0: the minimum-jerk blend {@code 10τ³ − 15τ⁴ +
+ *       6τ⁵}). Where the turn carries on the same way, the robot passes the target still turning,
+ *       at the harmonic mean of the two stretches' average rates ({@link #passThroughSlopes}),
+ *       which never overshoots a target. d²θ/ds² is zero at every target, so dθ/ds and d²θ/ds² are
+ *       continuous.
+ *   <li><b>Face-point zones,</b> in order. Inside a zone the heading is pulled to the direction
+ *       from the path point to the zone's point, eased in and out with the same blend.
+ * </ol>
+ */
+public final class HeadingProfile {
+  private final PathGeometry geometry;
+  // Rotation targets sorted by s, headings unwrapped so each step is the shortest turn
+  private final double[] targetS;
+  private final double[] targetRadians;
+  private final double[] targetSlope; // dθ/ds at each target (passThroughSlopes)
+  // Face-point zones in authored order
+  private final double[] zoneStartS;
+  private final double[] zoneEndS;
+  private final double[] zoneBlendMeters;
+  private final double[] zonePointX;
+  private final double[] zonePointY;
+
+  private HeadingProfile(
+      PathGeometry geometry,
+      double[] targetS,
+      double[] targetRadians,
+      double[] zoneStartS,
+      double[] zoneEndS,
+      double[] zoneBlendMeters,
+      double[] zonePointX,
+      double[] zonePointY) {
+    this.targetSlope = passThroughSlopes(targetS, targetRadians);
+    this.geometry = geometry;
+    this.targetS = targetS;
+    this.targetRadians = targetRadians;
+    this.zoneStartS = zoneStartS;
+    this.zoneEndS = zoneEndS;
+    this.zoneBlendMeters = zoneBlendMeters;
+    this.zonePointX = zonePointX;
+    this.zonePointY = zonePointY;
+  }
+
+  /** The heading profile as before heading modes: face travel when there are no targets. */
+  public static HeadingProfile build(
+      PathGeometry geometry, List<RotationTarget> targets, List<FacePointZone> zones) {
+    return build(geometry, targets, zones, HeadingMode.FACE_TRAVEL);
+  }
+
+  public static HeadingProfile build(
+      PathGeometry geometry,
+      List<RotationTarget> targets,
+      List<FacePointZone> zones,
+      HeadingMode mode) {
+    if (mode == HeadingMode.HOLD && targets.isEmpty()) {
+      // nothing set: hold the direction the path starts out in
+      GeometrySample start = geometry.sample(0.0);
+      targets =
+          List.of(RotationTarget.atMeters(0.0, Angles.atan2(start.tangentY(), start.tangentX())));
+    }
+    // Resolve to metres and insertion-sort by s (a handful of targets; stable, so ties keep the
+    // authored order; and no lambdas, whose first use costs tens of milliseconds at boot)
+    int nt = targets.size();
+    double[] ts = new double[nt];
+    double[] heading = new double[nt];
+    for (int j = 0; j < nt; j++) {
+      RotationTarget t = targets.get(j);
+      double s = t.byWaypoint() ? geometry.sAtWaypoint(t.waypoint()) : clamp(t.meters(), geometry);
+      int at = j;
+      while (at > 0 && ts[at - 1] > s) {
+        ts[at] = ts[at - 1];
+        heading[at] = heading[at - 1];
+        at--;
+      }
+      ts[at] = s;
+      heading[at] = t.headingRadians();
+    }
+    double[] tr = new double[nt];
+    for (int j = 0; j < nt; j++) {
+      tr[j] = j == 0 ? heading[0] : tr[j - 1] + Angles.wrap(heading[j] - tr[j - 1]);
+    }
+
+    int nz = zones.size();
+    double[] za = new double[nz];
+    double[] zb = new double[nz];
+    double[] zblend = new double[nz];
+    double[] zx = new double[nz];
+    double[] zy = new double[nz];
+    for (int j = 0; j < nz; j++) {
+      FacePointZone z = zones.get(j);
+      za[j] = geometry.sAtWaypoint(z.fromWaypoint());
+      zb[j] = geometry.sAtWaypoint(z.toWaypoint());
+      zblend[j] = Math.min(z.blendMeters(), 0.5 * (zb[j] - za[j]));
+      zx[j] = z.point().x();
+      zy[j] = z.point().y();
+    }
+    return new HeadingProfile(geometry, ts, tr, za, zb, zblend, zx, zy);
+  }
+
+  /**
+   * dθ/ds at each target: zero at the first and the last, and where the turn reverses or pauses
+   * (the stretches either side turn opposite ways, or one doesn't turn); otherwise the harmonic
+   * mean of the two stretches' average rates, {@code 2·δa·δb / (δa + δb)}. That is at most twice
+   * the smaller rate, and a quintic with zero d²θ/ds² at its ends and end rates within twice its
+   * own average rate turns one way only, so the heading never overshoots a target.
+   */
+  static double[] passThroughSlopes(double[] s, double[] radians) {
+    int n = s.length;
+    double[] m = new double[n];
+    for (int i = 1; i < n - 1; i++) {
+      double la = s[i] - s[i - 1];
+      double lb = s[i + 1] - s[i];
+      if (!(la > 0.0) || !(lb > 0.0)) {
+        continue; // a jump at a shared position: stop there
+      }
+      double da = (radians[i] - radians[i - 1]) / la;
+      double db = (radians[i + 1] - radians[i]) / lb;
+      if (da * db > 0.0) {
+        m[i] = 2.0 * da * db / (da + db);
+      }
+    }
+    return m;
+  }
+
+  private static double clamp(double s, PathGeometry g) {
+    return s < 0.0 ? 0.0 : (s > g.lengthMeters() ? g.lengthMeters() : s);
+  }
+
+  /** The heading at {@code s}. */
+  public HeadingSample sample(double s) {
+    return sample(geometry.sample(s));
+  }
+
+  /** The heading at a geometry sample already in hand (saves a lookup). */
+  public HeadingSample sample(GeometrySample g) {
+    HeadingSample h = base(g);
+    for (int j = 0; j < zoneStartS.length; j++) {
+      h = faceZone(j, g, h);
+    }
+    return new HeadingSample(
+        Angles.wrap(h.radians()), h.radiansPerMeter(), h.radiansPerMeterSquared());
+  }
+
+  /**
+   * The base layer (unwrapped): face travel with no targets, hold before the first and after the
+   * last, else blend.
+   */
+  private HeadingSample base(GeometrySample g) {
+    double s = g.s();
+    if (targetS.length == 0) {
+      return new HeadingSample(
+          Angles.atan2(g.tangentY(), g.tangentX()), g.curvature(), g.dCurvatureDs());
+    }
+    if (s <= targetS[0]) {
+      return new HeadingSample(targetRadians[0], 0.0, 0.0);
+    }
+    if (s >= targetS[targetS.length - 1]) {
+      return new HeadingSample(targetRadians[targetS.length - 1], 0.0, 0.0);
+    }
+    int j = 0;
+    while (targetS[j + 1] <= s) {
+      j++;
+    }
+    return betweenTargets(j, s);
+  }
+
+  /**
+   * From target j to target j + 1: a quintic through both headings with the rates {@link
+   * #passThroughSlopes} gives at each and zero d²θ/ds² at both (the smoothstep turn plus two rate
+   * terms).
+   */
+  private HeadingSample betweenTargets(int j, double s) {
+    double length = targetS[j + 1] - targetS[j];
+    double turn = targetRadians[j + 1] - targetRadians[j];
+    double tau = (s - targetS[j]) / length;
+    double m0 = targetSlope[j];
+    double m1 = targetSlope[j + 1];
+    double t2 = tau * tau;
+    double t3 = t2 * tau;
+    double t4 = t3 * tau;
+    double h1 = tau - 6.0 * t3 + 8.0 * t4 - 3.0 * t4 * tau;
+    double h4 = -4.0 * t3 + 7.0 * t4 - 3.0 * t4 * tau;
+    double h1d = 1.0 - 18.0 * t2 + 32.0 * t3 - 15.0 * t4;
+    double h4d = -12.0 * t2 + 28.0 * t3 - 15.0 * t4;
+    double h1dd = -36.0 * tau + 96.0 * t2 - 60.0 * t3;
+    double h4dd = -24.0 * tau + 84.0 * t2 - 60.0 * t3;
+    return new HeadingSample(
+        targetRadians[j] + turn * Angles.smoothstep5(tau) + length * (m0 * h1 + m1 * h4),
+        turn * Angles.smoothstep5Slope(tau) / length + m0 * h1d + m1 * h4d,
+        turn * Angles.smoothstep5Bend(tau) / (length * length) + (m0 * h1dd + m1 * h4dd) / length);
+  }
+
+  /**
+   * Face-point zone j: inside it, pull the heading toward the zone's point, eased in and out over
+   * its blend.
+   */
+  private HeadingSample faceZone(int j, GeometrySample g, HeadingSample h) {
+    double s = g.s();
+    double a = zoneStartS[j];
+    double b = zoneEndS[j];
+    if (s < a || s > b) {
+      return h;
+    }
+    double dx = zonePointX[j] - g.xMeters();
+    double dy = zonePointY[j] - g.yMeters();
+    double distSq = dx * dx + dy * dy;
+    if (distSq < 1e-9) {
+      return h; // on top of the point: no direction to face
+    }
+    // Weight w(s): 0 → 1 over the first blend, 1 → 0 over the last
+    double blend = zoneBlendMeters[j];
+    double w = 1.0;
+    double dw = 0.0;
+    double ddw = 0.0;
+    if (blend > 0.0) {
+      if (s < a + blend) {
+        double tau = (s - a) / blend;
+        w = Angles.smoothstep5(tau);
+        dw = Angles.smoothstep5Slope(tau) / blend;
+        ddw = Angles.smoothstep5Bend(tau) / (blend * blend);
+      } else if (s > b - blend) {
+        double tau = (b - s) / blend;
+        w = Angles.smoothstep5(tau);
+        dw = -Angles.smoothstep5Slope(tau) / blend;
+        ddw = Angles.smoothstep5Bend(tau) / (blend * blend);
+      }
+    }
+    // Facing direction and its derivatives along the path. With d = point − p(s), d' = −T and
+    // T' = κN: θf' = (T × d)/|d|², θf'' = (2(T × d)(T·d) − κ(T·d)|d|²)/|d|⁴.
+    double face = Angles.atan2(dy, dx);
+    double cross = g.tangentX() * dy - g.tangentY() * dx;
+    double along = g.tangentX() * dx + g.tangentY() * dy;
+    double dFace = cross / distSq;
+    double ddFace = (2.0 * cross * along - g.curvature() * along * distSq) / (distSq * distSq);
+    double theta = h.radians();
+    double dTheta = h.radiansPerMeter();
+    double ddTheta = h.radiansPerMeterSquared();
+    double gap = Angles.wrap(face - theta);
+    return new HeadingSample(
+        theta + w * gap,
+        dTheta + dw * gap + w * (dFace - dTheta),
+        ddTheta + ddw * gap + 2.0 * dw * (dFace - dTheta) + w * (ddFace - ddTheta));
+  }
+}

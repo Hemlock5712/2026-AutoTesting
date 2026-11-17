@@ -1,0 +1,27 @@
+{
+  "schema": 3,
+  "headingMode": "hold",
+  "waypoints": [
+    { "x": -3.81955, "y": 3.659, "tangentDegrees": -10.81005, "tangentScale": 0.94, "headingDegrees": -90 },
+    { "x": -0.31545, "y": 2.98992, "tangentDegrees": -41.46456, "tangentScale": 0.85 },
+    { "x": 0.26872, "y": 0.04651, "tangentDegrees": -92.14897, "tangentScale": 1.19, "headingDegrees": -90 },
+    { "x": -0.53745, "y": -2.92626, "tangentDegrees": -153.34861, "tangentScale": 0.85, "headingDegrees": 180 },
+    { "x": -5.50035, "y": -2.8489, "tangentDegrees": 134.6439, "tangentScale": 0.77, "headingDegrees": -180 },
+    { "x": -5.95952, "y": 2.56363, "tangentDegrees": 94.84906, "tangentScale": 1.15, "headingDegrees": 180 }
+  ],
+  "rotationTargets": [],
+  "facePointZones": [],
+  "constraintZones": [
+    { "fromWaypoint": 1, "toWaypoint": 2, "maxMetersPerSecond": 2, "maxMetersPerSecondSquared": 10.791 },
+    { "fromWaypoint": 4, "toWaypoint": 5, "maxMetersPerSecond": 2, "maxMetersPerSecondSquared": 10.791 }
+  ],
+  "events": [
+    { "name": "FeedShoot", "atWaypoint": 1 },
+    { "name": "StopShoot", "atWaypoint": 3 },
+    { "name": "HubShoot", "atWaypoint": 4 }
+  ],
+  "maxMetersPerSecond": 4.9,
+  "maxMetersPerSecondSquared": 10.791,
+  "startMetersPerSecond": 0,
+  "endMetersPerSecond": 0
+}

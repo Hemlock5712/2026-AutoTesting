@@ -1,0 +1,40 @@
+{
+  "schema": 3,
+  "headingMode": "hold",
+  "waypoints": [
+    { "x": -3.82258, "y": 3.6543, "tangentDegrees": -8.73283, "tangentScale": 0.71, "headingDegrees": -90 },
+    { "x": -0.26951, "y": 3.10852, "tangentDegrees": -36.90201, "tangentScale": 0.85, "headingDegrees": 270 },
+    { "x": -0.01925, "y": 0.79847, "tangentDegrees": -145.04211, "tangentScale": 0.57, "headingDegrees": 270 },
+    { "x": -2.44481, "y": 1.58774, "tangentDegrees": 168.27162, "tangentScale": 1.04, "headingDegrees": 45 },
+    { "x": -4.86399, "y": 1.80427, "tangentDegrees": 143.76836, "tangentScale": 0.59, "headingDegrees": 45 },
+    { "x": -5.04776, "y": 3.49502, "tangentDegrees": 38.22835, "tangentScale": 0.88, "headingDegrees": 0 },
+    { "x": -2.69507, "y": 3.51278, "tangentDegrees": -27.12888, "tangentScale": 1.41, "headingDegrees": 0 },
+    { "x": -0.42351, "y": 1.12573, "tangentDegrees": -72.98523, "tangentScale": 0.62, "headingDegrees": 250 },
+    { "x": -1.61704, "y": -0.01005, "tangentDegrees": 124.27125, "tangentScale": 0.63, "headingDegrees": 180 },
+    { "x": -1.9058, "y": 3.30103, "tangentDegrees": 137.2785, "tangentScale": 0.61, "headingDegrees": 180 },
+    { "x": -5.39013, "y": 3.47428, "tangentDegrees": -172.92795, "tangentScale": 1.11, "headingDegrees": 180 },
+    { "x": -7.02642, "y": 2.66576, "tangentDegrees": -131.3087, "tangentScale": 1.35, "headingDegrees": 205 },
+    { "x": -7.06492, "y": 1.56849, "tangentDegrees": 22.1664, "tangentScale": 0.79 },
+    { "x": -4.90074, "y": 3.53178, "tangentDegrees": 42.21353, "tangentScale": 2.5, "headingDegrees": 180 }
+  ],
+  "rotationTargets": [],
+  "facePointZones": [],
+  "constraintZones": [
+    { "fromWaypoint": 3, "toWaypoint": 4, "maxMetersPerSecond": 1.67, "maxMetersPerSecondSquared": 10.791 },
+    { "fromWaypoint": 1, "toWaypoint": 2, "maxMetersPerSecond": 2.5, "maxMetersPerSecondSquared": 10.791 },
+    { "fromWaypoint": 4, "toWaypoint": 5, "maxMetersPerSecond": 0.6, "maxMetersPerSecondSquared": 10.791 },
+    { "fromWaypoint": 11, "toWaypoint": 13, "maxMetersPerSecond": 0.7, "maxMetersPerSecondSquared": 10.791 },
+    { "fromWaypoint": 6, "toWaypoint": 8, "maxMetersPerSecond": 2, "maxMetersPerSecondSquared": 10.791 }
+  ],
+  "events": [
+    { "name": "HubShoot", "atWaypoint": 4 },
+    { "name": "SlowRaiseIntake", "atWaypoint": 4 },
+    { "name": "StopShoot", "atWaypoint": 5 },
+    { "name": "RunIntake", "atWaypoint": 6 },
+    { "name": "HubShoot", "atWaypoint": 12 }
+  ],
+  "maxMetersPerSecond": 4.9,
+  "maxMetersPerSecondSquared": 10.791,
+  "startMetersPerSecond": 0,
+  "endMetersPerSecond": 0
+}

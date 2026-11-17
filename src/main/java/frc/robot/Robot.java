@@ -14,6 +14,7 @@ import frc.robot.subsystems.Superstructure.FeedMode;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.HubShiftUtil;
 import frc.robot.utils.Tunables;
+import frc.team5712.path.wpilib.PathTelemetry;
 import java.lang.reflect.Field;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -71,6 +72,9 @@ public class Robot extends LoggedRobot {
 
     CommandScheduler.getInstance().run();
     long afterScheduler = System.nanoTime();
+
+    // The robot's pose for the path editor's live view (paths.frc5712.com, Telemetry tab)
+    PathTelemetry.robotPose(m_robotContainer.drivetrain.getPose());
 
     Tunables.update();
 

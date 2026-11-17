@@ -2,408 +2,141 @@ package frc.robot.autonomous;
 
 import static edu.wpi.first.units.Units.Meters;
 
+import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
+import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
+import com.ctre.phoenix6.swerve.SwerveRequest;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveToPoint;
-import frc.robot.commands.FollowPath;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.utils.FieldInfo;
 import frc.robot.utils.geometry.ExtPose;
-import frc.robot.utils.path.PathData;
-import frc.robot.utils.path.ProjectionResult;
-import frc.robot.utils.path.RotationSupplier;
-import frc.robot.utils.path.SplinePath;
-import frc.robot.utils.path.VelocityConstraints;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.function.DoubleSupplier;
+import frc.team5712.path.core.FieldFrame;
+import frc.team5712.path.core.Path;
+import frc.team5712.path.core.PathSample;
+import frc.team5712.path.core.Pose;
+import frc.team5712.path.follow.FollowerConfig;
+import frc.team5712.path.follow.PathFollower;
+import frc.team5712.path.wpilib.Conversions;
+import frc.team5712.path.wpilib.FollowPathCommandV2;
+import frc.team5712.path.wpilib.PathId;
+import frc.team5712.path.wpilib.PathLibrary;
+import frc.team5712.path.wpilib.Pathfinding;
 import java.util.function.Supplier;
 
 /**
- * Utility class containing reusable command patterns for autonomous routines.
+ * Reusable command builders for autonomous routines.
  *
- * <p>This class provides:
- *
- * <ul>
- *   <li>Common command builders (drive, intake, score)
- *   <li>Game piece spawning for simulation
- *   <li>Vision-based game piece detection and intake
- * </ul>
+ * <p>Paths come from the 5712 path library (Myelin, paths.frc5712.com): every {@code
+ * deploy/paths/*.path.json} is built once here, at robot init, and named with the editor's
+ * generated {@code PathEditorNames.Paths} constants. A path is drawn for blue and flipped for red
+ * when it starts (a half turn about the field's centre), so routines don't build both.
  */
 public class AutoCommands {
 
-  // Subsystems
-  private final CommandSwerveDrivetrain drivetrain;
+  /** How red paths are flipped: the 2026 field is rotationally symmetric. */
+  public static final FieldFrame RED_FRAME = FieldFrame.RED_HALF_TURN;
 
-  /**
-   * Creates AutoCommands with PhotonVision backend.
-   *
-   * @param drivetrain The swerve drivetrain
-   * @param intake The intake subsystem
-   * @param elevator The elevator subsystem (unused but kept for compatibility)
-   * @param photonGamePiece PhotonVision detector
-   * @param superstructure The superstructure
-   */
+  /** Heading tolerance when a routine asks for a looser finish (the old follower checked none). */
+  private static final double LOOSE_HEADING_TOLERANCE_RAD = Math.toRadians(10);
+
+  private final CommandSwerveDrivetrain drivetrain;
+  private final PathLibrary paths;
+  private final FollowerConfig followerConfig;
+  private final Pathfinding pathfinding;
+
+  private final SwerveRequest.ApplyFieldSpeeds pathRequest =
+      new SwerveRequest.ApplyFieldSpeeds()
+          .withDriveRequestType(DriveRequestType.Velocity)
+          .withSteerRequestType(SteerRequestType.MotionMagicExpo);
+
   public AutoCommands(CommandSwerveDrivetrain drivetrain) {
     this.drivetrain = drivetrain;
+    this.paths = PathLibrary.loadAll();
+    this.followerConfig = FollowerConfig.defaults(paths.robot());
+    this.pathfinding =
+        new Pathfinding(
+            paths,
+            followerConfig,
+            drivetrain::getPose,
+            drivetrain::getFieldSpeeds,
+            this::driveFieldSpeeds,
+            RED_FRAME);
+  }
+
+  private void driveFieldSpeeds(ChassisSpeeds fieldSpeeds) {
+    drivetrain.setControl(pathRequest.withSpeeds(fieldSpeeds));
+  }
+
+  /** Every loaded path, plus the field and pathfinder, for anything not wrapped here. */
+  public PathLibrary paths() {
+    return paths;
+  }
+
+  /** On-the-fly paths around field.json's obstacles ({@code pathfinding().toV2(...)} etc.). */
+  public Pathfinding pathfinding() {
+    return pathfinding;
   }
 
   public DriveToPoint driveTo(Supplier<Pose2d> pose) {
     return new DriveToPoint(drivetrain, pose);
   }
 
-  // ==================== Drive Commands ====================
+  // ==================== Path following ====================
 
-  /**
-   * Follow a spline path with specified constraints.
-   *
-   * @param path The spline path to follow
-   * @param constraints Velocity and acceleration limits
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(SplinePath path, VelocityConstraints constraints) {
-    return new FollowPath(drivetrain, path, constraints);
+  /** Follows a library path with the default finish (2 cm, 1°, settled). Flipped on red. */
+  public FollowPathCommandV2 followPath(PathId path) {
+    return pathfinding.followV2(drivetrain, path);
   }
 
   /**
-   * Follow a spline path with default constraints.
-   *
-   * @param path The spline path to follow
-   * @return A FollowPath command
+   * Follows a library path, finishing once within {@code positionToleranceMeters} of the end (and
+   * 10° of its heading, settled), for routines that would rather move on than settle exactly.
    */
-  public FollowPath followPath(SplinePath path) {
-    return new FollowPath(drivetrain, path);
+  public FollowPathCommandV2 followPath(PathId path, double positionToleranceMeters) {
+    FollowerConfig loose =
+        followerConfig.toBuilder()
+            .positionToleranceMeters(positionToleranceMeters)
+            .headingToleranceRadians(LOOSE_HEADING_TOLERANCE_RAD)
+            .build();
+    return new FollowPathCommandV2(
+            path,
+            drivetrain,
+            new PathFollower(paths.get(path), loose),
+            drivetrain::getPose,
+            drivetrain::getFieldSpeeds,
+            this::driveFieldSpeeds,
+            RED_FRAME)
+        .withEvents(paths);
   }
 
-  /**
-   * Follow a path from a PathData object (e.g., from Paths.java constants).
-   *
-   * <p>Automatically wires heading waypoints and constraint zones.
-   *
-   * @param data The path data
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(PathData data) {
-    SplinePath path = data.getSplinePath();
-    FollowPath cmd =
-        new FollowPath(
-            drivetrain, path, data.getVelocityProfile(), data.globalConstraints().getEndVelocity());
-
-    if (!data.headingWaypoints().isEmpty()) {
-      cmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
-    }
-
-    return cmd;
+  /** Where {@code path} starts, for the alliance the driver station reports now (2026 frame). */
+  public Pose2d startPose(PathId path) {
+    return poseAt(path, 0.0);
   }
 
-  /**
-   * Follow a path from a PathData object with custom velocity constraints. Rebuilds the velocity
-   * profile with the provided constraints instead of using the cached one.
-   *
-   * @param data The path data
-   * @param constraints Custom velocity constraints
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(PathData data, VelocityConstraints constraints) {
-    SplinePath path = data.getSplinePath();
-    FollowPath cmd = new FollowPath(drivetrain, path, constraints, data.constraintZones());
-
-    if (!data.headingWaypoints().isEmpty()) {
-      cmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, data.headingWaypoints()));
-    }
-
-    return cmd;
+  /** Where {@code path} ends, for the alliance the driver station reports now (2026 frame). */
+  public Pose2d endPose(PathId path) {
+    Path p = paths.get(path);
+    return poseAt(path, p.lengthMeters());
   }
 
-  /**
-   * Follow a spline path with a rotation supplier.
-   *
-   * @param path The spline path to follow
-   * @param rotation Rotation strategy to use during path following
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(SplinePath path, RotationSupplier rotation) {
-    return new FollowPath(drivetrain, path).withRotationSupplier(rotation);
-  }
-
-  /**
-   * Follow a spline path with constraints and a rotation supplier.
-   *
-   * @param path The spline path to follow
-   * @param constraints Velocity and acceleration limits
-   * @param rotation Rotation strategy to use during path following
-   * @return A FollowPath command
-   */
-  public FollowPath followPath(
-      SplinePath path, VelocityConstraints constraints, RotationSupplier rotation) {
-    return new FollowPath(drivetrain, path, constraints).withRotationSupplier(rotation);
+  private Pose2d poseAt(PathId path, double s) {
+    PathSample sample = paths.get(path).sample(s);
+    Pose blue = new Pose(sample.xMeters(), sample.yMeters(), sample.headingRadians());
+    return Conversions.toPose2d(Conversions.allianceFrame(RED_FRAME).fromBlue(blue));
   }
 
   public Command resetPose(Supplier<Pose2d> pose) {
     return drivetrain.runOnce(() -> drivetrain.resetPose(pose.get()));
   }
 
-  // ==================== Path Actions ====================
-
-  /** An action to trigger at a specific control point or waypoint flag along a path. */
-  public record PathAction(
-      Integer pointIndex, String flagLabel, double triggerDistance, Supplier<Command> command) {
-    public PathAction(int pointIndex, double triggerDistance, Supplier<Command> command) {
-      this(pointIndex, null, triggerDistance, command);
-    }
-
-    public PathAction(String flagLabel, double triggerDistance, Supplier<Command> command) {
-      this(null, flagLabel, triggerDistance, command);
-    }
-  }
-
-  private record ResolvedPathAction(
-      int pointIndex, double triggerDistance, Supplier<Command> command, int insertionOrder) {}
-
-  static final class ActivePathActionRunner extends Command {
-    private final List<ScheduledPathAction> actions;
-    private final DoubleSupplier progressSupplier;
-    private int nextActionIndex = 0;
-    private Command activeCommand;
-    private boolean activeCommandInitialized = false;
-
-    ActivePathActionRunner(List<ScheduledPathAction> actions, DoubleSupplier progressSupplier) {
-      this.actions = List.copyOf(actions);
-      this.progressSupplier = progressSupplier;
-    }
-
-    @Override
-    public void execute() {
-      double progress = progressSupplier.getAsDouble();
-
-      while (nextActionIndex < actions.size()
-          && progress >= actions.get(nextActionIndex).triggerS()) {
-        scheduleReplacement(actions.get(nextActionIndex).commandSupplier().get());
-        nextActionIndex++;
-      }
-
-      runActiveCommand();
-    }
-
-    private void scheduleReplacement(Command nextCommand) {
-      if (activeCommand != null) {
-        activeCommand.end(true);
-      }
-
-      activeCommand = nextCommand;
-      activeCommandInitialized = false;
-    }
-
-    private void runActiveCommand() {
-      if (activeCommand == null) {
-        return;
-      }
-
-      if (!activeCommandInitialized) {
-        activeCommand.initialize();
-        activeCommandInitialized = true;
-      }
-
-      activeCommand.execute();
-      if (activeCommand.isFinished()) {
-        activeCommand.end(false);
-        activeCommand = null;
-        activeCommandInitialized = false;
-      }
-    }
-
-    @Override
-    public void end(boolean interrupted) {
-      if (activeCommand != null) {
-        activeCommand.end(true);
-        activeCommand = null;
-        activeCommandInitialized = false;
-      }
-    }
-
-    @Override
-    public boolean isFinished() {
-      return false;
-    }
-  }
-
-  record ScheduledPathAction(double triggerS, Supplier<Command> commandSupplier) {}
-
-  private static final double ACTION_TRIGGER_PROJECTION_WINDOW = 0.75;
-
-  private void validatePointIndex(PathData pathData, int pointIndex) {
-    if (pointIndex < 0 || pointIndex >= pathData.controlPoints().size()) {
-      throw new IllegalArgumentException("Invalid waypoint index: " + pointIndex);
-    }
-  }
-
-  /**
-   * Follow a path with distance-triggered actions and optional alongside commands.
-   *
-   * <p>Each action fires when the robot is within {@code triggerDistance} of the control point at
-   * {@code pointIndex}. Once an action is triggered, it stays scheduled until a later action
-   * replaces it, the path completes, or the routine is interrupted. Alongside commands run for the
-   * entire path duration.
-   *
-   * @param pathData The path to follow
-   * @param actions Ordered list of actions to trigger along the path
-   * @param alongside Commands that run for the entire path (e.g., intake)
-   * @return A command that follows the path with all actions wired
-   */
-  public Command followPathWithActions(
-      PathData pathData,
-      List<PathAction> actions,
-      double completionTolerance,
-      Command... alongside) {
-    return followPathWithActionsInternal(pathData, actions, completionTolerance, alongside);
-  }
-
-  public Command followPathWithActions(
-      PathData pathData, List<PathAction> actions, Command... alongside) {
-    return followPathWithActionsInternal(pathData, actions, -1, alongside);
-  }
-
-  private Command followPathWithActionsInternal(
-      PathData pathData,
-      List<PathAction> actions,
-      double completionTolerance,
-      Command... alongside) {
-    SplinePath path = pathData.getSplinePath();
-    FollowPath pathCmd =
-        new FollowPath(
-            drivetrain,
-            path,
-            pathData.getVelocityProfile(),
-            pathData.globalConstraints().getEndVelocity());
-    if (completionTolerance > 0) {
-      pathCmd.withCompletionTolerance(completionTolerance);
-    }
-
-    if (!pathData.headingWaypoints().isEmpty()) {
-      pathCmd.withRotationSupplier(
-          RotationSupplier.interpolateAlongPath(path, pathData.headingWaypoints()));
-    }
-
-    List<ResolvedPathAction> resolvedActions = resolvePathActions(pathData, actions);
-
-    if (resolvedActions.isEmpty()) {
-      return alongside.length == 0 ? pathCmd : pathCmd.deadlineFor(alongside);
-    }
-
-    double[] projectedS = {0.0};
-    ActivePathActionRunner actionRunner =
-        new ActivePathActionRunner(
-            buildScheduledPathActions(path, resolvedActions),
-            () -> updateProjectedS(path, projectedS));
-
-    Command[] deadlineCommands = new Command[alongside.length + 1];
-    deadlineCommands[0] = actionRunner;
-    System.arraycopy(alongside, 0, deadlineCommands, 1, alongside.length);
-
-    return pathCmd.deadlineFor(deadlineCommands);
-  }
-
-  List<ScheduledPathAction> buildScheduledPathActions(
-      SplinePath path, List<ResolvedPathAction> resolvedActions) {
-    List<ScheduledPathAction> rawScheduledActions = new ArrayList<>(resolvedActions.size());
-    for (ResolvedPathAction action : resolvedActions) {
-      double triggerS =
-          Math.max(
-              0.0,
-              path.getArcLengthAtWaypointIndex(action.pointIndex()) - action.triggerDistance());
-      rawScheduledActions.add(new ScheduledPathAction(triggerS, action.command()));
-    }
-    return groupScheduledActions(rawScheduledActions);
-  }
-
-  List<ScheduledPathAction> groupScheduledActions(List<ScheduledPathAction> rawScheduledActions) {
-    List<ScheduledPathAction> groupedActions = new ArrayList<>(rawScheduledActions.size());
-    int index = 0;
-    while (index < rawScheduledActions.size()) {
-      ScheduledPathAction action = rawScheduledActions.get(index);
-      List<Supplier<Command>> groupedSuppliers = new ArrayList<>();
-      groupedSuppliers.add(action.commandSupplier());
-      index++;
-
-      while (index < rawScheduledActions.size()) {
-        ScheduledPathAction nextAction = rawScheduledActions.get(index);
-        if (Double.compare(action.triggerS(), nextAction.triggerS()) != 0) {
-          break;
-        }
-        groupedSuppliers.add(nextAction.commandSupplier());
-        index++;
-      }
-
-      groupedActions.add(
-          new ScheduledPathAction(action.triggerS(), parallelSupplier(groupedSuppliers)));
-    }
-    return groupedActions;
-  }
-
-  private Supplier<Command> parallelSupplier(List<Supplier<Command>> commandSuppliers) {
-    List<Supplier<Command>> suppliers = List.copyOf(commandSuppliers);
-    return () -> {
-      if (suppliers.size() == 1) {
-        return suppliers.get(0).get();
-      }
-      return Commands.parallel(suppliers.stream().map(Supplier::get).toArray(Command[]::new));
-    };
-  }
-
-  private List<ResolvedPathAction> resolvePathActions(PathData pathData, List<PathAction> actions) {
-    List<ResolvedPathAction> resolved = new ArrayList<>();
-    int insertionOrder = 0;
-
-    for (PathAction action : actions) {
-      if (action.pointIndex() != null) {
-        validatePointIndex(pathData, action.pointIndex());
-        resolved.add(
-            new ResolvedPathAction(
-                action.pointIndex(), action.triggerDistance(), action.command(), insertionOrder++));
-        continue;
-      }
-
-      List<PathData.WaypointFlag> matches =
-          pathData.waypointFlags().stream()
-              .filter(flag -> action.flagLabel().equals(flag.label()))
-              .sorted(Comparator.comparingInt(PathData.WaypointFlag::waypointIndex))
-              .toList();
-
-      if (matches.isEmpty()) {
-        continue;
-      }
-
-      for (PathData.WaypointFlag match : matches) {
-        validatePointIndex(pathData, match.waypointIndex());
-        resolved.add(
-            new ResolvedPathAction(
-                match.waypointIndex(),
-                action.triggerDistance(),
-                action.command(),
-                insertionOrder++));
-      }
-    }
-
-    resolved.sort(
-        Comparator.comparingInt(ResolvedPathAction::pointIndex)
-            .thenComparingInt(ResolvedPathAction::insertionOrder));
-    return resolved;
-  }
-
-  private double updateProjectedS(SplinePath path, double[] projectedS) {
-    double lastProjectedS = projectedS[0];
-    ProjectionResult projection =
-        path.getClosestPointInRange(
-            drivetrain.getPose().getTranslation(),
-            Math.max(0.0, lastProjectedS - ACTION_TRIGGER_PROJECTION_WINDOW),
-            Math.min(path.getTotalLength(), lastProjectedS + ACTION_TRIGGER_PROJECTION_WINDOW));
-    projectedS[0] = Math.max(lastProjectedS, projection.s());
-    return projectedS[0];
+  /** Resets odometry to the start of {@code path} (alliance read when it runs). */
+  public Command resetPoseToStart(PathId path) {
+    return resetPose(() -> startPose(path));
   }
 
   // ==================== Time-Triggered Actions ====================
